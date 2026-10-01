@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from llm_testkit.reporting.steps import title
 from llm_testkit import assertions
 from llm_testkit.observation.evaluation_sample import build_sample, write_sample
 
@@ -37,6 +38,7 @@ def _sample(capture: dict) -> dict:
     )
 
 
+@title('Captured sample extracts document context and preserves the original request')
 def test_sample_extracts_only_actual_document_context_and_preserves_request(tmp_path: Path) -> None:
     capture = _capture()
     original = copy.deepcopy(capture)
@@ -51,6 +53,7 @@ def test_sample_extracts_only_actual_document_context_and_preserves_request(tmp_
 
 
 @pytest.mark.parametrize("change", ["model", "question", "history", "marker", "truncated", "indices", "empty"])
+@title('Captured sample rejects mismatched or ambiguous observations [{param_id}]')
 def test_sample_rejects_mismatched_or_ambiguous_observations(change: str) -> None:
     capture = _capture()
     request = capture["request"]
@@ -73,6 +76,7 @@ def test_sample_rejects_mismatched_or_ambiguous_observations(change: str) -> Non
         _sample(capture)
 
 
+@title('SDK capture hook preserves requests, return values, streams and exceptions')
 def test_sdk_hook_preserves_request_return_values_streams_and_errors(tmp_path: Path) -> None:
     node = shutil.which("node")
     if not node:

@@ -23,6 +23,14 @@ def _backend() -> Any:
         return None
 
 
+def title(text: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """Use Allure's native title decorator when the optional backend is installed."""
+    def decorate(function: Callable[P, T]) -> Callable[P, T]:
+        backend = _backend()
+        return backend.title(text)(function) if backend is not None else function
+    return decorate
+
+
 def step(title: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Report a synchronous operation without recording its arguments."""
     def decorate(function: Callable[P, T]) -> Callable[P, T]:

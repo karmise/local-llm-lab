@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from llm_testkit.reporting.steps import title
 from llm_testkit import assertions
 from llm_testkit.reporting import steps
 
@@ -10,6 +11,7 @@ pytestmark = pytest.mark.unit
 
 
 @pytest.mark.parametrize("reporting_installed", [False, True])
+@title('Reported operation preserves results and failures without exposing arguments [{param_id}]')
 def test_reported_operation_preserves_result_and_failure_without_exposing_arguments(
     monkeypatch: pytest.MonkeyPatch, reporting_installed: bool,
 ) -> None:
@@ -49,6 +51,7 @@ def test_reported_operation_preserves_result_and_failure_without_exposing_argume
         assertions.assert_field_equals({"parameters": backend.dynamic.parameter.call_count}, "parameters", 0)
 
 
+@title('Optional reporter tolerates missing Allure but propagates other dependency errors')
 def test_optional_reporter_handles_only_the_missing_allure_package(monkeypatch: pytest.MonkeyPatch) -> None:
     def missing_allure(name: str):
         raise ModuleNotFoundError("Allure is not installed", name="allure")

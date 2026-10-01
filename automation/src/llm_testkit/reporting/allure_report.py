@@ -13,7 +13,6 @@ def present_quality_report(report: dict[str, Any], *, evidence_path: Path | None
 
     if evidence_path is not None:
         attach_file(evidence_path, name="Original judge evidence", media_type="application/json", extension="json")
-    allure.dynamic.title(f"RAG quality: {report['scenario']}")
     allure.dynamic.feature("RAG quality")
     allure.dynamic.story("Live answer evaluation" if report.get("execution_mode") == "live" else "Saved answer evaluation")
     allure.dynamic.description(report["interpretation"])

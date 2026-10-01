@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from requests import Response
 
+from llm_testkit.reporting.steps import title
 from llm_testkit.config import Settings
 from llm_testkit.reporting.live_quality import evaluate_captured_answer, generate_captured_answer
 from llm_testkit.observation.evaluation_sample import write_sample
@@ -22,6 +23,7 @@ def live_quality_dependencies(request: pytest.FixtureRequest) -> None:
             pytest.fail('Install evaluation and reporting extras: python -m pip install -e ".[evaluation,reporting]"', pytrace=False)
 
 
+@title('Live paid-leave answer passes quality checks with local judge evidence [{param_id}]')
 def test_live_paid_leave_quality(
     rag_chat: Callable[[str, str], Response], captured_sample_path: Path,
     settings: Settings, request: pytest.FixtureRequest,

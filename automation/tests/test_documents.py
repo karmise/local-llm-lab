@@ -2,12 +2,14 @@ from typing import Any
 
 import pytest
 
+from llm_testkit.reporting.steps import title
 from llm_testkit import assertions
 from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.config import Settings
 
 
 @pytest.mark.api
+@title('Uploaded policy is indexed and retrieved by vector search')
 def test_policy_document_is_indexed_and_searchable(
     authenticated_anythingllm_api: AnythingLLMClient,
     indexed_workspace: dict[str, Any],

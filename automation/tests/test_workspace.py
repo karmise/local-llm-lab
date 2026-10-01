@@ -2,12 +2,14 @@ from typing import Any
 
 import pytest
 
+from llm_testkit.reporting.steps import title
 from llm_testkit import assertions
 from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.config import Settings
 
 
 @pytest.mark.api
+@title('Configured workspace is available with expected settings')
 def test_configured_workspace_is_available(
     authenticated_anythingllm_api: AnythingLLMClient, settings: Settings
 ) -> None:
@@ -17,6 +19,7 @@ def test_configured_workspace_is_available(
 
 
 @pytest.mark.api
+@title('Temporary workspace is created and removed successfully')
 def test_temporary_workspace_lifecycle(
     authenticated_anythingllm_api: AnythingLLMClient,
     temporary_workspace: dict[str, Any],

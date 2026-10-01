@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from llm_testkit.reporting.steps import title
 from llm_testkit import assertions
 
 if TYPE_CHECKING:
@@ -10,6 +11,7 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.ui, pytest.mark.usefixtures("rag_environment")]
 
 
+@title('UI displays the paid-leave answer and its document source')
 def test_paid_leave_answer_and_source_are_visible(
     workspace_page: "WorkspacePage", uploaded_policy_document: dict[str, Any],
     paid_leave_profile: dict[str, Any],
@@ -21,6 +23,7 @@ def test_paid_leave_answer_and_source_are_visible(
     assertions.assert_ui_document_source(workspace_page, title=uploaded_policy_document["title"])
 
 
+@title('UI answer acknowledges missing gym policy without inventing reimbursement')
 def test_missing_policy_does_not_display_invented_reimbursement(
     workspace_page: "WorkspacePage",
 ) -> None:
@@ -34,6 +37,7 @@ def test_missing_policy_does_not_display_invented_reimbursement(
     assertions.assert_missing_policy_answer(answer)
 
 
+@title('UI source details display the supporting policy passages')
 def test_source_details_display_supporting_policy_passages(
     workspace_page: "WorkspacePage", uploaded_policy_document: dict[str, Any],
     paid_leave_profile: dict[str, Any],
@@ -49,6 +53,7 @@ def test_source_details_display_supporting_policy_passages(
     )
 
 
+@title('UI conversation keeps its question and answer after reload')
 def test_chat_history_survives_page_reload(
     workspace_page: "WorkspacePage", paid_leave_profile: dict[str, Any],
 ) -> None:

@@ -3,6 +3,7 @@ import json
 import pytest
 from requests import Response
 
+from llm_testkit.reporting.steps import title
 from llm_testkit import assertions
 
 pytestmark = pytest.mark.unit
@@ -15,21 +16,25 @@ def _response(body: bytes) -> Response:
     return response
 
 
+@title('Online-status check rejects an integer in place of a boolean')
 def test_online_rejects_integer_instead_of_boolean() -> None:
     with pytest.raises(AssertionError, match="Field online: expected bool, got int"):
         assertions.assert_online(_response(b'{"online": 1}'))
 
 
+@title('Response check clearly reports a missing required field')
 def test_missing_field_has_a_clear_failure() -> None:
     with pytest.raises(AssertionError, match="Missing required field: online"):
         assertions.assert_online(_response(b'{}'))
 
 
+@title('Response check rejects malformed JSON with an assertion failure')
 def test_malformed_json_is_reported_as_an_assertion_failure() -> None:
     with pytest.raises(AssertionError, match="Response body is not valid JSON"):
         assertions.assert_online(_response(b'not-json'))
 
 
+@title('Workspace check rejects list entries that are not objects')
 def test_workspace_list_rejects_non_object_entries() -> None:
     with pytest.raises(AssertionError, match="Expected a workspace object"):
         assertions.assert_workspace_matches(
@@ -51,6 +56,7 @@ def test_workspace_list_rejects_non_object_entries() -> None:
         ),
     ],
 )
+@title('Vector-search check rejects incomplete or unrelated results [{param_id}]')
 def test_search_rejects_incomplete_or_unrelated_results(body: bytes, message: str) -> None:
     with pytest.raises(AssertionError, match=message):
         assertions.assert_search_contains(
@@ -84,6 +90,7 @@ def test_search_rejects_incomplete_or_unrelated_results(body: bytes, message: st
         ),
     ],
 )
+@title('RAG check rejects unsupported or incomplete final answers [{param_id}]')
 def test_rag_rejects_unsubstantiated_final_answers(
     answer: str, source_title: str, source_text: str, message: str
 ) -> None:
@@ -132,6 +139,7 @@ def _gym_response(answer: str) -> Response:
         ),
     ],
 )
+@title('Missing-policy check rejects invented amounts and irrelevant answers [{param_id}]')
 def test_missing_information_rejects_hallucinated_or_irrelevant_answers(
     answer: str, message: str
 ) -> None:
@@ -142,6 +150,7 @@ def test_missing_information_rejects_hallucinated_or_irrelevant_answers(
         )
 
 
+@title('Missing-policy check accepts document section numbers')
 def test_missing_information_accepts_document_section_numbers() -> None:
     assertions.assert_missing_policy_information(
         _gym_response("Gym reimbursement is not covered, as stated in section 4."),
@@ -150,11 +159,13 @@ def test_missing_information_accepts_document_section_numbers() -> None:
     )
 
 
+@title('Model selection rejects a model that is not installed')
 def test_model_selection_rejects_an_uninstalled_model() -> None:
     with pytest.raises(AssertionError, match="Expected installed Ollama model: missing-model"):
         assertions.assert_model_available([], "missing-model")
 
 
+@title('Model selection requires the installed model digest')
 def test_model_selection_requires_a_digest() -> None:
     with pytest.raises(AssertionError, match="Expected a model digest"):
         assertions.assert_model_available([{"name": "test-model", "digest": ""}], "test-model")

@@ -6,23 +6,27 @@ from unittest.mock import Mock
 import pytest
 from requests import Response
 
+from llm_testkit.reporting.steps import title
 from llm_testkit import assertions
 from llm_testkit.evaluation.calibration import evaluate_controls, load_controls, select_controls
 
 pytestmark = pytest.mark.unit
 
 
+@title('Unknown calibration control is rejected before model calls')
 def test_unknown_control_selection_fails_before_model_calls() -> None:
     with pytest.raises(ValueError, match="Unknown controls"):
         select_controls([_case()], ["typo"])
 
 
+@title('Targeted calibration selection removes duplicate controls')
 def test_targeted_selection_deduplicates_controls() -> None:
     selected = select_controls([_case(), {**_case(), "id": "other"}], ["mixed", "mixed"])
     assertions.assert_field_equals({"ids": [case["id"] for case in selected]}, "ids", ["mixed"])
 
 
 @pytest.mark.parametrize("count", [0, 4])
+@title('Calibration runner rejects empty or excessive control batches [{param_id}]')
 def test_runner_rejects_empty_or_excessive_control_runs(count: int) -> None:
     factory = Mock()
     with pytest.raises(ValueError, match="between one and three"):
@@ -45,6 +49,7 @@ def _result() -> dict:
     ]}
 
 
+@title('Calibration rejects reversed claim verdicts even when the score matches')
 def test_same_score_with_reversed_verdicts_fails_control_check() -> None:
     result = _result()
     result["verdicts"][0]["verdict"] = 0
@@ -53,6 +58,7 @@ def test_same_score_with_reversed_verdicts_fails_control_check() -> None:
         assertions.assert_calibration_result(result, expected_score=0.5, claims=_case()["claims"])
 
 
+@title('Calibration rejects a missing claim even when the score matches')
 def test_missing_claim_fails_even_when_score_matches() -> None:
     result = _result()
     result["verdicts"].pop()
@@ -60,6 +66,7 @@ def test_missing_claim_fails_even_when_score_matches() -> None:
         assertions.assert_calibration_result(result, expected_score=0.5, claims=_case()["claims"])
 
 
+@title('Two expected calibration claims cannot share one combined judge statement')
 def test_two_expected_claims_cannot_match_one_combined_statement() -> None:
     result = _result()
     result["verdicts"][0]["statement"] = "Leave 23; gym 5000."
@@ -69,6 +76,7 @@ def test_two_expected_claims_cannot_match_one_combined_statement() -> None:
 
 
 @pytest.mark.parametrize("change", ["context", "score", "duplicate", "empty"])
+@title('Calibration loader rejects unrelated context and invalid control labels [{param_id}]')
 def test_control_loader_rejects_wrong_context_or_bad_labels(tmp_path: Path, change: str) -> None:
     controls = {"schema_version": 1, "required_context_fragments": ["Policy"], "cases": [_case()]}
     if change == "score":
@@ -83,6 +91,7 @@ def test_control_loader_rejects_wrong_context_or_bad_labels(tmp_path: Path, chan
         load_controls(path, ["Other document" if change == "context" else "Policy"])
 
 
+@title('Calibration runner records mismatches and errors before continuing')
 def test_control_runner_preserves_mismatch_and_error_then_continues(monkeypatch: pytest.MonkeyPatch) -> None:
     cases = [_case(), {**_case(), "id": "mismatch"}, {**_case(), "id": "error"}]
     original = {"response": "Original application answer", "retrieved_contexts": ["Policy"]}
@@ -109,6 +118,7 @@ def test_control_runner_preserves_mismatch_and_error_then_continues(monkeypatch:
     assertions.assert_field_equals(results[2]["error"], "type", "ValueError")
 
 
+@title('Large calibration catalog loads without running every control')
 def test_large_catalog_can_be_loaded_without_executing_all_cases(tmp_path: Path) -> None:
     controls = {
         "schema_version": 1, "required_context_fragments": ["Policy"],
@@ -125,12 +135,14 @@ def test_large_catalog_can_be_loaded_without_executing_all_cases(tmp_path: Path)
     assertions.assert_field_equals({"ids": [c["id"] for c in chosen]}, "ids", ["control-4", "control-5"])
 
 
+@title('Explicit oversized calibration batch is rejected before model calls')
 def test_explicit_oversized_batch_is_rejected_before_model_calls() -> None:
     cases = [{**_case(), "id": f"control-{i}"} for i in range(4)]
     with pytest.raises(ValueError, match="maximum six judge calls"):
         select_controls(cases, [case["id"] for case in cases])
 
 
+@title('Faithful but incomplete answer fails the required-fact check')
 def test_faithful_incomplete_answer_still_fails_required_fact_check() -> None:
     response = Response()
     response.status_code = 200

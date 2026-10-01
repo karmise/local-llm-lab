@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 from requests import Response
 
+from llm_testkit.reporting.steps import title
 from llm_testkit import assertions
 from llm_testkit.config import Settings
 
@@ -21,6 +22,7 @@ def _response(payload: dict, status: int = 200) -> Response:
 
 
 @pytest.mark.parametrize("cleanup_failure", [False, True])
+@title('Resource fixtures clean up after a failed quality check [{param_id}]')
 def test_existing_resource_fixtures_cleanup_after_failed_quality_check(
     tmp_path: Path, cleanup_failure: bool,
 ) -> None:

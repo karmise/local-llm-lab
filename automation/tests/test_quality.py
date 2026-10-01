@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 
+from llm_testkit.reporting.steps import title
 from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.reporting.quality import build_quality_report
 from llm_testkit.reporting.allure_report import present_quality_report
@@ -11,6 +12,7 @@ from llm_testkit.reporting.allure_report import present_quality_report
 pytestmark = pytest.mark.quality
 
 
+@title('Paid-leave quality checks use saved answer and judge evidence')
 def test_saved_paid_leave_quality_report(request: pytest.FixtureRequest) -> None:
     sample = request.config.getoption("quality_sample")
     evidence = request.config.getoption("faithfulness_report")

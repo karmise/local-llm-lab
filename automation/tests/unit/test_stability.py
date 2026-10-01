@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from llm_testkit.reporting.steps import title
 from llm_testkit import assertions
 from llm_testkit.reporting.stability import summarize_report
 
@@ -31,6 +32,7 @@ def _report(tmp_path: Path, outcomes: list[str], digests: list[str] | None = Non
     return path
 
 
+@title('Stability summary preserves mixed passed and failed runs')
 def test_summary_preserves_mixed_pass_fail_results(tmp_path: Path) -> None:
     row = summarize_report(_report(tmp_path, ["passed", "failure", "passed"]))[0]
     assertions.assert_field_equals(row, "runs", 3)
@@ -40,11 +42,13 @@ def test_summary_preserves_mixed_pass_fail_results(tmp_path: Path) -> None:
     assertions.assert_field_equals(row, "configuration_consistent", True)
 
 
+@title('Stability summary detects changes in model configuration')
 def test_summary_detects_configuration_changes(tmp_path: Path) -> None:
     row = summarize_report(_report(tmp_path, ["passed", "failure"], ["first", "second"]))[0]
     assertions.assert_field_equals(row, "configuration_consistent", False)
 
 
+@title('Stability summary distinguishes setup errors from model failures')
 def test_setup_error_without_metadata_is_not_a_model_failure(tmp_path: Path) -> None:
     path = _report(tmp_path, ["passed", "error"])
     tree = ET.parse(path)
@@ -59,6 +63,7 @@ def test_setup_error_without_metadata_is_not_a_model_failure(tmp_path: Path) -> 
     assertions.assert_field_equals(row, "metadata_complete", False)
 
 
+@title('Stability summary counts call and teardown entries as one run')
 def test_duplicate_call_and_teardown_entries_count_as_one_run(tmp_path: Path) -> None:
     path = _report(tmp_path, ["failure"])
     tree = ET.parse(path)

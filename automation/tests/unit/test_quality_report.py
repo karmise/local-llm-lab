@@ -6,6 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from llm_testkit.reporting.steps import title
 from llm_testkit import assertions
 from llm_testkit.observation.evaluation_sample import build_sample
 from llm_testkit.reporting.allure_report import present_quality_report
@@ -48,6 +49,7 @@ def _files(tmp_path: Path, *, incomplete: bool = False) -> tuple[Path, Path, Pat
     return sample_path, evidence_path, profile_path
 
 
+@title('Quality report combines fact checks, source checks and faithfulness measurement')
 def test_report_combines_checks_and_measurement_without_quality_threshold(tmp_path: Path) -> None:
     report = build_quality_report(*_files(tmp_path))
     assertions.assert_field_equals(report, "status", "checks_passed")
@@ -55,6 +57,7 @@ def test_report_combines_checks_and_measurement_without_quality_threshold(tmp_pa
     assertions.assert_field_equals(report["dimensions"][2]["details"], "threshold", None)
 
 
+@title('Perfect faithfulness does not hide missing required answer facts')
 def test_faithfulness_one_does_not_hide_incomplete_answer(tmp_path: Path) -> None:
     report = build_quality_report(*_files(tmp_path, incomplete=True))
     assertions.assert_field_equals(report, "status", "failed")
@@ -64,6 +67,7 @@ def test_faithfulness_one_does_not_hide_incomplete_answer(tmp_path: Path) -> Non
 
 
 @pytest.mark.parametrize("change", ["checksum", "score", "unfinished", "missing_claim"])
+@title('Invalid judge evidence is reported as an independent quality error [{param_id}]')
 def test_invalid_judge_evidence_remains_an_independent_error(tmp_path: Path, change: str) -> None:
     paths = _files(tmp_path)
     evidence = json.loads(paths[1].read_text())
@@ -81,6 +85,7 @@ def test_invalid_judge_evidence_remains_an_independent_error(tmp_path: Path, cha
     assertions.assert_field_equals({"statuses": [d["status"] for d in report["dimensions"]]}, "statuses", ["passed", "passed", "error"])
 
 
+@title('Expected source identity comes from captured context rather than response citations')
 def test_expected_source_is_derived_from_context_not_citations(tmp_path: Path) -> None:
     paths = _files(tmp_path)
     sample = json.loads(paths[0].read_text())
@@ -94,6 +99,7 @@ def test_expected_source_is_derived_from_context_not_citations(tmp_path: Path) -
     assertions.assert_field_equals(report["dimensions"][2], "status", "measured")
 
 
+@title('Allure renders all quality dimensions even when one check fails')
 def test_allure_renders_remaining_steps_after_a_failed_dimension(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     report = build_quality_report(*_files(tmp_path, incomplete=True))
     fake_allure = Mock()
