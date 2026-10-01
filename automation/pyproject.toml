@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anythingllm-qa-lab"
+version = "0.1.0"
+description = "Automation framework for testing a local LLM and RAG application"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pytest==9.1.1",
+    "requests==2.34.2",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["llm_testkit*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --import-mode=importlib"
+markers = [
+    "smoke: checks that the local application is reachable",
+    "api: checks the AnythingLLM developer API",
+]

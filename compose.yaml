@@ -1,0 +1,15 @@
+name: denis-llm-lab
+services:
+  anythingllm:
+    image: mintplexlabs/anythingllm:1.16.2@sha256:480b0f105efd6a4c8a4cde82713fe81348d75c979a24a38e9ed8e236bed0fd17
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      STORAGE_DIR: /app/server/storage
+      DISABLE_TELEMETRY: "true"
+    volumes:
+      - anythingllm-storage:/app/server/storage
+      - ./.runtime/anythingllm.env:/app/server/.env
+    restart: unless-stopped
+volumes:
+  anythingllm-storage:

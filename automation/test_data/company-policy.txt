@@ -1,0 +1,22 @@
+Northern Lighthouse — fictional company policy, version SM-2026-01.
+This document is test data for RAG checks. All policies are fictional.
+
+1. Paid leave
+Each employee receives 23 working days of paid leave per year.
+A leave request must be submitted at least 12 calendar days before leave starts.
+The employee's direct manager approves the request.
+Up to 6 unused working days may be carried over to the following year.
+Carried-over days must be used by March 31 of the following year.
+
+2. Business travel
+The daily travel allowance is KGS 2700 for each calendar day.
+The company reimburses hotel accommodation up to KGS 8400 per night with a receipt.
+An expense report must be submitted within 4 working days after returning.
+The employee's direct manager and the finance department approve the trip.
+
+3. Remote work
+Employees may work remotely up to 2 days per week with their manager's approval.
+Required availability hours are 11:00 to 16:00, Bishkek time.
+
+4. Document scope
+Bonus, parental leave and gym membership reimbursement policies are not covered.

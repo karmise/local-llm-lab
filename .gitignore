@@ -1,0 +1,23 @@
+.runtime/
+.env
+.env.*
+*.env
+!.env.example
+__pycache__/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+reports/
+.idea/
+.DS_Store
+*.log
+
+# Local application exports may contain machine paths or runtime data.
+evidence/container-status.json
+evidence/document-upload.json
