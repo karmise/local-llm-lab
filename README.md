@@ -78,6 +78,8 @@ Continue with [step 13: expanded judge controls](docs/step-13-expanded-judge-con
 for paraphrases, incomplete answers and working/calendar-day substitutions.
 See [step 14: combined quality report in Allure](docs/step-14-allure-quality-report.md)
 for separate fact/source checks and saved faithfulness evidence with diagnostic attachments.
+Continue with [step 15: live RAG-to-Allure scenario](docs/step-15-live-quality.md)
+for an explicit single-model run from test-data setup through verified cleanup.
 
 ```bash
 cd automation

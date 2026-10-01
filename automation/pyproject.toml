@@ -41,4 +41,5 @@ markers = [
     "unit: checks framework behavior without a running application",
     "rag: checks generated answers and supporting document sources",
     "quality: combines saved answer checks and existing faithfulness evidence without model calls",
+    "live_quality: explicitly enabled single-model RAG-to-Allure scenario with data cleanup",
 ]

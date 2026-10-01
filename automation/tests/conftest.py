@@ -31,6 +31,8 @@ def _positive_repeat(value: str) -> int:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--run-live-quality", action="store_true", help="Enable one live RAG-to-Allure scenario (three model calls maximum).")
+    parser.addoption("--judge-model", default="qwen3.5:4b", help="Local judge model for the live quality scenario.")
     parser.addoption("--quality-sample", type=Path, help="Captured sample for an offline quality report.")
     parser.addoption("--faithfulness-report", type=Path, help="Existing judge report bound to the sample checksum.")
     parser.addoption(
@@ -49,11 +51,27 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     if metafunc.definition.get_closest_marker("rag") and "generation_model" in metafunc.fixturenames:
-        models = list(dict.fromkeys(metafunc.config.getoption("rag_models") or DEFAULT_RAG_MODELS))
+        defaults = ("qwen3.5:4b",) if metafunc.definition.get_closest_marker("live_quality") else DEFAULT_RAG_MODELS
+        models = list(dict.fromkeys(metafunc.config.getoption("rag_models") or defaults))
         count = metafunc.config.getoption("rag_repeat")
         cases = [(model, iteration) for model in models for iteration in range(1, count + 1)]
         ids = [model if count == 1 else f"{model}-run-{iteration}" for model, iteration in cases]
         metafunc.parametrize(("generation_model", "rag_iteration"), cases, ids=ids)
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    live_items = [item for item in items if item.get_closest_marker("live_quality")]
+    if not config.getoption("run_live_quality"):
+        for item in live_items:
+            item.add_marker(pytest.mark.skip(reason="Enable explicitly with --run-live-quality"))
+        return
+    if live_items:
+        if not config.getoption("capture_rag"):
+            raise pytest.UsageError("Live quality requires --capture-rag and the capture Compose overlay")
+        if len(live_items) != 1:
+            raise pytest.UsageError("Live quality is limited to one scenario/model/repetition per run")
+        if not config.getoption("allure_report_dir", default=None):
+            raise pytest.UsageError("Live quality requires the reporting extra and --alluredir")
 
 
 @pytest.fixture(scope="session")
@@ -249,6 +267,7 @@ def rag_chat(
             )
             sample["response_sources"] = payload.get("sources", [])
             sample["metadata"] = {
+                "workspace_slug": indexed_workspace["slug"],
                 "model_digest": assertions.assert_model_available(ollama_models, generation_model),
                 "policy_sha256": hashlib.sha256(policy_file.read_bytes()).hexdigest(),
                 "workspace_configuration": workspace_configuration,
@@ -261,3 +280,10 @@ def rag_chat(
         return response
 
     return chat
+
+
+@pytest.fixture
+def captured_sample_path(capture_id: str | None) -> Path:
+    if capture_id is None:
+        pytest.fail("A captured sample requires --capture-rag", pytrace=False)
+    return Path(__file__).resolve().parents[1] / "reports/rag-samples" / f"{capture_id}.json"

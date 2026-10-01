@@ -151,3 +151,33 @@ def test_cli_refuses_to_overwrite_report_before_model_calls(tmp_path: Path, monk
         main()
     assertions.assert_field_equals({"exit_code": error.value.code}, "exit_code", 2)
     assertions.assert_field_equals({"contents": output.read_text()}, "contents", "existing")
+
+
+def test_evaluation_service_preserves_judge_failure_and_closes_transport(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _judge_class()
+    from llm_testkit.config import Settings
+    from llm_testkit.evaluation.faithfulness import evaluate_sample_report
+    path = tmp_path / "sample.json"
+    path.write_text(json.dumps(_sample()))
+    transport = Mock()
+    client = Mock()
+    catalog = Response()
+    catalog.status_code = 200
+    catalog._content = json.dumps({"models": [{"name": "test-model", "digest": "digest"}]}).encode()
+    client.list_models.return_value = catalog
+    judge = Mock(calls=[{"error_evidence": "incomplete generation"}], options={})
+    monkeypatch.setattr("llm_testkit.evaluation.faithfulness.HttpClient", Mock(return_value=transport))
+    monkeypatch.setattr("llm_testkit.evaluation.faithfulness.OllamaClient", Mock(return_value=client))
+    monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", Mock(return_value=judge))
+
+    async def failed_score(sample: dict, judge: object) -> dict:
+        raise ValueError("Judge generation truncated")
+
+    monkeypatch.setattr("llm_testkit.evaluation.faithfulness.score_sample", failed_score)
+    report = evaluate_sample_report(path, settings=Settings(), judge_model="test-model")
+    assertions.assert_field_equals(report, "status", "error")
+    assertions.assert_field_equals(report["error"], "type", "ValueError")
+    assertions.assert_field_equals(report, "judge_calls", judge.calls)
+    assertions.assert_field_equals({"transport_closes": transport.close.call_count}, "transport_closes", 1)

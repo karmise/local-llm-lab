@@ -11,7 +11,7 @@ def present_quality_report(report: dict[str, Any]) -> None:
 
     allure.dynamic.title(f"RAG quality: {report['scenario']}")
     allure.dynamic.feature("RAG quality")
-    allure.dynamic.story("Saved answer evaluation")
+    allure.dynamic.story("Live answer evaluation" if report.get("execution_mode") == "live" else "Saved answer evaluation")
     allure.dynamic.description(report["interpretation"])
     allure.dynamic.parameter("Generation model", report["generation_model"])
     allure.dynamic.parameter("Sample SHA256", report["sample_sha256"])
