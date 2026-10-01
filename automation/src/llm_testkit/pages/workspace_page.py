@@ -5,6 +5,8 @@ from urllib.parse import quote
 
 from playwright.sync_api import Locator, Page
 
+from llm_testkit.reporting.steps import step
+
 
 class WorkspacePage:
     def __init__(self, page: Page, *, base_url: str, timeout: float) -> None:
@@ -23,9 +25,11 @@ class WorkspacePage:
         self.final_answer = self.assistant_message.locator(".break-words")
         self.sources_button = self.assistant_message.get_by_role("button", name="Sources", exact=True)
 
+    @step("UI: open workspace")
     def open(self, slug: str) -> None:
         self.page.goto(f"{self.base_url}/workspace/{quote(slug, safe='')}")
 
+    @step("UI: send question")
     def send_question(self, question: str) -> None:
         self.composer.fill(question)
         self.send_button.click()
@@ -38,9 +42,11 @@ class WorkspacePage:
     def source_document(self, title: str) -> Locator:
         return self.page.get_by_role("button", name=re.compile(rf"^{re.escape(title)} Document \d+ references?$"))
 
+    @step("UI: open answer sources")
     def open_sources(self) -> None:
         self.sources_button.click()
 
+    @step("UI: open cited document")
     def open_source_document(self, title: str) -> None:
         self.source_document(title).click()
 
@@ -55,5 +61,6 @@ class WorkspacePage:
             has=self.source_heading(title),
         )
 
+    @step("UI: reload conversation")
     def reload(self) -> None:
         self.page.reload()

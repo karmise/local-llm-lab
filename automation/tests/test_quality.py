@@ -1,3 +1,4 @@
+import importlib.util
 from pathlib import Path
 from uuid import uuid4
 
@@ -17,13 +18,10 @@ def test_saved_paid_leave_quality_report(request: pytest.FixtureRequest) -> None
         pytest.skip("Supply --quality-sample and --faithfulness-report for offline quality reporting")
     if sample is None or evidence is None:
         pytest.fail("Both --quality-sample and --faithfulness-report are required", pytrace=False)
-    try:
-        import allure
-    except ImportError:
+    if importlib.util.find_spec("allure") is None:
         pytest.fail('Install the reporting extra: python -m pip install -e ".[reporting]"', pytrace=False)
     root = Path(__file__).resolve().parents[1]
     report = build_quality_report(sample, evidence, root / "test_data/quality-paid-leave.json")
     path = root / "reports/quality" / f"{uuid4().hex}.json"
     write_sample(path, report)
-    allure.attach.file(str(evidence), name="Original judge evidence", attachment_type=allure.attachment_type.JSON)
-    present_quality_report(report)
+    present_quality_report(report, evidence_path=evidence)

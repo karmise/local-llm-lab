@@ -1,14 +1,18 @@
 """Render independent quality dimensions as Allure steps and attachments."""
 
 import json
+from pathlib import Path
 from typing import Any
 
 from llm_testkit import assertions
+from llm_testkit.reporting.steps import attach_file
 
 
-def present_quality_report(report: dict[str, Any]) -> None:
+def present_quality_report(report: dict[str, Any], *, evidence_path: Path | None = None) -> None:
     import allure
 
+    if evidence_path is not None:
+        attach_file(evidence_path, name="Original judge evidence", media_type="application/json", extension="json")
     allure.dynamic.title(f"RAG quality: {report['scenario']}")
     allure.dynamic.feature("RAG quality")
     allure.dynamic.story("Live answer evaluation" if report.get("execution_mode") == "live" else "Saved answer evaluation")

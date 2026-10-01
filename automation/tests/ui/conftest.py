@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from llm_testkit.reporting.steps import attach_browser_artifacts, set_metadata
+
 if TYPE_CHECKING:
     from playwright.sync_api import Page
     from llm_testkit.config import Settings
@@ -37,16 +39,16 @@ def pytest_runtest_teardown(item: pytest.Item) -> Iterator[None]:
     # Attach existing files while the Allure test is still open.
     output = item.funcargs.get("output_path")
     if output and item.config.getoption("allure_report_dir", default=None):
-        import allure
-
-        for artifact in sorted(Path(output).glob("*")):
-            if artifact.suffix == ".png":
-                allure.attach.file(str(artifact), name=artifact.name, attachment_type=allure.attachment_type.PNG)
-            elif artifact.suffix == ".zip":
-                allure.attach.file(str(artifact), name=artifact.name, attachment_type="application/zip", extension="zip")
+        attach_browser_artifacts(Path(output))
 
 
 @pytest.fixture
 def paid_leave_profile() -> dict[str, Any]:
     path = Path(__file__).resolve().parents[2] / "test_data/quality-paid-leave.json"
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(autouse=True)
+def ui_report_metadata(request: pytest.FixtureRequest) -> None:
+    story = request.node.originalname.removeprefix("test_").replace("_", " ").capitalize()
+    set_metadata(feature="Workspace UI", story=story)

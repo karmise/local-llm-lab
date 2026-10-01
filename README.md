@@ -89,6 +89,8 @@ Continue with [step 17: core UI scenarios](docs/step-17-ui-core-scenarios.md) fo
 missing information, source details and history persistence.
 See [step 18: GitHub Actions](docs/step-18-github-actions.md) for automatic
 Ruff checks, offline unit tests and downloadable CI reports.
+See [step 19: reporting layers](docs/step-19-reporting-layers.md) for reusable UI
+steps, selective API steps and tests without direct Allure integration.
 
 ```bash
 cd automation

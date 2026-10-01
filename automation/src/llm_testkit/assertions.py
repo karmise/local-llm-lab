@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from requests import Response
 
+from llm_testkit.reporting.steps import attach_screenshot, attach_text, step
+
 if TYPE_CHECKING:
     from llm_testkit.pages.workspace_page import WorkspacePage
 
@@ -276,6 +278,7 @@ def assert_missing_policy_information(
     assert_document_sources(payload, document_title=document_title, fragments=source_fragments)
 
 
+@step("Check: missing policy information does not invent reimbursement")
 def assert_missing_policy_answer(final_answer: str) -> None:
     """Shared API/UI contract for a policy question outside document scope."""
     unavailable = (
@@ -329,12 +332,14 @@ def assert_quality_report(report: Mapping[str, Any]) -> None:
         assert_quality_dimension(dimension)
 
 
+@step("Check: question is visible")
 def assert_ui_question_visible(workspace: "WorkspacePage", question: str) -> None:
     from playwright.sync_api import expect
 
     expect(workspace.user_question(question)).to_be_visible()
 
 
+@step("Check: completed final answer is visible")
 def assert_ui_completed_answer(workspace: "WorkspacePage") -> str:
     from playwright.sync_api import expect
 
@@ -344,22 +349,27 @@ def assert_ui_completed_answer(workspace: "WorkspacePage") -> str:
     expect(workspace.final_answer).to_be_visible()
     answer = workspace.final_answer.inner_text()
     assert answer.strip(), "Expected a non-empty final answer in the UI"
+    attach_text(answer, name="Displayed final answer")
     return answer
 
 
+@step("Check: final answer contains required policy facts")
 def assert_ui_policy_answer(workspace: "WorkspacePage", *, fact_patterns: Mapping[str, str]) -> str:
     answer = assert_ui_completed_answer(workspace)
     assert_required_facts(re.sub(r"\s+", " ", answer), fact_patterns=fact_patterns)
     return answer
 
 
+@step("Check: uploaded document is listed as a source")
 def assert_ui_document_source(workspace: "WorkspacePage", *, title: str) -> None:
     from playwright.sync_api import expect
 
     expect(workspace.source_document(title)).to_be_visible()
+    attach_screenshot(workspace.page, name="Answer and source")
 
 
 
+@step("Check: source details contain supporting policy passages")
 def assert_ui_source_content(workspace: "WorkspacePage", *, title: str, fragments: Sequence[str]) -> None:
     from playwright.sync_api import expect
 
@@ -368,8 +378,10 @@ def assert_ui_source_content(workspace: "WorkspacePage", *, title: str, fragment
     expect(workspace.source_heading(title)).to_be_visible()
     for fragment in fragments:
         expect(details).to_contain_text(fragment)
+    attach_screenshot(workspace.page, name="Document source details")
 
 
+@step("Check: conversation history survives reload")
 def assert_ui_history_preserved(workspace: "WorkspacePage", *, question: str, answer: str, url: str) -> None:
     from playwright.sync_api import expect
 
