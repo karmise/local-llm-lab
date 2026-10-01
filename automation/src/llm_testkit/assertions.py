@@ -1,11 +1,14 @@
-"""Reusable response checks; transport and API clients do not assert outcomes."""
+"""Reusable API, quality and UI checks; clients and page objects do not assert outcomes."""
 
 import re
 import math
 from collections.abc import Mapping, Sequence, Sized
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from requests import Response
+
+if TYPE_CHECKING:
+    from llm_testkit.pages.workspace_page import WorkspacePage
 
 T = TypeVar("T")
 
@@ -319,3 +322,28 @@ def assert_quality_report(report: Mapping[str, Any]) -> None:
     assert len(dimensions) == 3, "Expected facts, sources and faithfulness dimensions"
     for dimension in dimensions:
         assert_quality_dimension(dimension)
+
+
+def assert_ui_question_visible(workspace: "WorkspacePage", question: str) -> None:
+    from playwright.sync_api import expect
+
+    expect(workspace.user_question(question)).to_be_visible()
+
+
+def assert_ui_policy_answer(workspace: "WorkspacePage", *, fact_patterns: Mapping[str, str]) -> str:
+    from playwright.sync_api import expect
+
+    # Sources is rendered after generation completes, including reasoning.
+    expect(workspace.sources_button).to_be_visible(timeout=workspace.answer_timeout_ms)
+    expect(workspace.final_answer).to_be_visible()
+    answer = workspace.final_answer.inner_text()
+    assert answer.strip(), "Expected a non-empty final answer in the UI"
+    normalized = re.sub(r"\s+", " ", answer)
+    assert_required_facts(normalized, fact_patterns=fact_patterns)
+    return answer
+
+
+def assert_ui_document_source(workspace: "WorkspacePage", *, title: str) -> None:
+    from playwright.sync_api import expect
+
+    expect(workspace.source_document(title)).to_be_visible()

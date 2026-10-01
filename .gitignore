@@ -22,3 +22,6 @@ node_modules/
 # Local application exports may contain machine paths or runtime data.
 evidence/container-status.json
 evidence/document-upload.json
+
+# Playwright screenshots and traces contain local application data.
+test-results/

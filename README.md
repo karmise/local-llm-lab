@@ -80,6 +80,8 @@ See [step 14: combined quality report in Allure](docs/step-14-allure-quality-rep
 for separate fact/source checks and saved faithfulness evidence with diagnostic attachments.
 Continue with [step 15: live RAG-to-Allure scenario](docs/step-15-live-quality.md)
 for an explicit single-model run from test-data setup through verified cleanup.
+See [step 16: workspace UI chat](docs/step-16-ui-chat.md) for an opt-in Playwright
+scenario with Page Objects, shared assertions and browser failure evidence.
 
 ```bash
 cd automation

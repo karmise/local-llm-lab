@@ -31,6 +31,7 @@ def _positive_repeat(value: str) -> int:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--run-ui", action="store_true", help="Enable real browser scenarios (one model generation per scenario).")
     parser.addoption("--run-live-quality", action="store_true", help="Enable one live RAG-to-Allure scenario (three model calls maximum).")
     parser.addoption("--judge-model", default="qwen3.5:4b", help="Local judge model for the live quality scenario.")
     parser.addoption("--quality-sample", type=Path, help="Captured sample for an offline quality report.")
@@ -60,6 +61,10 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if not config.getoption("run_ui"):
+        for item in items:
+            if item.get_closest_marker("ui"):
+                item.add_marker(pytest.mark.skip(reason="Enable explicitly with --run-ui"))
     live_items = [item for item in items if item.get_closest_marker("live_quality")]
     if not config.getoption("run_live_quality"):
         for item in live_items:

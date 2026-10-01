@@ -13,6 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ui = ["pytest-playwright==0.9.0", "playwright==1.63.0"]
 reporting = ["allure-pytest==2.16.2"]
 evaluation = [
     "ragas==0.4.3",
@@ -36,6 +37,7 @@ testpaths = ["tests"]
 junit_family = "xunit1"
 addopts = "-ra --strict-markers --import-mode=importlib"
 markers = [
+    "ui: explicitly enabled browser checks against a temporary indexed workspace",
     "smoke: checks that the local application is reachable",
     "api: checks the AnythingLLM developer API",
     "unit: checks framework behavior without a running application",
