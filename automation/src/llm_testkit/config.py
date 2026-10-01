@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 class Settings:
     base_url: str = "http://127.0.0.1:3001"
     http_timeout: float = 5.0
+    document_timeout: float = 180.0
+    llm_timeout: float = 300.0
     api_key: str | None = field(default=None, repr=False)
     workspace_slug: str = "company-policy-lab"
 
@@ -22,6 +24,10 @@ class Settings:
             raise ValueError("ANYTHINGLLM_BASE_URL must not contain credentials, query or fragment")
         if not math.isfinite(self.http_timeout) or self.http_timeout <= 0:
             raise ValueError("ANYTHINGLLM_HTTP_TIMEOUT must be a finite positive number")
+        if not math.isfinite(self.document_timeout) or self.document_timeout <= 0:
+            raise ValueError("ANYTHINGLLM_DOCUMENT_TIMEOUT must be a finite positive number")
+        if not math.isfinite(self.llm_timeout) or self.llm_timeout <= 0:
+            raise ValueError("ANYTHINGLLM_LLM_TIMEOUT must be a finite positive number")
 
     @classmethod
     def from_env(cls, default_api_key_file: Path | None = None) -> "Settings":
@@ -36,6 +42,8 @@ class Settings:
         return cls(
             base_url=os.getenv("ANYTHINGLLM_BASE_URL", "http://127.0.0.1:3001").rstrip("/"),
             http_timeout=float(os.getenv("ANYTHINGLLM_HTTP_TIMEOUT", "5")),
+            document_timeout=float(os.getenv("ANYTHINGLLM_DOCUMENT_TIMEOUT", "180")),
+            llm_timeout=float(os.getenv("ANYTHINGLLM_LLM_TIMEOUT", "300")),
             api_key=api_key,
             workspace_slug=os.getenv("ANYTHINGLLM_WORKSPACE_SLUG", "company-policy-lab"),
         )

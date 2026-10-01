@@ -26,4 +26,5 @@ markers = [
     "smoke: checks that the local application is reachable",
     "api: checks the AnythingLLM developer API",
     "unit: checks framework behavior without a running application",
+    "rag: checks generated answers and supporting document sources",
 ]

@@ -4,7 +4,8 @@ A local AnythingLLM environment and a Python automation framework for testing
 LLM and retrieval-augmented generation workflows.
 
 The framework is developed incrementally. It currently provides a layered API
-client, authentication checks and workspace lifecycle checks. Model evaluation, UI automation and CI
+client, authentication checks, workspace lifecycle, document retrieval and a
+grounded policy-answer check. Broader model evaluation, UI automation and CI
 are planned extensions.
 
 ## Project structure
@@ -59,6 +60,8 @@ See [step 1: Python setup](docs/step-01-python-project.md) and
 Continue with [step 3: developer API access](docs/step-03-developer-api.md).
 Then review [step 4: temporary workspace lifecycle](docs/step-04-workspace-lifecycle.md).
 Response validation is centralized in the [assertions module](docs/assertions.md).
+See [step 5: document indexing and retrieval](docs/step-05-document-indexing.md).
+Continue with [step 6: grounded policy answer](docs/step-06-rag-answer.md).
 
 ```bash
 cd automation
@@ -162,9 +165,8 @@ requires re-indexing: vectors from different models are not interchangeable.
 
 ## Planned coverage
 
-Developer API authentication; isolated workspace creation; document upload and
-indexing; question/answer checks; test data cleanup; UI coverage; reference
-question sets; RAG evaluation and CI quality gates.
+Additional question/answer checks; missing-information behavior; model comparisons;
+UI coverage; reference question sets; RAG evaluation and CI quality gates.
 
 Capture the actual context sent to the model before adding RAGAS. Returned source
 references alone do not establish the complete model context. A successful answer

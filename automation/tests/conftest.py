@@ -70,3 +70,44 @@ def temporary_workspace(
         assertions.assert_status_code(deletion, 200, context=f"Cleanup for {slug}")
         lookup = authenticated_anythingllm_api.get_workspace(slug)
         assertions.assert_workspace_absent(lookup, slug)
+
+
+@pytest.fixture
+def uploaded_policy_document(
+    authenticated_anythingllm_api: AnythingLLMClient,
+    temporary_workspace: dict[str, Any],
+    settings: Settings,
+) -> Iterator[dict[str, Any]]:
+    folder = temporary_workspace["slug"]
+    creation = authenticated_anythingllm_api.create_document_folder(folder)
+    assertions.assert_operation_success(creation, context="Test document folder setup")
+    try:
+        path = Path(__file__).resolve().parents[1] / "test_data" / "company-policy.txt"
+        filename = f"{folder}-company-policy.txt"
+        response = authenticated_anythingllm_api.upload_document(
+            path, folder, filename=filename, timeout=settings.document_timeout
+        )
+        document = assertions.assert_uploaded_document(response, folder=folder, filename=filename)
+        yield document
+    finally:
+        deletion = authenticated_anythingllm_api.delete_document_folder(
+            folder, timeout=settings.document_timeout
+        )
+        assertions.assert_operation_success(deletion, context=f"Document cleanup for {folder}")
+        lookup = authenticated_anythingllm_api.get_document_folder(folder)
+        assertions.assert_document_folder_absent(lookup, folder=folder)
+
+
+@pytest.fixture
+def indexed_workspace(
+    authenticated_anythingllm_api: AnythingLLMClient,
+    uploaded_policy_document: dict[str, Any],
+    temporary_workspace: dict[str, Any],
+    settings: Settings,
+) -> dict[str, Any]:
+    response = authenticated_anythingllm_api.add_workspace_documents(
+        temporary_workspace["slug"], [uploaded_policy_document["location"]],
+        timeout=settings.document_timeout,
+    )
+    assertions.assert_embeddings_updated(response, slug=temporary_workspace["slug"])
+    return temporary_workspace
