@@ -13,6 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+dev = ["ruff==0.16.9"]
 ui = ["pytest-playwright==0.9.0", "playwright==1.63.0"]
 reporting = ["allure-pytest==2.16.2"]
 evaluation = [
@@ -45,3 +46,14 @@ markers = [
     "quality: combines saved answer checks and existing faithfulness evidence without model calls",
     "live_quality: explicitly enabled single-model RAG-to-Allure scenario with data cleanup",
 ]
+
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Pytest must register the shared assertions before importing the module.
+"tests/conftest.py" = ["E402"]

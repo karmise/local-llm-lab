@@ -5,6 +5,7 @@ import asyncio
 from collections import Counter
 from datetime import datetime, timezone
 import hashlib
+from importlib import import_module
 from importlib.metadata import version
 import json
 from pathlib import Path
@@ -102,7 +103,7 @@ def main() -> int:
     if args.output.exists():
         parser.error("Output already exists; choose a new file")
     try:
-        from llm_testkit.evaluation.ollama_judge import OllamaJudge
+        import_module("llm_testkit.evaluation.ollama_judge")
     except ImportError:
         parser.error('Install evaluation dependencies: python -m pip install -e ".[evaluation]"')
     report = evaluate_sample_report(args.sample, settings=Settings.from_env(), judge_model=args.judge_model)

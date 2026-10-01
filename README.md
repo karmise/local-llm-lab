@@ -1,5 +1,7 @@
 # LLM / RAG Application Testing
 
+[![Framework checks](https://github.com/karmise/local-llm-lab/actions/workflows/framework-checks.yml/badge.svg)](https://github.com/karmise/local-llm-lab/actions/workflows/framework-checks.yml)
+
 A local AnythingLLM environment and a Python automation framework for testing
 LLM and retrieval-augmented generation workflows.
 
@@ -7,7 +9,8 @@ The framework is developed incrementally. It currently provides a layered API
 client, authentication checks, workspace lifecycle, document retrieval,
 grounded policy-answer and missing-information checks across two generation models,
 actual context capture and local RAGAS faithfulness evaluation with hand-labelled
-judge controls. Broader model evaluation, UI automation and CI are planned extensions.
+judge controls, four Playwright UI scenarios and automated Ruff/unit checks in
+GitHub Actions. Broader model evaluation and integration CI are planned extensions.
 
 ## Project structure
 
@@ -84,6 +87,8 @@ See [step 16: workspace UI chat](docs/step-16-ui-chat.md) for an opt-in Playwrig
 scenario with Page Objects, shared assertions and browser failure evidence.
 Continue with [step 17: core UI scenarios](docs/step-17-ui-core-scenarios.md) for
 missing information, source details and history persistence.
+See [step 18: GitHub Actions](docs/step-18-github-actions.md) for automatic
+Ruff checks, offline unit tests and downloadable CI reports.
 
 ```bash
 cd automation
