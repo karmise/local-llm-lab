@@ -74,6 +74,10 @@ Continue with [step 11: local RAGAS faithfulness](docs/step-11-faithfulness.md)
 to evaluate a saved sample separately from ordinary test runs.
 See [step 12: hand-labelled judge controls](docs/step-12-judge-controls.md)
 for supported, contradicted and invented-claim calibration checks.
+Continue with [step 13: expanded judge controls](docs/step-13-expanded-judge-controls.md)
+for paraphrases, incomplete answers and working/calendar-day substitutions.
+See [step 14: combined quality report in Allure](docs/step-14-allure-quality-report.md)
+for separate fact/source checks and saved faithfulness evidence with diagnostic attachments.
 
 ```bash
 cd automation

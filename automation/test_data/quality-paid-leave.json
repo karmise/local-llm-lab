@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "id": "paid_leave",
+  "question": "How many working days of paid leave does each employee receive per year, and how many calendar days before leave starts must a request be submitted?",
+  "fact_patterns": {
+    "23 working days of paid leave": "\\b(?:23|twenty[- ]three)\\s+(?:working|business)\\s+days\\b",
+    "12 calendar days before leave starts": "\\b(?:12|twelve)\\s+calendar\\s+days\\b.{0,100}\\b(?:before|prior to|in advance)\\b"
+  },
+  "document_title_pattern": "automation-[0-9a-f]{32}-company-policy\\.txt",
+  "source_fragments": ["23 working days", "12 calendar days"]
+}

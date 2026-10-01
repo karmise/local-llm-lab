@@ -30,8 +30,8 @@ def load_controls(path: Path, contexts: list[str]) -> tuple[list[dict[str, Any]]
     if any(fragment not in combined for fragment in anchors):
         raise ValueError("Captured context does not contain the policy required by these controls")
     cases = controls.get("cases")
-    if not isinstance(cases, list) or not 1 <= len(cases) <= 3:
-        raise ValueError("Select between one and three controls (maximum six judge calls)")
+    if not isinstance(cases, list) or not cases:
+        raise ValueError("Control catalog must contain at least one case")
     identifiers = set()
     for case in cases:
         if not isinstance(case, dict):
@@ -91,14 +91,18 @@ async def evaluate_controls(
 
 def select_controls(cases: list[dict[str, Any]], identifiers: list[str] | None) -> list[dict[str, Any]]:
     if identifiers is None:
-        return cases
-    selected = set(identifiers)
-    if not selected:
-        raise ValueError("Select at least one control")
-    unknown = selected - {case["id"] for case in cases}
-    if unknown:
-        raise ValueError(f"Unknown controls: {', '.join(sorted(unknown))}")
-    return [case for case in cases if case["id"] in selected]
+        chosen = cases
+    else:
+        selected = set(identifiers)
+        if not selected:
+            raise ValueError("Select at least one control")
+        unknown = selected - {case["id"] for case in cases}
+        if unknown:
+            raise ValueError(f"Unknown controls: {', '.join(sorted(unknown))}")
+        chosen = [case for case in cases if case["id"] in selected]
+    if not 1 <= len(chosen) <= 3:
+        raise ValueError("Select between one and three controls with --control (maximum six judge calls)")
+    return chosen
 
 
 def main() -> int:

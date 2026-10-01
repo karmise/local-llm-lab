@@ -32,6 +32,31 @@
         {"pattern": "\\b23\\b.*\\bworking\\b.*\\bdays\\b", "verdict": 1},
         {"pattern": "\\bgym\\b.*\\b5000\\b|\\b5000\\b.*\\bgym\\b", "verdict": 0}
       ]
+    },
+    {
+      "id": "supported_paraphrase",
+      "response": "Employees are entitled to twenty-three working days of paid leave each year. Requests need to be filed no fewer than twelve calendar days before the leave begins.",
+      "expected_score": 1.0,
+      "claims": [
+        {"pattern": "\\b(?:23|twenty[- ]three)\\b.*\\bworking\\b.*\\bdays\\b", "verdict": 1},
+        {"pattern": "\\b(?:12|twelve)\\b.*\\bcalendar\\b.*\\bdays\\b", "verdict": 1}
+      ]
+    },
+    {
+      "id": "incomplete_supported_answer",
+      "response": "Each employee receives 23 working days of paid leave per year.",
+      "expected_score": 1.0,
+      "claims": [
+        {"pattern": "\\b23\\b.*\\bworking\\b.*\\bdays\\b", "verdict": 1}
+      ]
+    },
+    {
+      "id": "wrong_day_type",
+      "response": "Each employee receives 23 calendar days of paid leave per year.",
+      "expected_score": 0.0,
+      "claims": [
+        {"pattern": "\\b23\\b.*\\bcalendar\\b.*\\bdays\\b", "verdict": 0}
+      ]
     }
   ]
 }

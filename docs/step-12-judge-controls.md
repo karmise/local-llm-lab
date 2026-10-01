@@ -29,15 +29,21 @@ From `automation`, with the [evaluation extra](step-11-faithfulness.md) installe
 .venv/bin/python -m llm_testkit.evaluation.calibration \
   reports/rag-samples/<capture-id>.json \
   --controls test_data/faithfulness-controls.json \
+  --control supported_answer --control wrong_numbers --control unsupported_gym_amount \
   --judge-model qwen3.5:4b \
   --output reports/judge-controls-<capture-id>.json
 ```
 
 To repeat just one control, add `--control wrong_numbers`. The option can be
 repeated; duplicate selections are deduplicated and unknown identifiers fail
-before model calls. A run is limited to one through three controls, processed
+before model calls. The catalog can contain more controls, but a run is limited
+to one through three explicitly selected controls, processed
 sequentially with up to two judge calls per control. No application answer is
 generated. Normal pytest runs remain free of judge requests.
+
+Since [step 13](step-13-expanded-judge-controls.md), the catalog contains six
+cases. Omitting `--control` for the full catalog fails before contacting Ollama.
+Small catalogs of up to three controls can still be run without explicit selection.
 
 ## Checks and reports
 

@@ -238,14 +238,16 @@ def assert_rag_answer(
     document_title: str, source_fragments: Sequence[str],
 ) -> None:
     payload, final_answer = assert_completed_answer(response)
+    assert_required_facts(final_answer, fact_patterns=fact_patterns)
+    assert_document_sources(payload, document_title=document_title, fragments=source_fragments)
+
+
+def assert_required_facts(final_answer: str, *, fact_patterns: Mapping[str, str]) -> None:
     assert fact_patterns, "At least one expected answer fact must be configured"
     for fact, pattern in fact_patterns.items():
         assert re.search(pattern, final_answer, flags=re.IGNORECASE), (
             f"Final answer is missing expected fact: {fact}. Answer: {final_answer[:500]}"
         )
-
-    assert_document_sources(payload, document_title=document_title, fragments=source_fragments)
-
 
 def assert_document_sources(
     payload: Mapping[str, Any], *, document_title: str, fragments: Sequence[str]
@@ -304,3 +306,16 @@ def assert_model_available(models: Sequence[Mapping[str, Any]], name: str) -> st
     digest = assert_field_type(matches[0], "digest", str)
     assert digest, f"Expected a model digest for {name}"
     return digest
+
+
+def assert_quality_dimension(dimension: Mapping[str, Any]) -> None:
+    assert dimension.get("status") in ("passed", "measured"), (
+        f"{dimension.get('name', 'Quality dimension')}: {dimension.get('error', dimension.get('status'))}"
+    )
+
+
+def assert_quality_report(report: Mapping[str, Any]) -> None:
+    dimensions = assert_field_type(report, "dimensions", list)
+    assert len(dimensions) == 3, "Expected facts, sources and faithfulness dimensions"
+    for dimension in dimensions:
+        assert_quality_dimension(dimension)

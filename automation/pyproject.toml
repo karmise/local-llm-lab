@@ -13,6 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+reporting = ["allure-pytest==2.16.2"]
 evaluation = [
     "ragas==0.4.3",
     "pydantic==2.13.5",
@@ -39,4 +40,5 @@ markers = [
     "api: checks the AnythingLLM developer API",
     "unit: checks framework behavior without a running application",
     "rag: checks generated answers and supporting document sources",
+    "quality: combines saved answer checks and existing faithfulness evidence without model calls",
 ]

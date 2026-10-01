@@ -1,0 +1,6 @@
+{
+  "name": "llm-testkit-report-tools",
+  "private": true,
+  "description": "Pinned Allure Report generator for the Python framework",
+  "devDependencies": { "allure": "3.19.1" }
+}

@@ -100,4 +100,9 @@ can be supplied after judge calibration; no default quality gate is enabled.
 hand-labelled control scores and individual claim verdicts. Claims must map
 one-to-one to extracted statements; matching average scores alone are insufficient.
 
+[Step 14](step-14-allure-quality-report.md) shares `assert_required_facts` between
+live RAG checks and saved-answer reporting. `assert_quality_dimension` and
+`assert_quality_report` validate independent outcomes without averaging scores
+or inventing a default faithfulness threshold.
+
 [pytest assertion rewriting documentation](https://docs.pytest.org/en/stable/how-to/assert.html#assertion-introspection-details)

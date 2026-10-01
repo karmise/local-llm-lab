@@ -31,6 +31,8 @@ def _positive_repeat(value: str) -> int:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--quality-sample", type=Path, help="Captured sample for an offline quality report.")
+    parser.addoption("--faithfulness-report", type=Path, help="Existing judge report bound to the sample checksum.")
     parser.addoption(
         "--capture-rag", action="store_true", default=False,
         help="Save actual model messages and evaluation samples; requires compose.capture.yaml.",

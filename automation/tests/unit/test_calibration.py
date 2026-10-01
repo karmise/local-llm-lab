@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from requests import Response
 
 from llm_testkit import assertions
 from llm_testkit.evaluation.calibration import evaluate_controls, load_controls, select_controls
@@ -67,15 +68,15 @@ def test_two_expected_claims_cannot_match_one_combined_statement() -> None:
         assertions.assert_calibration_result(result, expected_score=0.5, claims=_case()["claims"])
 
 
-@pytest.mark.parametrize("change", ["context", "score", "duplicate", "budget"])
+@pytest.mark.parametrize("change", ["context", "score", "duplicate", "empty"])
 def test_control_loader_rejects_wrong_context_or_bad_labels(tmp_path: Path, change: str) -> None:
     controls = {"schema_version": 1, "required_context_fragments": ["Policy"], "cases": [_case()]}
     if change == "score":
         controls["cases"][0]["expected_score"] = 1.0
     elif change == "duplicate":
         controls["cases"].append(_case())
-    elif change == "budget":
-        controls["cases"] = [_case()] * 4
+    elif change == "empty":
+        controls["cases"] = []
     path = tmp_path / "controls.json"
     path.write_text(json.dumps(controls))
     with pytest.raises(ValueError):
@@ -106,3 +107,45 @@ def test_control_runner_preserves_mismatch_and_error_then_continues(monkeypatch:
     assertions.assert_field_equals(original, "response", "Original application answer")
     assertions.assert_field_equals({"judges": len(judges)}, "judges", 3)
     assertions.assert_field_equals(results[2]["error"], "type", "ValueError")
+
+
+def test_large_catalog_can_be_loaded_without_executing_all_cases(tmp_path: Path) -> None:
+    controls = {
+        "schema_version": 1, "required_context_fragments": ["Policy"],
+        "cases": [{**_case(), "id": f"control-{i}"} for i in range(6)],
+    }
+    path = tmp_path / "controls.json"
+    path.write_text(json.dumps(controls))
+    cases, checksum = load_controls(path, ["Policy"])
+    assertions.assert_field_equals({"size": len(cases)}, "size", 6)
+    assertions.assert_field_length({"checksum": checksum}, "checksum", 64)
+    with pytest.raises(ValueError, match="maximum six judge calls"):
+        select_controls(cases, None)
+    chosen = select_controls(cases, ["control-4", "control-5"])
+    assertions.assert_field_equals({"ids": [c["id"] for c in chosen]}, "ids", ["control-4", "control-5"])
+
+
+def test_explicit_oversized_batch_is_rejected_before_model_calls() -> None:
+    cases = [{**_case(), "id": f"control-{i}"} for i in range(4)]
+    with pytest.raises(ValueError, match="maximum six judge calls"):
+        select_controls(cases, [case["id"] for case in cases])
+
+
+def test_faithful_incomplete_answer_still_fails_required_fact_check() -> None:
+    response = Response()
+    response.status_code = 200
+    response._content = json.dumps({
+        "type": "textResponse", "error": None, "close": True,
+        "textResponse": "Each employee receives 23 working days of paid leave per year.",
+        "sources": [{"title": "policy.txt", "text": "23 working days; 12 calendar days"}],
+    }).encode()
+    # A valid faithfulness score does not excuse omission of a requested fact.
+    assertions.assert_quality_score(1.0, minimum=1.0)
+    with pytest.raises(AssertionError, match="12 calendar days"):
+        assertions.assert_rag_answer(
+            response, fact_patterns={
+                "23 working days": r"\b23\s+working\s+days\b",
+                "12 calendar days": r"\b12\s+calendar\s+days\b",
+            },
+            document_title="policy.txt", source_fragments=("23 working days", "12 calendar days"),
+        )
