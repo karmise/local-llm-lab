@@ -25,21 +25,26 @@ def _backend() -> Any:
 
 def title(text: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Use Allure's native title decorator when the optional backend is installed."""
+
     def decorate(function: Callable[P, T]) -> Callable[P, T]:
         backend = _backend()
         return backend.title(text)(function) if backend is not None else function
+
     return decorate
 
 
 def step(title: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Report a synchronous operation without recording its arguments."""
+
     def decorate(function: Callable[P, T]) -> Callable[P, T]:
         @wraps(function)
         def wrapped(*args: P.args, **kwargs: P.kwargs) -> T:
             backend = _backend()
             with backend.step(title) if backend is not None else nullcontext():
                 return function(*args, **kwargs)
+
         return wrapped
+
     return decorate
 
 
@@ -65,7 +70,12 @@ def attach_file(path: Path, *, name: str, media_type: str, extension: str) -> No
 def attach_screenshot(page: "Page", *, name: str) -> None:
     backend = _backend()
     if backend is not None:
-        backend.attach(page.screenshot(full_page=True, animations="disabled"), name=name, attachment_type="image/png", extension="png")
+        backend.attach(
+            page.screenshot(full_page=True, animations="disabled"),
+            name=name,
+            attachment_type="image/png",
+            extension="png",
+        )
 
 
 def attach_browser_artifacts(directory: Path) -> None:

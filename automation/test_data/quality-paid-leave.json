@@ -7,5 +7,9 @@
     "12 calendar days before leave starts": "\\b(?:12|twelve)\\s+calendar\\s+days\\b.{0,100}\\b(?:before|prior to|in advance)\\b"
   },
   "document_title_pattern": "automation-[0-9a-f]{32}-company-policy\\.txt",
-  "source_fragments": ["23 working days", "12 calendar days"]
+  "source_fragments": [
+    "23 working days",
+    "12 calendar days"
+  ],
+  "reference": "Each employee receives 23 working days of paid leave per year. A request must be submitted at least 12 calendar days before leave starts."
 }

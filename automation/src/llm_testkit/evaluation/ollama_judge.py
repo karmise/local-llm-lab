@@ -28,8 +28,11 @@ class OllamaJudge(InstructorBaseRagasLLM):
         call: dict[str, Any] = {"response_schema": response_model.__name__, "prompt": full_prompt}
         self.calls.append(call)
         response = self.client.structured_chat(
-            model=self.model, prompt=full_prompt, schema=schema,
-            options=self.options, timeout=self.timeout,
+            model=self.model,
+            prompt=full_prompt,
+            schema=schema,
+            options=self.options,
+            timeout=self.timeout,
         )
         response.raise_for_status()
         payload = response.json()

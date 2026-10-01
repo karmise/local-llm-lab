@@ -93,6 +93,10 @@ See [step 19: reporting layers](docs/step-19-reporting-layers.md) for reusable U
 steps, selective API steps and tests without direct Allure integration.
 See [step 20: readable test titles](docs/step-20-test-titles.md) for explicit
 English display names and distinguishable parameter variants in Allure.
+See [step 21: framework refactoring](docs/step-21-framework-refactoring.md) for
+modular fixtures, failure-safe cleanup and browser regression coverage.
+The [Automation guide](automation/README.md) lists commands for each test layer;
+use `python -m pytest tests/unit -q` for checks without running services.
 
 ```bash
 cd automation

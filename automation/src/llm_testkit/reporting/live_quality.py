@@ -14,20 +14,32 @@ from llm_testkit.reporting.steps import attach_file, step
 
 @step("Generate one answer and capture actual model context")
 def generate_captured_answer(
-    chat: Callable[[str, str], Response], profile: Mapping[str, Any], sample_path: Path,
+    chat: Callable[[str, str], Response],
+    profile: Mapping[str, Any],
+    sample_path: Path,
 ) -> None:
-    chat(
-        profile["question"],
-        "Each employee receives 23 working days of paid leave per year. "
-        "A request must be submitted at least 12 calendar days before leave starts.",
+    chat(profile["question"], profile["reference"])
+    attach_file(
+        sample_path,
+        name="Captured evaluation sample",
+        media_type="application/json",
+        extension="json",
     )
-    attach_file(sample_path, name="Captured evaluation sample", media_type="application/json", extension="json")
 
 
 @step("Run local judge and preserve its evidence")
 def evaluate_captured_answer(
-    sample_path: Path, evidence_path: Path, *, settings: Settings, judge_model: str,
+    sample_path: Path,
+    evidence_path: Path,
+    *,
+    settings: Settings,
+    judge_model: str,
 ) -> None:
     evidence = evaluate_sample_report(sample_path, settings=settings, judge_model=judge_model)
     write_sample(evidence_path, evidence)
-    attach_file(evidence_path, name="Original judge evidence", media_type="application/json", extension="json")
+    attach_file(
+        evidence_path,
+        name="Original judge evidence",
+        media_type="application/json",
+        extension="json",
+    )

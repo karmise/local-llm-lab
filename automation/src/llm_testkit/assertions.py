@@ -1,7 +1,7 @@
 """Reusable API, quality and UI checks; clients and page objects do not assert outcomes."""
 
-import re
 import math
+import re
 from collections.abc import Mapping, Sequence, Sized
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -27,7 +27,9 @@ def assert_quality_score(value: float, *, minimum: float | None = None) -> None:
 
 
 def assert_calibration_result(
-    result: Mapping[str, Any], *, expected_score: float,
+    result: Mapping[str, Any],
+    *,
+    expected_score: float,
     claims: Sequence[Mapping[str, Any]],
 ) -> None:
     score = result["value"]
@@ -41,12 +43,15 @@ def assert_calibration_result(
     matched_indices: set[int] = set()
     for claim in claims:
         matches = [
-            index for index, item in enumerate(verdicts)
+            index
+            for index, item in enumerate(verdicts)
             if re.search(claim["pattern"], item["statement"], flags=re.IGNORECASE)
         ]
         assert len(matches) == 1, f"Expected one extracted claim matching {claim['pattern']}"
         index = matches[0]
-        assert index not in matched_indices, "Control claims must map to distinct extracted statements"
+        assert index not in matched_indices, (
+            "Control claims must map to distinct extracted statements"
+        )
         matched_indices.add(index)
         assert_field_equals(verdicts[index], "verdict", claim["verdict"])
 
@@ -84,9 +89,7 @@ def assert_field_length(payload: Mapping[str, Any], field: str, expected: int) -
     assert field in payload, f"Missing required field: {field}"
     value = payload[field]
     assert isinstance(value, Sized), f"Field {field} does not have a length"
-    assert len(value) == expected, (
-        f"Field {field}: expected length {expected}, got {len(value)}"
-    )
+    assert len(value) == expected, f"Field {field}: expected length {expected}, got {len(value)}"
 
 
 def assert_field_contains(payload: Mapping[str, Any], field: str, expected: str) -> None:
@@ -121,6 +124,9 @@ def assert_api_key_rejected(response: Response) -> None:
 def assert_created_workspace(response: Response, expected_name: str) -> dict[str, Any]:
     assert_status_code(response, 200, context="Workspace setup")
     workspace = assert_field_type(assert_json_object(response), "workspace", dict)
+    identifier = assert_field_type(workspace, "id", int)
+    assert identifier > 0, "Workspace id must be positive"
+    assert_field_equals(workspace, "name", expected_name)
     assert_field_starts_with(workspace, "slug", expected_name)
     return workspace
 
@@ -164,9 +170,7 @@ def assert_operation_success(response: Response, *, context: str) -> dict[str, A
     return payload
 
 
-def assert_uploaded_document(
-    response: Response, *, folder: str, filename: str
-) -> dict[str, Any]:
+def assert_uploaded_document(response: Response, *, folder: str, filename: str) -> dict[str, Any]:
     payload = assert_operation_success(response, context="Document upload")
     assert_field_equals(payload, "error", None)
     documents = assert_field_type(payload, "documents", list)
@@ -239,8 +243,11 @@ def assert_completed_answer(response: Response) -> tuple[dict[str, Any], str]:
 
 
 def assert_rag_answer(
-    response: Response, *, fact_patterns: Mapping[str, str],
-    document_title: str, source_fragments: Sequence[str],
+    response: Response,
+    *,
+    fact_patterns: Mapping[str, str],
+    document_title: str,
+    source_fragments: Sequence[str],
 ) -> None:
     payload, final_answer = assert_completed_answer(response)
     assert_required_facts(final_answer, fact_patterns=fact_patterns)
@@ -253,6 +260,7 @@ def assert_required_facts(final_answer: str, *, fact_patterns: Mapping[str, str]
         assert re.search(pattern, final_answer, flags=re.IGNORECASE), (
             f"Final answer is missing expected fact: {fact}. Answer: {final_answer[:500]}"
         )
+
 
 def assert_document_sources(
     payload: Mapping[str, Any], *, document_title: str, fragments: Sequence[str]
@@ -344,9 +352,12 @@ def assert_ui_completed_answer(workspace: "WorkspacePage") -> str:
     from playwright.sync_api import expect
 
     # The response edit control scopes this locator to a persisted assistant reply.
-    expect(workspace.sources_button).to_be_visible(timeout=workspace.answer_timeout_ms)
+    expect(workspace.final_answer).to_be_visible(timeout=workspace.answer_timeout_ms)
     expect(workspace.send_button).to_be_visible(timeout=workspace.answer_timeout_ms)
-    expect(workspace.final_answer).to_be_visible()
+    # Send is disabled when the composer is empty, even after a completed reply.
+    expect(workspace.final_answer).to_contain_text(
+        re.compile(r"\S"), timeout=workspace.answer_timeout_ms
+    )
     answer = workspace.final_answer.inner_text()
     assert answer.strip(), "Expected a non-empty final answer in the UI"
     attach_text(answer, name="Displayed final answer")
@@ -368,9 +379,10 @@ def assert_ui_document_source(workspace: "WorkspacePage", *, title: str) -> None
     attach_screenshot(workspace.page, name="Answer and source")
 
 
-
 @step("Check: source details contain supporting policy passages")
-def assert_ui_source_content(workspace: "WorkspacePage", *, title: str, fragments: Sequence[str]) -> None:
+def assert_ui_source_content(
+    workspace: "WorkspacePage", *, title: str, fragments: Sequence[str]
+) -> None:
     from playwright.sync_api import expect
 
     details = workspace.source_details(title)
@@ -382,7 +394,9 @@ def assert_ui_source_content(workspace: "WorkspacePage", *, title: str, fragment
 
 
 @step("Check: conversation history survives reload")
-def assert_ui_history_preserved(workspace: "WorkspacePage", *, question: str, answer: str, url: str) -> None:
+def assert_ui_history_preserved(
+    workspace: "WorkspacePage", *, question: str, answer: str, url: str
+) -> None:
     from playwright.sync_api import expect
 
     expect(workspace.page).to_have_url(url)

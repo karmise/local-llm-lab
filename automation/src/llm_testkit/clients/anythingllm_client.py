@@ -68,17 +68,25 @@ class AnythingLLMClient:
         self, slug: str, locations: list[str], *, timeout: float = 180
     ) -> Response:
         return self._developer_request(
-            "POST", f"workspace/{quote(slug, safe='')}/update-embeddings",
-            json={"adds": locations, "deletes": []}, timeout=timeout,
+            "POST",
+            f"workspace/{quote(slug, safe='')}/update-embeddings",
+            json={"adds": locations, "deletes": []},
+            timeout=timeout,
         )
 
     @step("API: search workspace documents")
     def search_workspace(
-        self, slug: str, query: str, *, top_n: int = 4,
-        score_threshold: float = 0.25, timeout: float = 180,
+        self,
+        slug: str,
+        query: str,
+        *,
+        top_n: int = 4,
+        score_threshold: float = 0.25,
+        timeout: float = 180,
     ) -> Response:
         return self._developer_request(
-            "POST", f"workspace/{quote(slug, safe='')}/vector-search",
+            "POST",
+            f"workspace/{quote(slug, safe='')}/vector-search",
             json={"query": query, "topN": top_n, "scoreThreshold": score_threshold},
             timeout=timeout,
         )
@@ -88,6 +96,8 @@ class AnythingLLMClient:
         self, slug: str, message: str, *, mode: str = "query", timeout: float = 300
     ) -> Response:
         return self._developer_request(
-            "POST", f"workspace/{quote(slug, safe='')}/chat",
-            json={"message": message, "mode": mode}, timeout=timeout,
+            "POST",
+            f"workspace/{quote(slug, safe='')}/chat",
+            json={"message": message, "mode": mode},
+            timeout=timeout,
         )

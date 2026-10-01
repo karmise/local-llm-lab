@@ -7,8 +7,13 @@ from typing import Any
 
 
 def build_sample(
-    capture: dict[str, Any], *, question: str, answer: str, reference: str,
-    expected_model: str, capture_id: str,
+    capture: dict[str, Any],
+    *,
+    question: str,
+    answer: str,
+    reference: str,
+    expected_model: str,
+    capture_id: str,
 ) -> dict[str, Any]:
     if capture.get("schema_version") != 1 or capture.get("boundary") != "ollama-sdk-chat":
         raise ValueError("Unsupported observation boundary or schema")

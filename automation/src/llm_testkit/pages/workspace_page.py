@@ -14,24 +14,40 @@ class WorkspacePage:
         self.base_url = base_url.rstrip("/")
         self.answer_timeout_ms = timeout * 1000
         self.composer = page.get_by_placeholder("Send a message", exact=True)
-        self.send_button = page.get_by_role("button", name="Send prompt message to workspace", exact=True)
+        self.send_button = page.get_by_role(
+            "button", name="Send prompt message to workspace", exact=True
+        )
         self.history = page.locator("#chat-history")
         # Upstream has no message test IDs. Scope by its response edit control.
         self.assistant_messages = self.history.locator(".group").filter(
             has=page.get_by_role("button", name="Edit Edit response", exact=True),
         )
-        self.assistant_message = self.assistant_messages.last
+        self._reply_index: int | None = None
+
+    @property
+    def assistant_message(self) -> Locator:
+        if self._reply_index is None:
+            return self.assistant_messages.last
+        return self.assistant_messages.nth(self._reply_index)
+
+    @property
+    def final_answer(self) -> Locator:
         # The separate Thoughts panel is outside this final Markdown block.
-        self.final_answer = self.assistant_message.locator(".break-words")
-        self.sources_button = self.assistant_message.get_by_role("button", name="Sources", exact=True)
+        return self.assistant_message.locator(".break-words")
+
+    @property
+    def sources_button(self) -> Locator:
+        return self.assistant_message.get_by_role("button", name="Sources", exact=True)
 
     @step("UI: open workspace")
     def open(self, slug: str) -> None:
+        self._reply_index = None
         self.page.goto(f"{self.base_url}/workspace/{quote(slug, safe='')}")
 
     @step("UI: send question")
     def send_question(self, question: str) -> None:
         self.composer.fill(question)
+        self._reply_index = self.assistant_messages.count()
         self.send_button.click()
 
     def user_question(self, question: str) -> Locator:
@@ -40,7 +56,9 @@ class WorkspacePage:
         return self.history.get_by_text(re.compile(rf"^{pattern}$"))
 
     def source_document(self, title: str) -> Locator:
-        return self.page.get_by_role("button", name=re.compile(rf"^{re.escape(title)} Document \d+ references?$"))
+        return self.page.get_by_role(
+            "button", name=re.compile(rf"^{re.escape(title)} Document \d+ references?$")
+        )
 
     @step("UI: open answer sources")
     def open_sources(self) -> None:

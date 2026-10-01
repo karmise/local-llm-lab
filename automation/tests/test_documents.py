@@ -2,18 +2,19 @@ from typing import Any
 
 import pytest
 
-from llm_testkit.reporting.steps import title
 from llm_testkit import assertions
 from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.config import Settings
+from llm_testkit.reporting.steps import title
 
 
 @pytest.mark.api
-@title('Uploaded policy is indexed and retrieved by vector search')
+@title("Uploaded policy is indexed and retrieved by vector search")
 def test_policy_document_is_indexed_and_searchable(
     authenticated_anythingllm_api: AnythingLLMClient,
     indexed_workspace: dict[str, Any],
     uploaded_policy_document: dict[str, Any],
+    paid_leave_profile: dict[str, Any],
     settings: Settings,
 ) -> None:
     slug = indexed_workspace["slug"]
@@ -23,11 +24,12 @@ def test_policy_document_is_indexed_and_searchable(
     )
 
     search_response = authenticated_anythingllm_api.search_workspace(
-        slug, "How much paid leave is available and when must a request be submitted?",
+        slug,
+        paid_leave_profile["question"],
         timeout=settings.document_timeout,
     )
     assertions.assert_search_contains(
         search_response,
         document_title=uploaded_policy_document["title"],
-        fragments=("23 working days", "12 calendar days"),
+        fragments=paid_leave_profile["source_fragments"],
     )

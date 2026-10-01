@@ -55,6 +55,10 @@ jobs:
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: python -m ruff check src tests --config pyproject.toml --output-format concise | tee reports/ci/ruff.txt
 
+      - name: Check Python formatting
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: python -m ruff format --check src tests | tee reports/ci/format.txt
+
       - name: Run unit tests
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: python -m pytest tests/unit -v --junitxml=reports/ci/unit-tests.xml | tee reports/ci/pytest.txt
@@ -64,6 +68,51 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: framework-check-reports
+          path: automation/reports/ci/
+          if-no-files-found: warn
+          retention-days: 14
+
+  browser:
+    name: Offline Page Object checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: automation
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.3"
+          cache: pip
+          cache-dependency-path: |
+            automation/requirements-ui.lock
+            automation/pyproject.toml
+
+      - name: Install framework and Chromium
+        run: |
+          python -m pip install -r requirements-ui.lock
+          python -m pip install --no-deps -e .
+          python -m pip check
+          python -m playwright install --with-deps chromium
+
+      - name: Check Page Objects without application or models
+        run: |
+          python -m pytest tests/browser --run-ui -v \
+            --tracing retain-on-failure --screenshot only-on-failure \
+            --output reports/ci/browser --junitxml=reports/ci/browser.xml
+
+      - name: Save browser reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-check-reports
           path: automation/reports/ci/
           if-no-files-found: warn
           retention-days: 14

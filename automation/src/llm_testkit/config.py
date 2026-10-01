@@ -19,11 +19,18 @@ class Settings:
 
     def __post_init__(self) -> None:
         for address, variable in (
-            (self.base_url, "ANYTHINGLLM_BASE_URL"), (self.ollama_base_url, "OLLAMA_BASE_URL")
+            (self.base_url, "ANYTHINGLLM_BASE_URL"),
+            (self.ollama_base_url, "OLLAMA_BASE_URL"),
         ):
-            url = urlsplit(address)
+            try:
+                url = urlsplit(address)
+                port = url.port
+            except ValueError:
+                raise ValueError(f"{variable} must be an HTTP(S) URL with a valid port") from None
             if url.scheme not in {"http", "https"} or not url.hostname:
                 raise ValueError(f"{variable} must be an HTTP(S) URL")
+            if any(character.isspace() for character in address) or port == 0:
+                raise ValueError(f"{variable} must not contain whitespace or an invalid port")
             if url.query or url.fragment or url.username or url.password:
                 raise ValueError(f"{variable} must not contain credentials, query or fragment")
         if not math.isfinite(self.http_timeout) or self.http_timeout <= 0:
