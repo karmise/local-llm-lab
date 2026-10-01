@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 import importlib.util
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -43,3 +44,9 @@ def pytest_runtest_teardown(item: pytest.Item) -> Iterator[None]:
                 allure.attach.file(str(artifact), name=artifact.name, attachment_type=allure.attachment_type.PNG)
             elif artifact.suffix == ".zip":
                 allure.attach.file(str(artifact), name=artifact.name, attachment_type="application/zip", extension="zip")
+
+
+@pytest.fixture
+def paid_leave_profile() -> dict[str, Any]:
+    path = Path(__file__).resolve().parents[2] / "test_data/quality-paid-leave.json"
+    return json.loads(path.read_text(encoding="utf-8"))

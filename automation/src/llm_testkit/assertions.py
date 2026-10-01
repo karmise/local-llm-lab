@@ -272,6 +272,12 @@ def assert_missing_policy_information(
     response: Response, *, document_title: str, source_fragments: Sequence[str]
 ) -> None:
     payload, final_answer = assert_completed_answer(response)
+    assert_missing_policy_answer(final_answer)
+    assert_document_sources(payload, document_title=document_title, fragments=source_fragments)
+
+
+def assert_missing_policy_answer(final_answer: str) -> None:
+    """Shared API/UI contract for a policy question outside document scope."""
     unavailable = (
         r"\bnot\s+(?:specified|provided|covered|mentioned|described|included|available|addressed|outlined)\b"
         r"|\bno\s+(?:information|details|policy|policies|rules|mention)\b"
@@ -300,7 +306,6 @@ def assert_missing_policy_information(
     assert not re.search(amount, final_answer, flags=re.IGNORECASE), (
         f"Missing-information answer must not propose a reimbursement amount. Answer: {final_answer[:500]}"
     )
-    assert_document_sources(payload, document_title=document_title, fragments=source_fragments)
 
 
 def assert_model_available(models: Sequence[Mapping[str, Any]], name: str) -> str:
@@ -330,16 +335,21 @@ def assert_ui_question_visible(workspace: "WorkspacePage", question: str) -> Non
     expect(workspace.user_question(question)).to_be_visible()
 
 
-def assert_ui_policy_answer(workspace: "WorkspacePage", *, fact_patterns: Mapping[str, str]) -> str:
+def assert_ui_completed_answer(workspace: "WorkspacePage") -> str:
     from playwright.sync_api import expect
 
-    # Sources is rendered after generation completes, including reasoning.
+    # The response edit control scopes this locator to a persisted assistant reply.
     expect(workspace.sources_button).to_be_visible(timeout=workspace.answer_timeout_ms)
+    expect(workspace.send_button).to_be_visible(timeout=workspace.answer_timeout_ms)
     expect(workspace.final_answer).to_be_visible()
     answer = workspace.final_answer.inner_text()
     assert answer.strip(), "Expected a non-empty final answer in the UI"
-    normalized = re.sub(r"\s+", " ", answer)
-    assert_required_facts(normalized, fact_patterns=fact_patterns)
+    return answer
+
+
+def assert_ui_policy_answer(workspace: "WorkspacePage", *, fact_patterns: Mapping[str, str]) -> str:
+    answer = assert_ui_completed_answer(workspace)
+    assert_required_facts(re.sub(r"\s+", " ", answer), fact_patterns=fact_patterns)
     return answer
 
 
@@ -347,3 +357,25 @@ def assert_ui_document_source(workspace: "WorkspacePage", *, title: str) -> None
     from playwright.sync_api import expect
 
     expect(workspace.source_document(title)).to_be_visible()
+
+
+
+def assert_ui_source_content(workspace: "WorkspacePage", *, title: str, fragments: Sequence[str]) -> None:
+    from playwright.sync_api import expect
+
+    details = workspace.source_details(title)
+    expect(details).to_be_visible()
+    expect(workspace.source_heading(title)).to_be_visible()
+    for fragment in fragments:
+        expect(details).to_contain_text(fragment)
+
+
+def assert_ui_history_preserved(workspace: "WorkspacePage", *, question: str, answer: str, url: str) -> None:
+    from playwright.sync_api import expect
+
+    expect(workspace.page).to_have_url(url)
+    expect(workspace.user_question(question)).to_have_count(1)
+    assert_ui_question_visible(workspace, question)
+    expect(workspace.assistant_messages).to_have_count(1)
+    expect(workspace.final_answer).to_be_visible()
+    expect(workspace.final_answer).to_have_text(answer)

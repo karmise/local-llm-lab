@@ -82,6 +82,8 @@ Continue with [step 15: live RAG-to-Allure scenario](docs/step-15-live-quality.m
 for an explicit single-model run from test-data setup through verified cleanup.
 See [step 16: workspace UI chat](docs/step-16-ui-chat.md) for an opt-in Playwright
 scenario with Page Objects, shared assertions and browser failure evidence.
+Continue with [step 17: core UI scenarios](docs/step-17-ui-core-scenarios.md) for
+missing information, source details and history persistence.
 
 ```bash
 cd automation

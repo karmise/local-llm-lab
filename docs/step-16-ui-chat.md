@@ -15,7 +15,7 @@ and the uploaded document in the answer's source panel.
 The Page Object targets the pinned AnythingLLM 1.16.2 UI. Accessible labels and
 placeholders are preferred. Upstream provides no message test IDs, so the chat
 history and final Markdown block use observed DOM classes. The answer locator
-excludes the separate Thoughts panel. A source button signals completed generation;
+excludes the separate Thoughts panel. A persisted assistant reply and the restored Send control signal completed generation;
 checks do not rely on fixed sleeps or retrying a failed model answer.
 
 ## Install and run
