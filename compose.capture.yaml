@@ -1,0 +1,9 @@
+# Optional observation setup for the pinned AnythingLLM/Ollama SDK.
+services:
+  anythingllm:
+    environment:
+      NODE_OPTIONS: --require=/app/llm-testkit/ollama-preload.cjs
+      LLM_TESTKIT_CAPTURE_DIR: /app/llm-testkit/captures
+    volumes:
+      - ./automation/src/llm_testkit/observation/ollama-preload.cjs:/app/llm-testkit/ollama-preload.cjs:ro
+      - ./.runtime/ollama-capture:/app/llm-testkit/captures

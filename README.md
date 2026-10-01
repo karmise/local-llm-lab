@@ -4,9 +4,10 @@ A local AnythingLLM environment and a Python automation framework for testing
 LLM and retrieval-augmented generation workflows.
 
 The framework is developed incrementally. It currently provides a layered API
-client, authentication checks, workspace lifecycle, document retrieval and a
-grounded policy-answer check. Broader model evaluation, UI automation and CI
-are planned extensions.
+client, authentication checks, workspace lifecycle, document retrieval,
+grounded policy-answer and missing-information checks across two generation models,
+actual context capture and local RAGAS faithfulness evaluation with hand-labelled
+judge controls. Broader model evaluation, UI automation and CI are planned extensions.
 
 ## Project structure
 
@@ -62,6 +63,17 @@ Then review [step 4: temporary workspace lifecycle](docs/step-04-workspace-lifec
 Response validation is centralized in the [assertions module](docs/assertions.md).
 See [step 5: document indexing and retrieval](docs/step-05-document-indexing.md).
 Continue with [step 6: grounded policy answer](docs/step-06-rag-answer.md).
+See [step 7: missing policy information](docs/step-07-missing-information.md).
+See [step 8: model comparison](docs/step-08-model-comparison.md) for parameterized
+RAG runs and result metadata.
+See [step 9: repeated-run stability](docs/step-09-stability.md) for independent
+repetitions and an offline outcome summary.
+See [step 10: actual model context capture](docs/step-10-context-capture.md) for
+opt-in collection of evaluation inputs from the Ollama SDK boundary.
+Continue with [step 11: local RAGAS faithfulness](docs/step-11-faithfulness.md)
+to evaluate a saved sample separately from ordinary test runs.
+See [step 12: hand-labelled judge controls](docs/step-12-judge-controls.md)
+for supported, contradicted and invented-claim calibration checks.
 
 ```bash
 cd automation
@@ -165,11 +177,11 @@ requires re-indexing: vectors from different models are not interchangeable.
 
 ## Planned coverage
 
-Additional question/answer checks; missing-information behavior; model comparisons;
+Additional question/answer checks; larger stability experiments;
 UI coverage; reference question sets; RAG evaluation and CI quality gates.
 
-Capture the actual context sent to the model before adding RAGAS. Returned source
-references alone do not establish the complete model context. A successful answer
+Use opt-in context capture before adding RAGAS. Returned source references alone
+do not establish the complete model context. A successful answer
 is an integration smoke result, not a statistical estimate of model accuracy.
 
 ## Official references

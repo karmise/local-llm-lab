@@ -1,12 +1,49 @@
 """Reusable response checks; transport and API clients do not assert outcomes."""
 
 import re
+import math
 from collections.abc import Mapping, Sequence, Sized
 from typing import Any, TypeVar
 
 from requests import Response
 
 T = TypeVar("T")
+
+
+def assert_quality_score(value: float, *, minimum: float | None = None) -> None:
+    assert type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 1, (
+        f"Expected a finite quality score between 0 and 1, got {value!r}"
+    )
+    if minimum is not None:
+        assert type(minimum) in (int, float) and math.isfinite(minimum) and 0 <= minimum <= 1, (
+            "Quality threshold must be a finite number between 0 and 1"
+        )
+        assert value >= minimum, f"Quality score {value:.3f} is below {minimum:.3f}"
+
+
+def assert_calibration_result(
+    result: Mapping[str, Any], *, expected_score: float,
+    claims: Sequence[Mapping[str, Any]],
+) -> None:
+    score = result["value"]
+    assert_quality_score(score)
+    assert_quality_score(expected_score)
+    assert math.isclose(score, expected_score, rel_tol=0, abs_tol=1e-9), (
+        f"Control score: expected {expected_score}, got {score}"
+    )
+    verdicts = assert_field_type(result, "verdicts", list)
+    assert len(verdicts) == len(claims), "Control extraction changed the expected number of claims"
+    matched_indices: set[int] = set()
+    for claim in claims:
+        matches = [
+            index for index, item in enumerate(verdicts)
+            if re.search(claim["pattern"], item["statement"], flags=re.IGNORECASE)
+        ]
+        assert len(matches) == 1, f"Expected one extracted claim matching {claim['pattern']}"
+        index = matches[0]
+        assert index not in matched_indices, "Control claims must map to distinct extracted statements"
+        matched_indices.add(index)
+        assert_field_equals(verdicts[index], "verdict", claim["verdict"])
 
 
 def assert_status_code(response: Response, expected: int, *, context: str = "Response") -> None:
@@ -179,10 +216,7 @@ def assert_document_folder_absent(response: Response, *, folder: str) -> None:
     assert_field_length(payload, "documents", 0)
 
 
-def assert_rag_answer(
-    response: Response, *, fact_patterns: Mapping[str, str],
-    document_title: str, source_fragments: Sequence[str],
-) -> None:
+def assert_completed_answer(response: Response) -> tuple[dict[str, Any], str]:
     assert_status_code(response, 200, context="RAG chat")
     payload = assert_json_object(response)
     assert_field_equals(payload, "type", "textResponse")
@@ -196,12 +230,26 @@ def assert_rag_answer(
     final_answer = re.sub(r"[*_`]+", "", final_answer).strip()
     final_answer = " ".join(final_answer.split())
     assert final_answer, "Expected a non-empty final answer after removing thinking"
+    return payload, final_answer
+
+
+def assert_rag_answer(
+    response: Response, *, fact_patterns: Mapping[str, str],
+    document_title: str, source_fragments: Sequence[str],
+) -> None:
+    payload, final_answer = assert_completed_answer(response)
     assert fact_patterns, "At least one expected answer fact must be configured"
     for fact, pattern in fact_patterns.items():
         assert re.search(pattern, final_answer, flags=re.IGNORECASE), (
             f"Final answer is missing expected fact: {fact}. Answer: {final_answer[:500]}"
         )
 
+    assert_document_sources(payload, document_title=document_title, fragments=source_fragments)
+
+
+def assert_document_sources(
+    payload: Mapping[str, Any], *, document_title: str, fragments: Sequence[str]
+) -> None:
     sources = assert_field_type(payload, "sources", list)
     assert sources, "Expected supporting document sources in the RAG answer"
     passages = []
@@ -211,5 +259,48 @@ def assert_rag_answer(
             passages.append(assert_field_type(source, "text", str))
     assert passages, "RAG answer did not cite the uploaded document"
     combined = " ".join(passages)
-    for fragment in source_fragments:
+    for fragment in fragments:
         assert_field_contains({"source_text": combined}, "source_text", fragment)
+
+
+def assert_missing_policy_information(
+    response: Response, *, document_title: str, source_fragments: Sequence[str]
+) -> None:
+    payload, final_answer = assert_completed_answer(response)
+    unavailable = (
+        r"\bnot\s+(?:specified|provided|covered|mentioned|described|included|available|addressed|outlined)\b"
+        r"|\bno\s+(?:information|details|policy|policies|rules|mention)\b"
+        r"|\bdoes\s+not\s+(?:include|specify|provide|describe|mention|cover|address|outline)\b"
+        r"|\binsufficient\s+(?:information|details)\b"
+    )
+    assert re.search(unavailable, final_answer, flags=re.IGNORECASE), (
+        f"Expected an explicit statement that policy information is unavailable. Answer: {final_answer[:500]}"
+    )
+    assert re.search(r"\b(?:gym|fitness)\b", final_answer, flags=re.IGNORECASE), (
+        "Expected the missing-information answer to address gym reimbursement"
+    )
+    number_word = (
+        r"(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+        r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|"
+        r"thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)"
+    )
+    number = rf"(?:\d+(?:[.,]\d+)*|{number_word}(?:[\s-]+(?:and\s+)?{number_word})*)"
+    amount = (
+        rf"\b{number}\s*(?:KGS|som|soms|USD|dollars?|EUR|euros?|GBP|pounds?)\b"
+        rf"|\b(?:KGS|USD|EUR|GBP)\s*{number}\b"
+        rf"|[$€£]\s*{number}\b"
+        rf"|\b{number}\s*(?:per|a|each|/)\s*(?:month|year|membership|session)\b"
+        rf"|\b{number}\s*(?:%|percent\b)"
+    )
+    assert not re.search(amount, final_answer, flags=re.IGNORECASE), (
+        f"Missing-information answer must not propose a reimbursement amount. Answer: {final_answer[:500]}"
+    )
+    assert_document_sources(payload, document_title=document_title, fragments=source_fragments)
+
+
+def assert_model_available(models: Sequence[Mapping[str, Any]], name: str) -> str:
+    matches = [model for model in models if model.get("name") == name]
+    assert len(matches) == 1, f"Expected installed Ollama model: {name}"
+    digest = assert_field_type(matches[0], "digest", str)
+    assert digest, f"Expected a model digest for {name}"
+    return digest

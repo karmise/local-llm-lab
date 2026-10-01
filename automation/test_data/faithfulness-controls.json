@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "description": "Hand-labelled controls for the fictional Northern Lighthouse policy",
+  "required_context_fragments": [
+    "23 working days", "12 calendar days",
+    "gym membership reimbursement policies are not covered"
+  ],
+  "cases": [
+    {
+      "id": "supported_answer",
+      "response": "Each employee receives 23 working days of paid leave per year. A leave request must be submitted at least 12 calendar days before leave starts.",
+      "expected_score": 1.0,
+      "claims": [
+        {"pattern": "\\b23\\b.*\\bworking\\b.*\\bdays\\b", "verdict": 1},
+        {"pattern": "\\b12\\b.*\\bcalendar\\b.*\\bdays\\b", "verdict": 1}
+      ]
+    },
+    {
+      "id": "wrong_numbers",
+      "response": "Each employee receives 30 working days of paid leave per year. Submitting a leave request only 2 calendar days before leave starts meets the company's notice requirement.",
+      "expected_score": 0.0,
+      "claims": [
+        {"pattern": "\\b30\\b.*\\bworking\\b.*\\bdays\\b", "verdict": 0},
+        {"pattern": "\\b2\\b.*\\bcalendar\\b.*\\bdays\\b", "verdict": 0}
+      ]
+    },
+    {
+      "id": "unsupported_gym_amount",
+      "response": "Each employee receives 23 working days of paid leave per year. The company reimburses gym memberships up to KGS 5000 per month.",
+      "expected_score": 0.5,
+      "claims": [
+        {"pattern": "\\b23\\b.*\\bworking\\b.*\\bdays\\b", "verdict": 1},
+        {"pattern": "\\bgym\\b.*\\b5000\\b|\\b5000\\b.*\\bgym\\b", "verdict": 0}
+      ]
+    }
+  ]
+}

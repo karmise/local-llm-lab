@@ -37,6 +37,10 @@ Malformed JSON produces an assertion failure with a clear message.
 - `assert_search_contains(response, document_title=..., fragments=...)`
 - `assert_document_folder_absent(response, folder=...)`
 - `assert_rag_answer(response, fact_patterns=..., document_title=..., source_fragments=...)`
+- `assert_completed_answer(response)`
+- `assert_document_sources(payload, document_title=..., fragments=...)`
+- `assert_missing_policy_information(response, document_title=..., source_fragments=...)`
+- `assert_model_available(models, name)`
 
 These compose the general checks and express the AnythingLLM contract.
 `assert_created_workspace` returns the checked workspace for fixture ownership;
@@ -79,9 +83,21 @@ checks; see step 5 for application verification results.
 
 RAG validation adds five negative unit cases and excludes thinking from answer
 fact checks; see [step 6](step-06-rag-answer.md) for details. The current unit
-suite contains twelve checks.
+suite contained twelve checks at that step. [Step 7](step-07-missing-information.md)
+added six missing-information cases, bringing the unit suite to eighteen checks at that step.
+
+[Step 8](step-08-model-comparison.md) adds two model-selection cases (missing
+model and missing digest); the current unit suite contains twenty checks.
 
 New repeated checks should be added here with type annotations and descriptive
 messages. Avoid dumping complete HTTP responses or headers in diagnostics.
+
+[Step 11](step-11-faithfulness.md) adds `assert_quality_score(value, minimum=None)`.
+It rejects nonnumeric, nonfinite and out-of-range values. An explicit minimum
+can be supplied after judge calibration; no default quality gate is enabled.
+
+[Step 12](step-12-judge-controls.md) adds `assert_calibration_result` to check
+hand-labelled control scores and individual claim verdicts. Claims must map
+one-to-one to extracted statements; matching average scores alone are insufficient.
 
 [pytest assertion rewriting documentation](https://docs.pytest.org/en/stable/how-to/assert.html#assertion-introspection-details)

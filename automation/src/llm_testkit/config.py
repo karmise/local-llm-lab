@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 @dataclass(frozen=True)
 class Settings:
     base_url: str = "http://127.0.0.1:3001"
+    ollama_base_url: str = "http://127.0.0.1:11434"
     http_timeout: float = 5.0
     document_timeout: float = 180.0
     llm_timeout: float = 300.0
@@ -17,11 +18,14 @@ class Settings:
     workspace_slug: str = "company-policy-lab"
 
     def __post_init__(self) -> None:
-        url = urlsplit(self.base_url)
-        if url.scheme not in {"http", "https"} or not url.hostname:
-            raise ValueError("ANYTHINGLLM_BASE_URL must be an HTTP(S) URL")
-        if url.query or url.fragment or url.username or url.password:
-            raise ValueError("ANYTHINGLLM_BASE_URL must not contain credentials, query or fragment")
+        for address, variable in (
+            (self.base_url, "ANYTHINGLLM_BASE_URL"), (self.ollama_base_url, "OLLAMA_BASE_URL")
+        ):
+            url = urlsplit(address)
+            if url.scheme not in {"http", "https"} or not url.hostname:
+                raise ValueError(f"{variable} must be an HTTP(S) URL")
+            if url.query or url.fragment or url.username or url.password:
+                raise ValueError(f"{variable} must not contain credentials, query or fragment")
         if not math.isfinite(self.http_timeout) or self.http_timeout <= 0:
             raise ValueError("ANYTHINGLLM_HTTP_TIMEOUT must be a finite positive number")
         if not math.isfinite(self.document_timeout) or self.document_timeout <= 0:
@@ -41,6 +45,7 @@ class Settings:
                 raise ValueError("ANYTHINGLLM_API_KEY_FILE does not point to an existing file")
         return cls(
             base_url=os.getenv("ANYTHINGLLM_BASE_URL", "http://127.0.0.1:3001").rstrip("/"),
+            ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/"),
             http_timeout=float(os.getenv("ANYTHINGLLM_HTTP_TIMEOUT", "5")),
             document_timeout=float(os.getenv("ANYTHINGLLM_DOCUMENT_TIMEOUT", "180")),
             llm_timeout=float(os.getenv("ANYTHINGLLM_LLM_TIMEOUT", "300")),

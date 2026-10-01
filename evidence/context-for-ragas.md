@@ -15,11 +15,11 @@ In `server/utils/chats/stream.js`, the reviewed request flow was:
 context actually sent to the model. Disabling history reduces ambiguity without
 removing the need to inspect the actual request.
 
-Before adding RAGAS, introduce a local observation point between AnythingLLM and
-Ollama, or instrument the point after message compression in a separate setup.
-A candidate experiment is an HTTP proxy capturing `/api/chat` request bodies.
-Verify that it preserves request bodies, streaming and errors, and distinguish
-document passages from instructions and history. The proxy is not installed and
-full context capture has not yet been verified.
+The opt-in [step 10 adapter](../docs/step-10-context-capture.md) observes the
+Ollama SDK `chat` request after message compression. It preserves original
+messages and extracts document passages separately from instructions. Returned
+sources remain citation evidence, not the source of evaluation contexts. This
+is SDK-boundary observation for text-only requests, not a packet capture or
+an observation of Ollama's internal tokenization.
 
 [Reviewed source](https://github.com/Mintplex-Labs/anything-llm/blob/v1.16.2/server/utils/chats/stream.js)
