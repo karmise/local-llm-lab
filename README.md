@@ -4,7 +4,7 @@ A local AnythingLLM environment and a Python automation framework for testing
 LLM and retrieval-augmented generation workflows.
 
 The framework is developed incrementally. It currently provides a layered API
-client, authentication checks and workspace access checks. Model evaluation, UI automation and CI
+client, authentication checks and workspace lifecycle checks. Model evaluation, UI automation and CI
 are planned extensions.
 
 ## Project structure
@@ -57,6 +57,8 @@ To unload models, use `ollama stop qwen3.5:4b`, `ollama stop qwen2.5:7b` and
 See [step 1: Python setup](docs/step-01-python-project.md) and
 [step 2: layered API framework](docs/step-02-base-layer.md).
 Continue with [step 3: developer API access](docs/step-03-developer-api.md).
+Then review [step 4: temporary workspace lifecycle](docs/step-04-workspace-lifecycle.md).
+Response validation is centralized in the [assertions module](docs/assertions.md).
 
 ```bash
 cd automation

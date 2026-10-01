@@ -55,7 +55,8 @@ API keys grant access to the application; they are not read-only test credential
 - `AnythingLLMClient`: adds the Bearer header to developer API requests only;
   exposes `verify_authentication()` and `get_workspace(slug)`.
 - Fixtures: provide either an unauthenticated or authenticated application client.
-- Tests: assert API responses, including expected rejection responses.
+- Assertions: reusable API response and field checks.
+- Tests: invoke named response checks, including expected rejection responses.
 
 `anythingllm_api` intentionally remains unauthenticated. Positive developer API
 tests request `authenticated_anythingllm_api`. The invalid-key test constructs

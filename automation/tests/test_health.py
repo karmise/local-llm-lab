@@ -1,5 +1,6 @@
 import pytest
 
+from llm_testkit import assertions
 from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 
 
@@ -7,7 +8,4 @@ from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 def test_anythingllm_is_online(anythingllm_api: AnythingLLMClient) -> None:
     response = anythingllm_api.health()
 
-    assert response.status_code == 200, (
-        f"Expected HTTP 200, got {response.status_code}: {response.text[:500]}"
-    )
-    assert response.json().get("online") is True, response.text[:500]
+    assertions.assert_online(response)

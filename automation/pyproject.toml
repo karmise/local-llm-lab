@@ -25,4 +25,5 @@ addopts = "-ra --strict-markers --import-mode=importlib"
 markers = [
     "smoke: checks that the local application is reachable",
     "api: checks the AnythingLLM developer API",
+    "unit: checks framework behavior without a running application",
 ]

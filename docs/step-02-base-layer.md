@@ -33,7 +33,8 @@ discovery in `src` and pytest's `importlib` mode. Imports use the installed
 | `HttpClient` | Build URLs, send requests through `requests.Session`, apply timeouts |
 | `AnythingLLMClient` | Expose named application operations, currently `health()` |
 | Fixtures | Construct dependencies and release HTTP sessions |
-| Tests | Call operations and assert response status and content |
+| Assertions | Reusable checks for response status, types, fields and application contracts |
+| Tests | Call operations and delegate response checks to the assertions module |
 
 The application client receives its transport through constructor injection.
 This uses composition without requiring a class hierarchy or `BaseTest`.
@@ -47,7 +48,7 @@ the application client grows.
 3. `Settings.from_env()` loads environment variables.
 4. `AnythingLLMClient.health()` supplies GET and `/api/ping` to the transport.
 5. `HttpClient` returns a `requests.Response`.
-6. The test validates the response. Fixture teardown closes the session even
+6. The test validates the response through the assertions module. Fixture teardown closes the session even
    when the test fails.
 
 Immutable settings are read once per pytest session. Clients are created per

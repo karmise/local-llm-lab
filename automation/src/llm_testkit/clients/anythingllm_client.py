@@ -1,5 +1,6 @@
 """AnythingLLM API operations, without test assertions."""
 
+from typing import Any, Mapping
 from urllib.parse import quote
 
 from requests import Response
@@ -15,12 +16,21 @@ class AnythingLLMClient:
     def health(self) -> Response:
         return self._http.request("GET", "/api/ping")
 
-    def _developer_request(self, method: str, path: str) -> Response:
+    def _developer_request(self, method: str, path: str, **kwargs: Any) -> Response:
         headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
-        return self._http.request(method, f"/api/v1/{path}", headers=headers)
+        return self._http.request(method, f"/api/v1/{path}", headers=headers, **kwargs)
 
     def verify_authentication(self) -> Response:
         return self._developer_request("GET", "auth")
 
     def get_workspace(self, slug: str) -> Response:
         return self._developer_request("GET", f"workspace/{quote(slug, safe='')}")
+
+    def create_workspace(
+        self, name: str, configuration: Mapping[str, Any] | None = None
+    ) -> Response:
+        payload = {**(configuration or {}), "name": name}
+        return self._developer_request("POST", "workspace/new", json=payload)
+
+    def delete_workspace(self, slug: str) -> Response:
+        return self._developer_request("DELETE", f"workspace/{quote(slug, safe='')}")
