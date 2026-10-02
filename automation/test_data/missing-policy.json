@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "id": "missing_gym_policy",
+  "question": "What is the company's gym membership reimbursement policy, and how much does it reimburse per month?",
+  "reference": "The document does not cover gym membership reimbursement. No monthly reimbursement amount is specified.",
+  "source_fragments": [
+    "gym membership reimbursement policies are not covered"
+  ]
+}

@@ -1,0 +1,141 @@
+"""Model selection, generation metadata and optional context capture."""
+
+import hashlib
+import json
+from collections.abc import Callable
+from copy import deepcopy
+from pathlib import Path
+from typing import Any
+from uuid import uuid4
+
+import pytest
+from requests import Response
+
+from llm_testkit import assertions
+from llm_testkit.clients.anythingllm_client import AnythingLLMClient
+from llm_testkit.clients.ollama_client import OllamaClient
+from llm_testkit.config import Settings
+from llm_testkit.core.http_client import HttpClient
+from llm_testkit.observation.evaluation_sample import build_sample, write_sample
+
+
+@pytest.fixture
+def generation_model(workspace_template: dict[str, Any]) -> str:
+    return workspace_template["chatModel"]
+
+
+@pytest.fixture
+def rag_iteration() -> int:
+    return 1
+
+
+@pytest.fixture
+def capture_id(request: pytest.FixtureRequest) -> str | None:
+    return uuid4().hex if request.config.getoption("capture_rag") else None
+
+
+@pytest.fixture
+def workspace_configuration(
+    workspace_template: dict[str, Any],
+    generation_model: str,
+    capture_id: str | None,
+) -> dict[str, Any]:
+    configuration = {**deepcopy(workspace_template), "chatModel": generation_model}
+    if capture_id:
+        configuration["openAiPrompt"] += f"\n[LLM_TESTKIT_CAPTURE:{capture_id}]"
+    return configuration
+
+
+@pytest.fixture(scope="session")
+def ollama_models(settings: Settings) -> list[dict[str, Any]]:
+    with HttpClient(settings.ollama_base_url, settings.http_timeout) as http:
+        response = OllamaClient(http).list_models()
+        assertions.assert_status_code(response, 200, context="Ollama model catalog")
+        return assertions.assert_field_type(assertions.assert_json_object(response), "models", list)
+
+
+@pytest.fixture
+def generation_model_digest(generation_model: str, ollama_models: list[dict[str, Any]]) -> str:
+    return assertions.assert_model_available(ollama_models, generation_model)
+
+
+@pytest.fixture
+def rag_environment(
+    generation_model: str,
+    rag_iteration: int,
+    generation_model_digest: str,
+    authenticated_anythingllm_api: AnythingLLMClient,
+    indexed_workspace: dict[str, Any],
+    workspace_configuration: dict[str, Any],
+    policy_file: Path,
+    record_property: Callable[[str, object], None],
+) -> None:
+    response = authenticated_anythingllm_api.get_workspace(indexed_workspace["slug"])
+    assertions.assert_workspace_matches(
+        response, slug=indexed_workspace["slug"], configuration=workspace_configuration
+    )
+    record_property("generation_model", generation_model)
+    record_property("rag_iteration", rag_iteration)
+    record_property("model_digest", generation_model_digest)
+    record_property("policy_sha256", hashlib.sha256(policy_file.read_bytes()).hexdigest())
+    record_property("workspace_configuration", json.dumps(workspace_configuration, sort_keys=True))
+    record_property("thinking_mode", "Ollama/model default; not explicitly controlled")
+
+
+@pytest.fixture
+def rag_chat(
+    rag_environment: None,
+    automation_root: Path,
+    authenticated_anythingllm_api: AnythingLLMClient,
+    indexed_workspace: dict[str, Any],
+    settings: Settings,
+    capture_id: str | None,
+    generation_model: str,
+    rag_iteration: int,
+    generation_model_digest: str,
+    workspace_configuration: dict[str, Any],
+    policy_file: Path,
+    record_property: Callable[[str, object], None],
+) -> Callable[[str, str], Response]:
+    def chat(question: str, reference: str) -> Response:
+        response = authenticated_anythingllm_api.chat(
+            indexed_workspace["slug"],
+            question,
+            timeout=settings.llm_timeout,
+        )
+        if capture_id:
+            root = automation_root.parent
+            files = list((root / ".runtime" / "ollama-capture").glob(f"{capture_id}-*.json"))
+            assertions.assert_field_length({"captures": files}, "captures", 1)
+            capture = json.loads(files[0].read_text(encoding="utf-8"))
+            payload, answer = assertions.assert_completed_answer(response)
+            sample = build_sample(
+                capture,
+                question=question,
+                answer=answer,
+                reference=reference,
+                expected_model=generation_model,
+                capture_id=capture_id,
+            )
+            sample["response_sources"] = payload.get("sources", [])
+            sample["metadata"] = {
+                "workspace_slug": indexed_workspace["slug"],
+                "model_digest": generation_model_digest,
+                "policy_sha256": hashlib.sha256(policy_file.read_bytes()).hexdigest(),
+                "workspace_configuration": workspace_configuration,
+                "rag_iteration": rag_iteration,
+                "thinking_mode": "Ollama/model default; not explicitly controlled",
+            }
+            path = automation_root / "reports" / "rag-samples" / f"{capture_id}.json"
+            write_sample(path, sample)
+            record_property("evaluation_sample", str(path))
+        return response
+
+    return chat
+
+
+@pytest.fixture
+def captured_sample_path(capture_id: str | None, automation_root: Path) -> Path:
+    if capture_id is None:
+        pytest.fail("A captured sample requires --capture-rag", pytrace=False)
+    return automation_root / "reports/rag-samples" / f"{capture_id}.json"
