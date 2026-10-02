@@ -3,6 +3,8 @@
 New to the project? Start with the [one-hour onboarding guide](../docs/framework-onboarding.md)
 for architecture, test strategy, design rationale and a complete scenario walkthrough.
 
+A [Russian translation](../docs/framework-onboarding.ru.md) is also available.
+
 Use Python 3.12 from this directory. The project separates HTTP transport, API
 operations, browser actions, assertions, pytest fixtures and reporting. Test
 functions describe a scenario; setup and cleanup belong to fixtures.

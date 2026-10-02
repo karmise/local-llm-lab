@@ -1,5 +1,7 @@
 # Framework onboarding: understand the project in one hour
 
+[Russian version](framework-onboarding.ru.md)
+
 This guide is for an engineer joining the project who knows basic Python but has
 not worked with this framework. After reading it and following the code, you
 should be able to select a test layer, explain what a passing result means,

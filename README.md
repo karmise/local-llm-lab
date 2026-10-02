@@ -3,6 +3,8 @@
 Start with the [framework onboarding guide](docs/framework-onboarding.md) to understand
 the architecture and testing decisions in about one hour.
 
+A [Russian translation](docs/framework-onboarding.ru.md) is also available.
+
 [![Framework checks](https://github.com/karmise/local-llm-lab/actions/workflows/framework-checks.yml/badge.svg)](https://github.com/karmise/local-llm-lab/actions/workflows/framework-checks.yml)
 
 A local AnythingLLM environment and a Python automation framework for testing
