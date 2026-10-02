@@ -1,5 +1,8 @@
 # LLM / RAG Application Testing
 
+Start with the [framework onboarding guide](docs/framework-onboarding.md) to understand
+the architecture and testing decisions in about one hour.
+
 [![Framework checks](https://github.com/karmise/local-llm-lab/actions/workflows/framework-checks.yml/badge.svg)](https://github.com/karmise/local-llm-lab/actions/workflows/framework-checks.yml)
 
 A local AnythingLLM environment and a Python automation framework for testing
