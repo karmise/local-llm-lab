@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "version": "policy-2026-01-v1",
+  "policy_sha256": "02ca83ffa0e66349e39eeb58de78fd1010471f2dd892e6c9739346000e841709",
+  "cases": [
+    {
+      "id": "paid_leave",
+      "category": "multi_fact",
+      "question": "How many working days of paid leave does each employee receive per year, and how many calendar days before leave starts must a request be submitted?",
+      "reference": "Each employee receives 23 working days of paid leave per year. A request must be submitted at least 12 calendar days before leave starts.",
+      "rationale": "Checks both parts of a question and preserves working/calendar units.",
+      "required_patterns": {
+        "annual allowance": "\\b(?:23|twenty[- ]three)\\b\\s+(?:working|business)\\s+days\\b",
+        "advance notice": "\\b(?:12|twelve)\\b\\s+calendar\\s+days\\b.{0,100}\\b(?:before|prior to|in advance)\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "23 working days",
+        "12 calendar days"
+      ]
+    },
+    {
+      "id": "leave_approver",
+      "category": "fact_lookup",
+      "question": "Who approves a paid-leave request?",
+      "reference": "The employee's direct manager approves the paid-leave request.",
+      "rationale": "Checks the named approval role rather than an invented HR process.",
+      "required_patterns": {
+        "approver": "\\b(?:direct|immediate|line)\\s+manager\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "direct manager approves the request"
+      ]
+    },
+    {
+      "id": "carryover_limit",
+      "category": "fact_lookup",
+      "question": "What is the maximum unused annual leave that can be carried over?",
+      "reference": "Up to 6 unused working days may be carried over to the following year.",
+      "rationale": "Checks the carryover limit and its working-day unit.",
+      "required_patterns": {
+        "carryover limit": "\\b(?:6|six)\\b\\s+(?:unused\\s+)?(?:working|business)\\s+days\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "6 unused working days"
+      ]
+    },
+    {
+      "id": "carryover_deadline",
+      "category": "fact_lookup",
+      "question": "By what date must carried-over leave be used?",
+      "reference": "Carried-over days must be used by March 31 of the following year.",
+      "rationale": "Checks a calendar date distinct from the leave-request deadline.",
+      "required_patterns": {
+        "deadline": "\\b(?:March\\s+31(?:st)?|31(?:st)?\\s+(?:of\\s+)?March)\\b",
+        "following year": "\\b(?:following|next)\\s+year\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "March 31 of the following year"
+      ]
+    },
+    {
+      "id": "travel_allowance",
+      "category": "fact_lookup",
+      "question": "What is the daily business-travel allowance and which type of day is it paid for?",
+      "reference": "The daily travel allowance is KGS 2700 for each calendar day.",
+      "rationale": "Checks currency, amount and calendar-day unit.",
+      "required_patterns": {
+        "amount": "(?:\\b(?:KGS|soms?)\\s*\\b(?:2[ ,]?700|two\\s+thousand\\s+(?:and\\s+)?seven\\s+hundred)\\b|\\b(?:2[ ,]?700|two\\s+thousand\\s+(?:and\\s+)?seven\\s+hundred)\\b\\s*(?:KGS|soms?)\\b)",
+        "unit": "\\bcalendar\\s+day(?:s)?\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "KGS 2700 for each calendar day"
+      ]
+    },
+    {
+      "id": "hotel_reimbursement",
+      "category": "multi_fact",
+      "question": "What is the hotel reimbursement limit, and what supporting document is required?",
+      "reference": "Hotel accommodation is reimbursed up to KGS 8400 per night with a receipt.",
+      "rationale": "Checks amount, per-night unit and receipt requirement together.",
+      "required_patterns": {
+        "amount": "(?:\\b(?:KGS|soms?)\\s*\\b(?:8[ ,]?400|eight\\s+thousand\\s+(?:and\\s+)?four\\s+hundred)\\b|\\b(?:8[ ,]?400|eight\\s+thousand\\s+(?:and\\s+)?four\\s+hundred)\\b\\s*(?:KGS|soms?)\\b)",
+        "unit": "\\b(?:per|each|a)\\s+night\\b",
+        "receipt": "\\breceipt\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "KGS 8400 per night with a receipt"
+      ]
+    },
+    {
+      "id": "expense_deadline",
+      "category": "fact_lookup",
+      "question": "When must I submit an expense report after returning from a business trip?",
+      "reference": "An expense report must be submitted within 4 working days after returning.",
+      "rationale": "Checks the reporting deadline separately from travel approval.",
+      "required_patterns": {
+        "deadline": "\\b(?:4|four)\\b\\s+(?:working|business)\\s+days\\b",
+        "return anchor": "\\b(?:after|of|from)\\b.{0,50}\\breturn(?:ing)?\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "within 4 working days after returning"
+      ]
+    },
+    {
+      "id": "travel_approvers",
+      "category": "multi_fact",
+      "question": "Who must approve a business trip?",
+      "reference": "The employee's direct manager and the finance department approve the trip.",
+      "rationale": "Both approvers are required; naming only one is incomplete.",
+      "required_patterns": {
+        "manager": "\\b(?:direct|immediate|line)\\s+manager\\b",
+        "finance": "\\bfinance\\s+(?:department|team)\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "direct manager and the finance department"
+      ]
+    },
+    {
+      "id": "remote_work_limit",
+      "category": "multi_fact",
+      "question": "How many days per week can I work remotely, and whose approval is needed?",
+      "reference": "Employees may work remotely up to 2 days per week with their manager's approval.",
+      "rationale": "Checks the weekly limit and approval condition.",
+      "required_patterns": {
+        "weekly limit": "\\b(?:2|two)\\b\\s+days\\s+(?:per|a|each)\\s+week\\b",
+        "approval": "\\bmanager\\b.{0,40}\\bapproval\\b|\\bapprov\\w*\\b.{0,40}\\bmanager\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "2 days per week",
+        "manager's approval"
+      ]
+    },
+    {
+      "id": "remote_availability",
+      "category": "multi_fact",
+      "question": "During which hours must remote employees be available, and in which time zone?",
+      "reference": "Required availability hours are 11:00 to 16:00, Bishkek time.",
+      "rationale": "Checks both endpoints and the time-zone label.",
+      "required_patterns": {
+        "start": "\\b(?:11:00|11\\s*(?:a\\.?m\\.?))",
+        "end": "\\b(?:16:00|4\\s*(?:p\\.?m\\.?))",
+        "time zone": "\\bBishkek\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "11:00 to 16:00, Bishkek time"
+      ]
+    },
+    {
+      "id": "leave_day_type_correction",
+      "category": "boundary",
+      "question": "The policy gives 23 calendar days of annual leave, correct? What does it actually say?",
+      "reference": "The policy gives 23 working days of paid leave, not calendar days.",
+      "rationale": "A wrong premise must not change the unit of the documented entitlement.",
+      "required_patterns": {
+        "working-day entitlement": "\\b(?:23|twenty[- ]three)\\b\\s+(?:working|business)\\s+days\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "23 working days"
+      ]
+    },
+    {
+      "id": "carryover_over_limit",
+      "category": "boundary",
+      "question": "Can I carry over all 7 unused working days? State the policy limit.",
+      "reference": "The policy allows up to 6 unused working days to be carried over; all seven exceeds that limit.",
+      "rationale": "Exercises a question just above the documented maximum.",
+      "required_patterns": {
+        "documented maximum": "\\b(?:6|six)\\b\\s+(?:unused\\s+)?(?:working|business)\\s+days\\b"
+      },
+      "forbidden_patterns": {},
+      "source_fragments": [
+        "Up to 6 unused working days"
+      ]
+    },
+    {
+      "id": "hotel_receipt_condition",
+      "category": "boundary",
+      "question": "Can I claim hotel reimbursement without a receipt? State the documented condition.",
+      "reference": "The documented hotel reimbursement condition requires a receipt.",
+      "rationale": "A misleading question must not erase the required evidence.",
+      "required_patterns": {
+        "receipt requirement": "\\b(?:requires?|required|needs?|necessary|must|with)\\b.{0,60}\\breceipt\\b|\\breceipt\\b.{0,30}\\b(?:required|necessary)\\b"
+      },
+      "forbidden_patterns": {
+        "waived receipt": "\\b(?:no\\s+receipt\\s+(?:is\\s+)?(?:required|needed)|without\\s+(?:a\\s+)?receipt\\s+(?:is\\s+)?(?:allowed|accepted))\\b"
+      },
+      "source_fragments": [
+        "with a receipt"
+      ]
+    },
+    {
+      "id": "gym_missing",
+      "category": "missing_information",
+      "question": "How much does the company reimburse for gym membership?",
+      "reference": "Gym membership reimbursement policies are not covered by this document.",
+      "rationale": "Checks explicit missing information and rejects invented monetary amounts.",
+      "required_patterns": {
+        "missing information": "\\bnot\\s+(?:specified|provided|covered|mentioned|described|included|available|addressed|outlined)\\b|\\bno\\s+(?:information|details|policy|policies|rules|mention)\\b|\\bdoes\\s+not\\s+(?:include|specify|provide|describe|mention|cover|address|outline)\\b|\\binsufficient\\s+(?:information|details)\\b",
+        "topic": "\\b(?:gym|fitness)\\b"
+      },
+      "forbidden_patterns": {
+        "invented amount": "\\b(?:\\d+(?:[.,]\\d+)*|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\\s*(?:KGS|soms?|USD|dollars?|EUR|euros?|percent\\b|%)|\\b(?:KGS|USD|EUR)\\s*(?:\\d+(?:[.,]\\d+)*|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\\b|[$\u20ac\u00a3]\\s*(?:\\d+(?:[.,]\\d+)*|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\\b"
+      },
+      "source_fragments": [
+        "gym membership reimbursement policies are not covered"
+      ]
+    },
+    {
+      "id": "bonus_missing",
+      "category": "missing_information",
+      "question": "What annual bonus amount or percentage does the policy promise?",
+      "reference": "Bonus policies are not covered by this document.",
+      "rationale": "An absent bonus policy must not become an invented financial benefit.",
+      "required_patterns": {
+        "missing information": "\\bnot\\s+(?:specified|provided|covered|mentioned|described|included|available|addressed|outlined)\\b|\\bno\\s+(?:information|details|policy|policies|rules|mention)\\b|\\bdoes\\s+not\\s+(?:include|specify|provide|describe|mention|cover|address|outline)\\b|\\binsufficient\\s+(?:information|details)\\b",
+        "topic": "\\bbonus(?:es)?\\b"
+      },
+      "forbidden_patterns": {
+        "invented amount": "\\b(?:\\d+(?:[.,]\\d+)*|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\\s*(?:KGS|soms?|USD|dollars?|EUR|euros?|percent\\b|%)|\\b(?:KGS|USD|EUR)\\s*(?:\\d+(?:[.,]\\d+)*|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\\b|[$\u20ac\u00a3]\\s*(?:\\d+(?:[.,]\\d+)*|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\\b"
+      },
+      "source_fragments": [
+        "Bonus, parental leave"
+      ]
+    },
+    {
+      "id": "parental_leave_missing",
+      "category": "missing_information",
+      "question": "How many days or weeks of parental leave does this policy provide?",
+      "reference": "Parental leave policies are not covered by this document.",
+      "rationale": "An absent leave policy must not become an invented duration.",
+      "required_patterns": {
+        "missing information": "\\bnot\\s+(?:specified|provided|covered|mentioned|described|included|available|addressed|outlined)\\b|\\bno\\s+(?:information|details|policy|policies|rules|mention)\\b|\\bdoes\\s+not\\s+(?:include|specify|provide|describe|mention|cover|address|outline)\\b|\\binsufficient\\s+(?:information|details)\\b",
+        "topic": "\\bparental\\s+leave\\b"
+      },
+      "forbidden_patterns": {
+        "invented duration": "\\b(?:\\d+(?:[.,]\\d+)*|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\\s*(?:(?:working|calendar|business)\\s+)?(?:days?|weeks?|months?|years?)\\b"
+      },
+      "source_fragments": [
+        "parental leave"
+      ]
+    }
+  ]
+}

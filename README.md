@@ -116,6 +116,12 @@ working directory.
 See [Git workflow](docs/git-workflow.md) for the first commit and subsequent
 feature branches. The Git repository root is `local-llm-lab`.
 
+## Golden policy acceptance dataset
+
+The framework includes a [16-case golden dataset](docs/step-22-golden-dataset.md)
+with reference answers, acceptance criteria and supporting policy fragments.
+Its broader RAG suite is explicitly enabled to control local model workload.
+
 ## Components
 
 | Component | Purpose |

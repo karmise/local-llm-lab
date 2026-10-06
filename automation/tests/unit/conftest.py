@@ -25,6 +25,7 @@ def framework_pytester(
         [pytest]
         addopts = --strict-markers --strict-config
         markers =
+            golden: opt-in golden RAG checks
             ui: live browser tests
             browser: offline browser tests
             rag: generated answer tests

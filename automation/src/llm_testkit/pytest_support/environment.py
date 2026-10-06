@@ -1,7 +1,7 @@
 """Environment, clients and immutable-on-disk test data."""
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +10,7 @@ import pytest
 from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
+from llm_testkit.datasets.golden import GoldenCase, load_golden_dataset
 
 
 @pytest.fixture(scope="session")
@@ -70,3 +71,21 @@ def paid_leave_profile(paid_leave_profile_path: Path) -> dict[str, Any]:
 def missing_policy_profile(automation_root: Path) -> dict[str, Any]:
     path = automation_root / "test_data" / "missing-policy.json"
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+@pytest.fixture
+def golden_metadata(
+    automation_root: Path,
+    policy_file: Path,
+    golden_case: GoldenCase,
+    record_property: Callable[[str, object], None],
+) -> None:
+    dataset = load_golden_dataset(automation_root / "test_data/golden-policy.json", policy_file)
+    if golden_case not in dataset.cases:
+        pytest.fail(
+            "Golden dataset changed after collection; collect the suite again", pytrace=False
+        )
+    record_property("golden_dataset_version", dataset.version)
+    record_property("golden_dataset_sha256", dataset.sha256)
+    record_property("golden_case_id", golden_case.id)
+    record_property("golden_category", golden_case.category)

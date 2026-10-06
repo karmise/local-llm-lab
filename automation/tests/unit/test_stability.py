@@ -88,3 +88,30 @@ def test_duplicate_call_and_teardown_entries_count_as_one_run(tmp_path: Path) ->
     assert row["runs"] == 1
     assert row["failed"] == 1
     assert row["errored"] == 1
+
+
+@pytest.mark.parametrize("same_case", [True, False], ids=["changed-dataset", "different-cases"])
+@title("Golden stability preserves scenario identity and expectation fingerprints [{param_id}]")
+def test_golden_summary_preserves_case_and_dataset_identity(
+    tmp_path: Path, same_case: bool
+) -> None:
+    path = _report(tmp_path, ["passed", "failure"])
+    tree = ET.parse(path)
+    for index, case in enumerate(tree.getroot().findall(".//testcase")):
+        properties = case.find("properties")
+        ET.SubElement(
+            properties,
+            "property",
+            name="golden_case_id",
+            value="first" if same_case or index == 0 else "second",
+        )
+        ET.SubElement(properties, "property", name="golden_dataset_sha256", value=str(index))
+    tree.write(path)
+    rows = summarize_report(path)
+    if same_case:
+        assert len(rows) == 1
+        assert rows[0]["configuration_consistent"] is False
+    else:
+        assert len(rows) == 2
+        assert all(row["runs"] == 1 for row in rows)
+        assert all(not row["mixed_pass_fail_observed"] for row in rows)

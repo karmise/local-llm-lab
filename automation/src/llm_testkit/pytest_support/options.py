@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from llm_testkit.datasets.golden import load_golden_dataset
+
 DEFAULT_RAG_MODELS = ("qwen3.5:4b", "qwen2.5:7b")
 
 
@@ -26,6 +28,11 @@ def _model_name(value: str) -> str:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-golden",
+        action="store_true",
+        help="Enable source-bound golden RAG scenarios (one generation per selected case).",
+    )
     parser.addoption(
         "--run-ui",
         action="store_true",
@@ -73,6 +80,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    if "golden_case" in metafunc.fixturenames:
+        root = metafunc.config.rootpath / "test_data"
+        try:
+            dataset = load_golden_dataset(root / "golden-policy.json", root / "company-policy.txt")
+        except (ValueError, OSError) as error:
+            raise pytest.UsageError(f"Invalid golden dataset: {error}") from error
+        metafunc.parametrize("golden_case", dataset.cases, ids=[case.id for case in dataset.cases])
     if (
         metafunc.definition.get_closest_marker("rag")
         and "generation_model" in metafunc.fixturenames
@@ -95,6 +109,10 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     # Validate only selected tests, after pytest applies -k and -m filters.
+    if not config.getoption("run_golden"):
+        for item in items:
+            if item.get_closest_marker("golden"):
+                item.add_marker(pytest.mark.skip(reason="Enable explicitly with --run-golden"))
     browser_items = [
         item
         for item in items

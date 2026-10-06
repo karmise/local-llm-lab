@@ -10,6 +10,7 @@ from requests import Response
 from llm_testkit.reporting.steps import attach_screenshot, attach_text, step
 
 if TYPE_CHECKING:
+    from llm_testkit.datasets.golden import GoldenCase
     from llm_testkit.pages.workspace_page import WorkspacePage
 
 T = TypeVar("T")
@@ -260,6 +261,18 @@ def assert_required_facts(final_answer: str, *, fact_patterns: Mapping[str, str]
         assert re.search(pattern, final_answer, flags=re.IGNORECASE), (
             f"Final answer is missing expected fact: {fact}. Answer: {final_answer[:500]}"
         )
+
+
+@step("Check: golden answer satisfies required, forbidden and source criteria")
+def assert_golden_answer(response: Response, *, case: "GoldenCase", document_title: str) -> None:
+    payload, answer = assert_completed_answer(response)
+    attach_text(answer, name=f"Golden answer: {case.id}")
+    assert_required_facts(answer, fact_patterns=dict(case.required_patterns))
+    for label, pattern in case.forbidden_patterns:
+        assert not re.search(pattern, answer, flags=re.IGNORECASE), (
+            f"Golden case {case.id}: forbidden content: {label}. Answer: {answer[:500]}"
+        )
+    assert_document_sources(payload, document_title=document_title, fragments=case.source_fragments)
 
 
 def assert_document_sources(

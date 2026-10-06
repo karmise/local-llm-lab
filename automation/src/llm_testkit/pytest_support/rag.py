@@ -84,6 +84,7 @@ def rag_environment(
 
 @pytest.fixture
 def rag_chat(
+    request: pytest.FixtureRequest,
     rag_environment: None,
     automation_root: Path,
     authenticated_anythingllm_api: AnythingLLMClient,
@@ -126,6 +127,11 @@ def rag_chat(
                 "rag_iteration": rag_iteration,
                 "thinking_mode": "Ollama/model default; not explicitly controlled",
             }
+            sample["metadata"].update(
+                (name, value)
+                for name, value in request.node.user_properties
+                if name.startswith("golden_")
+            )
             path = automation_root / "reports" / "rag-samples" / f"{capture_id}.json"
             write_sample(path, sample)
             record_property("evaluation_sample", str(path))

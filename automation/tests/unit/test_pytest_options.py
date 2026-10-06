@@ -1,5 +1,7 @@
 import pytest
 
+from llm_testkit.reporting.steps import title
+
 pytestmark = pytest.mark.unit
 
 
@@ -18,8 +20,50 @@ def test_opt_in_scenarios_skip_before_resolving_external_fixtures(runner: pytest
         def test_browser(missing_browser): pass
         @pytest.mark.live_quality
         def test_live(missing_judge): pass
+        @pytest.mark.golden
+        def test_golden(missing_model): pass
     """)
-    runner.runpytest_subprocess("-q").assert_outcomes(skipped=3)
+    runner.runpytest_subprocess("-q").assert_outcomes(skipped=4)
+
+
+@title("Explicit golden flag enables selected acceptance scenarios")
+def test_explicit_golden_flag_enables_selected_cases(runner: pytest.Pytester) -> None:
+    runner.makepyfile("""
+        import pytest
+        @pytest.mark.golden
+        def test_golden(): pass
+    """)
+    runner.runpytest_subprocess("--run-golden", "-q").assert_outcomes(passed=1)
+
+
+@title("Golden collection combines case, model and independent repetition selection")
+def test_golden_collection_forms_case_model_repeat_matrix(runner: pytest.Pytester) -> None:
+    import shutil
+    from pathlib import Path
+
+    source = Path(__file__).resolve().parents[2] / "test_data"
+    shutil.copytree(source, runner.path / "test_data")
+    runner.makepyfile("""
+        import pytest
+        @pytest.mark.rag
+        @pytest.mark.golden
+        def test_golden(golden_case, generation_model, rag_iteration):
+            assert golden_case.id == 'travel_allowance'
+            assert generation_model in {'model-a', 'model-b'}
+            assert rag_iteration in {1, 2}
+    """)
+    runner.runpytest_subprocess(
+        "--run-golden",
+        "--rag-model",
+        "model-a",
+        "--rag-model",
+        "model-b",
+        "--rag-repeat",
+        "2",
+        "-k",
+        "travel_allowance",
+        "-q",
+    ).assert_outcomes(passed=4, deselected=60)
 
 
 @pytest.mark.parametrize("selector", [("-m", "unit"), ("-k", "offline")])

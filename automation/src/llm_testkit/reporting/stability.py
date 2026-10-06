@@ -56,6 +56,9 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
         if model is None:
             continue
         scenario = name.split("[", 1)[0]
+        golden_case = properties.get("golden_case_id")
+        if golden_case:
+            scenario += f"[{golden_case}]"
         group = groups.setdefault(
             (scenario, model),
             {
@@ -81,6 +84,8 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
         complete = not entry["metadata_conflict"] and all(
             properties.get(field) for field in METADATA_FIELDS
         )
+        if golden_case:
+            complete = complete and bool(properties.get("golden_dataset_sha256"))
         group["metadata_complete"] = group["metadata_complete"] and complete
         if complete:
             configuration = json.dumps(
@@ -92,6 +97,7 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
                     properties["policy_sha256"],
                     configuration,
                     properties["thinking_mode"],
+                    properties.get("golden_dataset_sha256", ""),
                 )
             )
 

@@ -71,6 +71,7 @@ one end-to-end result as proof of everything.
 | Offline browser | Do our Page Object and waiting rules behave correctly in a real browser? | Chromium and deterministic local HTML; no app or model. | `tests/browser/` |
 | Smoke/API | Is the app reachable, is authentication correct, and can documents/workspaces be managed and searched? | AnythingLLM, developer API key where needed; indexing needs the embedding provider. | `tests/test_health.py`, `test_authentication.py`, `test_workspace.py`, `test_documents.py` |
 | RAG integration | Does a real generated answer contain required policy facts and supporting sources, or acknowledge missing information? | Application, API key, embeddings and a generation model. | `tests/test_rag.py` |
+| Golden acceptance | Does each versioned policy case satisfy its required, forbidden and source criteria? | RAG environment; explicit `--run-golden`. | `tests/test_golden_rag.py` |
 | Application UI | Can the user send a question, view an answer/source and reload its history? | The RAG environment plus Chromium. | `tests/ui/` |
 | Saved quality | Do deterministic checks and existing judge evidence describe the same captured answer? | Saved files and reporting dependencies; no new model calls. | `tests/test_quality.py` |
 | Live quality | Can we generate, capture, judge and report one answer with verified cleanup? | Capture overlay, app/models, evaluation and reporting dependencies. | `tests/test_live_quality.py` |
@@ -435,6 +436,14 @@ Mutable resources remain function-scoped so tests own independent state. Reuse
 fixture code, not one session-wide mutable workspace. Do not add blanket retries,
 parallel model execution or new evaluation thresholds as incidental refactoring.
 Each requires its own evidence and a deliberate change in test meaning.
+
+## Golden dataset extension
+
+The [golden dataset guide](step-22-golden-dataset.md) adds 16 versioned policy
+scenarios with references, required/forbidden criteria and source fragments.
+The suite is opt-in with `--run-golden`; start with one case on one model.
+Catalog validation and reference checks run offline in the unit suite. This
+extension does not introduce semantic correctness metrics or calibrated gates.
 
 ## 9. Check your understanding
 

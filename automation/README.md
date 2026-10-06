@@ -33,10 +33,11 @@ Run commands from `automation` with its virtual environment activated.
 | Offline Page Object regressions | `python -m pytest tests/browser --run-ui` | Chromium; no application/models |
 | Application health and API | `python -m pytest -m 'smoke or api'` | AnythingLLM; API key; embedding model for indexing |
 | RAG answers | `python -m pytest tests/test_rag.py --rag-model qwen3.5:4b` | AnythingLLM, API key, generation and embedding models |
+| Golden policy dataset (one case) | `python -m pytest tests/test_golden_rag.py --run-golden --rag-model qwen3.5:4b -k carryover_limit` | Same as RAG; broader catalog is opt-in |
 | Application UI | `python -m pytest tests/ui --run-ui` | Same as RAG, plus Chromium |
 
 `python -m pytest` retains the existing behavior: it includes live API and RAG
-tests. Use `tests/unit` or `-m unit` for an offline run. Browser and live-quality
+tests. Use `tests/unit` or `-m unit` for an offline run. Browser, golden and live-quality
 tests skip until explicitly enabled. Ordinary RAG tests use both configured
 default models when `--rag-model` is omitted; repeat the flag to select several.
 `--rag-repeat N` creates independent workspaces for each repetition. UI tests use
@@ -57,6 +58,18 @@ See the [live quality guide](../docs/step-15-live-quality.md) for the explicit
 one-answer/two-judge-call scenario, and the
 [offline quality guide](../docs/step-14-allure-quality-report.md) for saved evidence.
 
+## Golden acceptance dataset
+
+The [golden dataset guide](../docs/step-22-golden-dataset.md) describes 16 source-bound
+cases covering policy facts, multi-part questions, boundaries and missing information.
+Cases have typed, validated references, acceptance rules and source anchors. Their
+version and checksum are recorded with model/configuration metadata.
+
+Golden scenarios skip unless `--run-golden` is supplied. A full run uses 16
+generations on one explicitly selected model, or 32 with the default two models,
+before repetitions. Start with one case. These are curated policy acceptance
+checks, not a statistical model-accuracy benchmark or semantic correctness metric.
+
 ## Structure and extension rules
 
 | Location | Responsibility |
@@ -69,6 +82,7 @@ one-answer/two-judge-call scenario, and the
 | `src/llm_testkit/pytest_support/environment.py` | Paths, configuration, clients and scenario data |
 | `src/llm_testkit/pytest_support/resources.py` | Temporary workspace, document folder, upload and indexing |
 | `src/llm_testkit/pytest_support/rag.py` | Model metadata, generation and optional context capture |
+| `src/llm_testkit/datasets/` | Typed, source-bound golden dataset loading and validation |
 | `test_data/` | Fictional documents and shared question/reference/fact profiles |
 | `tests/unit/` | Framework behavior with HTTP calls mocked |
 | `tests/browser/` | Real browser with deterministic HTML; no model generation |

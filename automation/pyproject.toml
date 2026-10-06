@@ -38,6 +38,7 @@ testpaths = ["tests"]
 junit_family = "xunit1"
 addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
 markers = [
+    "golden: explicitly enabled source-bound policy acceptance dataset",
     "ui: explicitly enabled browser checks against a temporary indexed workspace",
     "browser: explicitly enabled offline Page Object checks without application or model calls",
     "smoke: checks that the local application is reachable",
