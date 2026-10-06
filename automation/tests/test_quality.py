@@ -22,7 +22,14 @@ def test_saved_paid_leave_quality_report(
     evidence = request.config.getoption("faithfulness_report")
     correctness = request.config.getoption("correctness_report")
     relevance = request.config.getoption("relevance_report")
-    if sample is None and evidence is None and correctness is None and relevance is None:
+    gates = request.config.getoption("quality_gates")
+    if (
+        sample is None
+        and evidence is None
+        and correctness is None
+        and relevance is None
+        and gates is None
+    ):
         pytest.skip(
             "Supply --quality-sample and --faithfulness-report for offline quality reporting"
         )
@@ -38,6 +45,7 @@ def test_saved_paid_leave_quality_report(
         paid_leave_profile_path,
         correctness_path=correctness,
         relevance_path=relevance,
+        gates_path=gates,
     )
     path = automation_root / "reports/quality" / f"{uuid4().hex}.json"
     write_sample(path, report)

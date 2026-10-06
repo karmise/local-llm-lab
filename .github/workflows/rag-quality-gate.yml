@@ -1,0 +1,77 @@
+name: Saved RAG quality gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      evidence-artifact:
+        description: Artifact with the four saved evidence files
+        required: true
+        default: quality-evidence
+        type: string
+      evidence-run-id:
+        description: Completed producer workflow run ID in this repository
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      evidence-artifact:
+        description: Same-run artifact containing sample.json, faithfulness.json, correctness.json and relevance.json
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  quality:
+    name: Saved evidence thresholds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: automation
+        shell: bash
+    env:
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+    steps:
+      - name: Check out framework and reviewed expectations
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.3"
+      - name: Download producer evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ inputs.evidence-artifact }}
+          path: automation/reports/input-evidence
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event_name == 'workflow_dispatch' && inputs.evidence-run-id || github.run_id }}
+      - name: Install saved-report dependencies
+        run: |
+          python -m pip install -r requirements-reporting.lock
+          python -m pip install --no-deps -e .
+          python -m pip check
+      - name: Validate provenance and apply quality thresholds
+        run: |
+          python -m pytest tests/test_quality.py -p allure_pytest.plugin \
+            --quality-sample reports/input-evidence/sample.json \
+            --faithfulness-report reports/input-evidence/faithfulness.json \
+            --correctness-report reports/input-evidence/correctness.json \
+            --relevance-report reports/input-evidence/relevance.json \
+            --quality-gates test_data/quality-gates.json \
+            --alluredir reports/quality-gate/allure-results \
+            --junitxml reports/quality-gate/results.xml
+      - name: Save gate evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rag-quality-gate-reports
+          path: |
+            automation/reports/quality-gate/
+            automation/reports/quality/
+          if-no-files-found: warn
+          retention-days: 14

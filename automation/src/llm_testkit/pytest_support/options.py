@@ -31,6 +31,9 @@ def _model_name(value: str) -> str:
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
+        "--quality-gates", type=Path, help="Explicit experimental quality gates for saved evidence"
+    )
+    parser.addoption(
         "--run-adversarial", action="store_true", help="Enable curated adversarial policy scenarios"
     )
     parser.addoption(

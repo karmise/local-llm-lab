@@ -6,6 +6,7 @@ from requests import Response
 
 from llm_testkit import assertions
 from llm_testkit.datasets.golden import GoldenCase
+from llm_testkit.datasets.prompts import PromptVariant
 from llm_testkit.reporting.steps import title
 
 pytestmark = [pytest.mark.rag, pytest.mark.prompt_regression]
@@ -13,7 +14,7 @@ pytestmark = [pytest.mark.rag, pytest.mark.prompt_regression]
 
 @title("Versioned prompt preserves golden policy acceptance criteria [{param_id}]")
 def test_prompt_preserves_policy_answer(
-    prompt_variant,
+    prompt_variant: PromptVariant,
     golden_case: GoldenCase,
     golden_metadata: None,
     rag_chat: Callable[[str, str], Response],

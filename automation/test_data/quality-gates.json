@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "version": "policy-quality-gates-v1",
+  "calibration": "experimental",
+  "rationale": "Illustrative policy-lab acceptance thresholds. Not clinically validated or calibrated from a representative benchmark.",
+  "minimum_scores": {
+    "faithfulness": 0.9,
+    "factual_correctness": 0.8,
+    "context_precision": 0.8,
+    "context_recall": 0.9
+  }
+}

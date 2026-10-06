@@ -14,6 +14,7 @@ from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.evaluation.correctness import check_correctness_evidence
 from llm_testkit.evaluation.faithfulness import load_sample
 from llm_testkit.evaluation.relevance import check_relevance_evidence
+from llm_testkit.reporting.gates import apply_quality_gates
 
 
 def check_faithfulness_evidence(evidence: dict[str, Any], checksum: str) -> dict[str, Any]:
@@ -69,6 +70,7 @@ def build_quality_report(
     relevance_path: Path | None = None,
     golden_dataset_path: Path | None = None,
     policy_file: Path | None = None,
+    gates_path: Path | None = None,
 ) -> dict[str, Any]:
     sample, checksum = load_sample(sample_path)
     profile_bytes = profile_path.read_bytes()
@@ -153,14 +155,21 @@ def build_quality_report(
             dimensions.append(
                 _dimension(metric, lambda metric=metric: relevance_check(metric), measured=True)
             )
+    dimensions[2]["metric"] = "faithfulness"
+    if correctness_path is not None:
+        dimensions[3]["metric"] = "factual_correctness"
+    if relevance_path is not None:
+        for dimension in dimensions[-2:]:
+            dimension["metric"] = dimension["name"]
     statuses = [dimension["status"] for dimension in dimensions]
-    return {
+    report = {
         "schema_version": 1,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "scenario": profile["id"],
         "sample_sha256": checksum,
         "profile_sha256": hashlib.sha256(profile_bytes).hexdigest(),
         "faithfulness_report_path": str(evidence_path.resolve()),
+        "relevance_report_path": str(relevance_path.resolve()) if relevance_path else None,
         "correctness_report_path": str(correctness_path.resolve()) if correctness_path else None,
         "status": "error"
         if "error" in statuses
@@ -176,3 +185,5 @@ def build_quality_report(
         "metadata": sample.get("metadata", {}),
         "dimensions": dimensions,
     }
+
+    return apply_quality_gates(report, gates_path) if gates_path is not None else report

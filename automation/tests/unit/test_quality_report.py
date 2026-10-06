@@ -164,3 +164,16 @@ def test_optional_relevance_has_independent_dimensions(tmp_path: Path) -> None:
         "error",
     ]
     assert [d["name"] for d in report["dimensions"][-2:]] == ["context_precision", "context_recall"]
+
+
+@title(
+    "Gated quality reports reject omitted semantic evidence instead of silently passing measurements"
+)
+def test_saved_report_gates_require_all_evidence(tmp_path: Path) -> None:
+    gates = Path(__file__).resolve().parents[2] / "test_data/quality-gates.json"
+    report = build_quality_report(*_files(tmp_path), gates_path=gates)
+    assert report["status"] == "error"
+    assert report["dimensions"][2]["status"] == "passed"
+    assert len(report["dimensions"]) == 6
+    with pytest.raises(AssertionError, match="not supplied"):
+        assertions.assert_quality_report(report)

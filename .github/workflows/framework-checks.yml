@@ -25,6 +25,7 @@ jobs:
       RAGAS_DO_NOT_TRACK: "true"
       LANGCHAIN_TRACING_V2: "false"
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      COVERAGE_FILE: ${{ github.workspace }}/automation/reports/ci/.coverage
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,9 +60,17 @@ jobs:
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: python -m ruff format --check src tests | tee reports/ci/format.txt
 
-      - name: Run unit tests
+      - name: Run unit tests with branch coverage
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: python -m pytest tests/unit -v --junitxml=reports/ci/unit-tests.xml | tee reports/ci/pytest.txt
+        run: python -m coverage run -m pytest tests/unit -v --junitxml=reports/ci/unit-tests.xml | tee reports/ci/pytest.txt
+
+      - name: Enforce framework coverage floor
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: |
+          python -m coverage combine
+          python -m coverage xml --fail-under=0 -o reports/ci/coverage.xml
+          python -m coverage json --fail-under=0 -o reports/ci/coverage.json
+          python -m coverage report | tee reports/ci/coverage.txt
 
       - name: Save check reports
         if: always()

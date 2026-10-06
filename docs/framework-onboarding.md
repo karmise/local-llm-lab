@@ -465,3 +465,14 @@ assertions and cleanup, you have the core navigation skills for this framework.
 Use [automation/README.md](../automation/README.md) for the current operational
 reference and [refactoring notes](step-21-framework-refactoring.md) for the reasons
 behind recent structural changes.
+
+## Recent evaluation extensions
+
+Follow these guides after the basic paid-leave walkthrough:
+
+- [Context precision/recall](step-24-context-relevance.md): measure retrieved-context usefulness and coverage separately from answer correctness.
+- [Prompt regression](step-25-prompt-regression.md): compare versioned prompts while holding reviewed acceptance criteria and other configuration fixed.
+- [Adversarial inputs](step-26-adversarial-inputs.md): reuse golden expectations for poisoned questions and document notes; confirm actual document-attack exposure.
+- [Quality gates](step-27-quality-gates.md): apply explicit experimental thresholds to validated saved evidence, and enforce framework coverage in CI.
+
+Keep the distinction between measurement, a scoped acceptance pass and statistical validation. Full matrices remain opt-in. Gate thresholds are illustrative; a saved paid-leave gate does not establish dataset-wide or clinical quality.

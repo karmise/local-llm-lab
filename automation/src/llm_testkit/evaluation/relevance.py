@@ -7,7 +7,7 @@ import re
 from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from llm_testkit import assertions
 from llm_testkit.clients.ollama_client import OllamaClient
@@ -17,6 +17,9 @@ from llm_testkit.datasets.golden import GoldenCase, GoldenDataset, load_golden_d
 from llm_testkit.evaluation.correctness import bind_case
 from llm_testkit.evaluation.faithfulness import load_sample
 from llm_testkit.observation.evaluation_sample import write_sample
+
+if TYPE_CHECKING:
+    from llm_testkit.evaluation.ollama_judge import OllamaJudge
 
 
 def validate_relevance(
@@ -58,7 +61,12 @@ def validate_relevance(
     return result
 
 
-async def score_relevance(sample, case, precision_judge, recall_judge):
+async def score_relevance(
+    sample: dict[str, Any],
+    case: GoldenCase,
+    precision_judge: "OllamaJudge",
+    recall_judge: "OllamaJudge",
+) -> dict[str, Any]:
     from ragas.metrics.collections import ContextPrecisionWithReference, ContextRecall
 
     contexts = sample["retrieved_contexts"]
@@ -85,8 +93,14 @@ async def score_relevance(sample, case, precision_judge, recall_judge):
 
 
 def evaluate_relevance_report(
-    sample_path, *, dataset_path, policy_file, case_id, settings, judge_model="qwen3.5:4b"
-):
+    sample_path: Path,
+    *,
+    dataset_path: Path,
+    policy_file: Path,
+    case_id: str,
+    settings: Settings,
+    judge_model: str = "qwen3.5:4b",
+) -> dict[str, Any]:
     from llm_testkit.evaluation.ollama_judge import OllamaJudge
 
     report = {
@@ -142,7 +156,9 @@ def evaluate_relevance_report(
     return report
 
 
-def check_relevance_evidence(evidence, checksum, sample, dataset: GoldenDataset):
+def check_relevance_evidence(
+    evidence: dict[str, Any], checksum: str, sample: dict[str, Any], dataset: GoldenDataset
+) -> dict[str, Any]:
     if (
         evidence.get("schema_version") != 1
         or evidence.get("metric") != "context_relevance"
@@ -169,7 +185,7 @@ def check_relevance_evidence(evidence, checksum, sample, dataset: GoldenDataset)
     return result
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sample", type=Path)
     parser.add_argument("--case", required=True, dest="case_id")

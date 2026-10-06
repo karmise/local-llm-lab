@@ -7,6 +7,7 @@ import re
 import xml.etree.ElementTree as ET
 from itertools import product
 from pathlib import Path
+from typing import Any
 
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.datasets.prompts import load_prompt_catalog
@@ -23,7 +24,7 @@ def compare_prompts(
     models: list[str],
     candidate: str,
     repeat: int = 1,
-) -> dict:
+) -> dict[str, Any]:
     catalog = load_prompt_catalog(catalog_path)
     dataset = load_golden_dataset(dataset_path, policy_file)
     variants = {v.id: v for v in catalog.variants}

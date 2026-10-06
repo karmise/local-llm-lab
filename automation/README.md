@@ -138,3 +138,5 @@ Reference-based retrieval evaluation is described in [Context precision and reca
 [Prompt regression](../docs/step-25-prompt-regression.md) compares versioned system prompts against unchanged golden expectations. The suite is opt-in and the comparison command requires an explicit case/model scope, with missing or uncontrolled runs treated as incomplete.
 
 [Adversarial inputs](../docs/step-26-adversarial-inputs.md) reuse golden policy expectations for six opt-in attacks. Document-injection scenarios require actual captured-context exposure; uploaded citations alone do not count as proof that the model saw an attack.
+
+[Quality gates and coverage](../docs/step-27-quality-gates.md) adds a 75% framework coverage floor in CI and opt-in experimental thresholds for all four saved semantic metrics. A reusable/manual workflow validates a producer's evidence artifact without model calls; local generation is not automatically available on hosted runners.

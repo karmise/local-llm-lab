@@ -145,3 +145,72 @@ def test_context_budget():
     with pytest.raises(ValueError, match="never truncated"):
         asyncio.run(score_relevance({"retrieved_contexts": ["Context"] * 5}, CASE, judge, judge))
     assert not judge.mock_calls
+
+
+@title("Context evaluator retains raw failed calls and closes its transport")
+def test_service_error_evidence(tmp_path, monkeypatch):
+    import json
+
+    from requests import Response
+
+    from llm_testkit.config import Settings
+    from llm_testkit.evaluation.relevance import evaluate_relevance_report
+    from llm_testkit.observation.evaluation_sample import build_sample
+
+    pytest.importorskip("ragas")
+    identifier = "a" * 32
+    capture = {
+        "schema_version": 1,
+        "boundary": "ollama-sdk-chat",
+        "request": {
+            "model": "test",
+            "stream": False,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": f"[LLM_TESTKIT_CAPTURE:{identifier}]\n[CONTEXT 0]:\nPolicy\n[END CONTEXT 0]",
+                },
+                {"role": "user", "content": CASE.question},
+            ],
+        },
+    }
+    sample = build_sample(
+        capture,
+        question=CASE.question,
+        answer=CASE.reference,
+        reference=CASE.reference,
+        expected_model="test",
+        capture_id=identifier,
+    )
+    path = tmp_path / "sample.json"
+    path.write_text(json.dumps(sample))
+    transport, client = Mock(), Mock()
+    response = Response()
+    response.status_code = 200
+    response._content = json.dumps({"models": [{"name": "test", "digest": "digest"}]}).encode()
+    client.list_models.return_value = response
+    precision = Mock(calls=[{"error": "Truncated"}], options={})
+    recall = Mock(calls=[], options={})
+    monkeypatch.setattr("llm_testkit.evaluation.relevance.HttpClient", Mock(return_value=transport))
+    monkeypatch.setattr("llm_testkit.evaluation.relevance.OllamaClient", Mock(return_value=client))
+    monkeypatch.setattr(
+        "llm_testkit.evaluation.ollama_judge.OllamaJudge", Mock(side_effect=[precision, recall])
+    )
+
+    async def failed_score(*args):
+        raise ValueError("Truncated response")
+
+    monkeypatch.setattr("llm_testkit.evaluation.relevance.score_relevance", failed_score)
+    report = evaluate_relevance_report(
+        path,
+        dataset_path=ROOT / "golden-policy.json",
+        policy_file=ROOT / "company-policy.txt",
+        case_id=CASE.id,
+        settings=Settings(),
+        judge_model="test",
+    )
+    assert report["status"] == "error"
+    assert report["precision_calls"] == precision.calls
+    assert report["recall_calls"] == []
+    assert transport.close.call_count == 1
+    assert report["judge_configuration"]["maximum_calls"] == 2
