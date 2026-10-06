@@ -136,3 +136,5 @@ The current changes and validation are recorded in the
 Reference-based retrieval evaluation is described in [Context precision and recall](../docs/step-24-context-relevance.md). It reuses captured samples and adds two independently validated dimensions to the quality report.
 
 [Prompt regression](../docs/step-25-prompt-regression.md) compares versioned system prompts against unchanged golden expectations. The suite is opt-in and the comparison command requires an explicit case/model scope, with missing or uncontrolled runs treated as incomplete.
+
+[Adversarial inputs](../docs/step-26-adversarial-inputs.md) reuse golden policy expectations for six opt-in attacks. Document-injection scenarios require actual captured-context exposure; uploaded citations alone do not count as proof that the model saw an attack.

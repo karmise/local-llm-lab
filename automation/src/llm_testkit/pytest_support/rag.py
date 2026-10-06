@@ -157,7 +157,7 @@ def rag_chat(
             sample["metadata"].update(
                 (name, value)
                 for name, value in request.node.user_properties
-                if name.startswith(("golden_", "prompt_"))
+                if name.startswith(("golden_", "prompt_", "adversarial_"))
             )
             path = automation_root / "reports" / "rag-samples" / f"{capture_id}.json"
             write_sample(path, sample)

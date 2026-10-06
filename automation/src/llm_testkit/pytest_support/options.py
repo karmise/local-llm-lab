@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from llm_testkit.datasets.adversarial import load_adversarial_cases
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.datasets.prompts import load_prompt_catalog
 
@@ -29,6 +30,9 @@ def _model_name(value: str) -> str:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-adversarial", action="store_true", help="Enable curated adversarial policy scenarios"
+    )
     parser.addoption(
         "--run-prompt-regression",
         action="store_true",
@@ -98,6 +102,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    if "adversarial_case" in metafunc.fixturenames:
+        root = metafunc.config.rootpath / "test_data"
+        try:
+            dataset = load_golden_dataset(root / "golden-policy.json", root / "company-policy.txt")
+            cases = load_adversarial_cases(root / "adversarial-policy.json", dataset)
+        except (ValueError, OSError) as error:
+            raise pytest.UsageError(f"Invalid adversarial catalog: {error}") from error
+        metafunc.parametrize("adversarial_case", cases, ids=[c.id for c in cases])
     if metafunc.definition.get_closest_marker("prompt_regression"):
         try:
             catalog = load_prompt_catalog(
@@ -143,6 +155,22 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     # Validate only selected tests, after pytest applies -k and -m filters.
+    if not config.getoption("run_adversarial"):
+        for item in items:
+            if item.get_closest_marker("adversarial"):
+                item.add_marker(pytest.mark.skip(reason="Enable explicitly with --run-adversarial"))
+    else:
+        for item in items:
+            if item.get_closest_marker("adversarial") and hasattr(item, "callspec"):
+                case = item.callspec.params.get("adversarial_case")
+                if (
+                    case is not None
+                    and case.document_appendix
+                    and not config.getoption("capture_rag")
+                ):
+                    raise pytest.UsageError(
+                        "Document attacks require --capture-rag to verify actual retrieved attack exposure"
+                    )
     if not config.getoption("run_prompt_regression"):
         for item in items:
             if item.get_closest_marker("prompt_regression"):

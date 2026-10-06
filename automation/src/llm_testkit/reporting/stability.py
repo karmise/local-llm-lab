@@ -59,6 +59,8 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
         golden_case = properties.get("golden_case_id")
         if golden_case:
             scenario += f"[{golden_case}]"
+        if properties.get("adversarial_case_id"):
+            scenario += f"[attack={properties['adversarial_case_id']}]"
         if properties.get("prompt_id"):
             scenario += f"[prompt={properties['prompt_id']}]"
         group = groups.setdefault(
@@ -88,6 +90,8 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
         )
         if golden_case:
             complete = complete and bool(properties.get("golden_dataset_sha256"))
+        if properties.get("adversarial_case_id"):
+            complete = complete and bool(properties.get("adversarial_catalog_sha256"))
         if properties.get("prompt_id"):
             complete = complete and bool(properties.get("prompt_sha256"))
         group["metadata_complete"] = group["metadata_complete"] and complete
@@ -103,6 +107,7 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
                     properties["thinking_mode"],
                     properties.get("golden_dataset_sha256", ""),
                     properties.get("prompt_sha256", ""),
+                    properties.get("adversarial_catalog_sha256", ""),
                 )
             )
 
