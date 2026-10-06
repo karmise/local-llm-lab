@@ -140,3 +140,5 @@ Reference-based retrieval evaluation is described in [Context precision and reca
 [Adversarial inputs](../docs/step-26-adversarial-inputs.md) reuse golden policy expectations for six opt-in attacks. Document-injection scenarios require actual captured-context exposure; uploaded citations alone do not count as proof that the model saw an attack.
 
 [Quality gates and coverage](../docs/step-27-quality-gates.md) adds a 75% framework coverage floor in CI and opt-in experimental thresholds for all four saved semantic metrics. A reusable/manual workflow validates a producer's evidence artifact without model calls; local generation is not automatically available on hosted runners.
+
+[Metric history and baseline monitoring](../docs/step-28-metric-history.md) records immutable, provenance-bound measurements and compares new evidence to an explicit baseline without model calls.
