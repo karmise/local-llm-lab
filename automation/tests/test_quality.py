@@ -21,7 +21,8 @@ def test_saved_paid_leave_quality_report(
     sample = request.config.getoption("quality_sample")
     evidence = request.config.getoption("faithfulness_report")
     correctness = request.config.getoption("correctness_report")
-    if sample is None and evidence is None and correctness is None:
+    relevance = request.config.getoption("relevance_report")
+    if sample is None and evidence is None and correctness is None and relevance is None:
         pytest.skip(
             "Supply --quality-sample and --faithfulness-report for offline quality reporting"
         )
@@ -32,7 +33,11 @@ def test_saved_paid_leave_quality_report(
             'Install the reporting extra: python -m pip install -e ".[reporting]"', pytrace=False
         )
     report = build_quality_report(
-        sample, evidence, paid_leave_profile_path, correctness_path=correctness
+        sample,
+        evidence,
+        paid_leave_profile_path,
+        correctness_path=correctness,
+        relevance_path=relevance,
     )
     path = automation_root / "reports/quality" / f"{uuid4().hex}.json"
     write_sample(path, report)

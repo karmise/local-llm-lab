@@ -151,3 +151,16 @@ def test_allure_renders_remaining_steps_after_a_failed_dimension(
     with pytest.raises(AssertionError):
         present_quality_report(report)
     assert visited == [d["name"] for d in report["dimensions"]]
+
+
+@title("Missing context evidence creates two visible errors without hiding other quality checks")
+def test_optional_relevance_has_independent_dimensions(tmp_path: Path) -> None:
+    report = build_quality_report(*_files(tmp_path), relevance_path=tmp_path / "absent.json")
+    assert [d["status"] for d in report["dimensions"]] == [
+        "passed",
+        "passed",
+        "measured",
+        "error",
+        "error",
+    ]
+    assert [d["name"] for d in report["dimensions"][-2:]] == ["context_precision", "context_recall"]

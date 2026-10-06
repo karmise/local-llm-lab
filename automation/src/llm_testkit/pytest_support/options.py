@@ -28,6 +28,7 @@ def _model_name(value: str) -> str:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--relevance-report", type=Path, help="Existing precision/recall evidence")
     parser.addoption(
         "--run-golden",
         action="store_true",

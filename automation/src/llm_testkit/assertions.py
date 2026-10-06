@@ -348,7 +348,7 @@ def assert_quality_dimension(dimension: Mapping[str, Any]) -> None:
 
 def assert_quality_report(report: Mapping[str, Any]) -> None:
     dimensions = assert_field_type(report, "dimensions", list)
-    assert len(dimensions) in (3, 4), "Expected three base dimensions and optional correctness"
+    assert 3 <= len(dimensions) <= 6, "Expected base dimensions with optional correctness/relevance"
     for dimension in dimensions:
         assert_quality_dimension(dimension)
 

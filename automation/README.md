@@ -76,7 +76,7 @@ The [correctness guide](../docs/step-23-factual-correctness.md) describes refere
 RAGAS factual F1 with four bounded local judge calls and labelled controls. It is
 explicitly invoked for a captured golden case and can be added as optional saved
 evidence with `--correctness-report`. Existing live-quality budgets are unchanged.
-No correctness threshold or context precision/recall metric is introduced.
+Correctness remains a measurement until explicit gates are supplied. Context precision/recall can be evaluated separately as described below.
 
 ## Structure and extension rules
 
@@ -132,3 +132,5 @@ visible and generation counts stay predictable.
 
 The current changes and validation are recorded in the
 [refactoring notes](../docs/step-21-framework-refactoring.md).
+
+Reference-based retrieval evaluation is described in [Context precision and recall](../docs/step-24-context-relevance.md). It reuses captured samples and adds two independently validated dimensions to the quality report.

@@ -13,6 +13,7 @@ from llm_testkit import assertions
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.evaluation.correctness import check_correctness_evidence
 from llm_testkit.evaluation.faithfulness import load_sample
+from llm_testkit.evaluation.relevance import check_relevance_evidence
 
 
 def check_faithfulness_evidence(evidence: dict[str, Any], checksum: str) -> dict[str, Any]:
@@ -65,6 +66,7 @@ def build_quality_report(
     profile_path: Path,
     *,
     correctness_path: Path | None = None,
+    relevance_path: Path | None = None,
     golden_dataset_path: Path | None = None,
     policy_file: Path | None = None,
 ) -> dict[str, Any]:
@@ -130,6 +132,27 @@ def build_quality_report(
                 measured=True,
             )
         )
+    if relevance_path is not None:
+
+        def relevance_check(metric: str) -> dict[str, Any]:
+            dataset = load_golden_dataset(
+                golden_dataset_path or profile_path.parent / "golden-policy.json",
+                policy_file or profile_path.parent / "company-policy.txt",
+            )
+            result = check_relevance_evidence(
+                json.loads(relevance_path.read_text()), checksum, sample, dataset
+            )
+            return {
+                "value": result[metric],
+                "threshold": None,
+                "metric": metric,
+                "evidence": result,
+            }
+
+        for metric in ("context_precision", "context_recall"):
+            dimensions.append(
+                _dimension(metric, lambda metric=metric: relevance_check(metric), measured=True)
+            )
     statuses = [dimension["status"] for dimension in dimensions]
     return {
         "schema_version": 1,
