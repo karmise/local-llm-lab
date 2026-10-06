@@ -3,9 +3,11 @@
 import argparse
 import json
 import math
+import re
 from pathlib import Path
 from typing import Any
 
+from llm_testkit.core.provenance import normalize_configuration
 from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.performance.runner import validate_batch
 
@@ -21,29 +23,51 @@ def compare_batches(
         or not 0 <= maximum_growth <= 1
     ):
         raise ValueError("Latency growth must be a finite fraction between zero and one")
-    fields = ("workload", "system", "python", "base_url", "warmup_requests")
-    differences = [
-        k
-        for k in fields
-        if not baseline.get("metadata", {}).get(k) == current.get("metadata", {}).get(k)
-        or k not in baseline.get("metadata", {})
-    ]
+    metadata = [row.get("metadata") for row in (baseline, current)]
+    metadata = [m if isinstance(m, dict) else {} for m in metadata]
+    before, after = metadata
+    differences = []
+    for field in ("workload", "system", "machine", "python", "base_url"):
+        if any(
+            not isinstance(m.get(field), str) or not m[field].strip() for m in metadata
+        ) or before.get(field) != after.get(field):
+            differences.append(field)
+    if any(m.get("workload") not in ("health", "rag") for m in metadata):
+        differences.append("unsupported_workload")
+    for field in ("warmup_requests", "timeout"):
+        valid = all(
+            type(m.get(field)) is int and m[field] >= 0
+            if field == "warmup_requests"
+            else type(m.get(field)) in (int, float) and math.isfinite(m[field]) and m[field] > 0
+            for m in metadata
+        )
+        if not valid or before.get(field) != after.get(field):
+            differences.append(field)
     for field in ("requests", "users"):
         if baseline[field] != current[field]:
             differences.append(field)
-    for field in ("policy_sha256", "golden_dataset_sha256", "case_id"):
-        if baseline.get("metadata", {}).get(field) != current.get("metadata", {}).get(field):
-            differences.append(field)
-
-    def configuration(row):
-        return {
-            k: v
-            for k, v in row.get("metadata", {}).get("configuration", {}).items()
-            if k != "chatModel"
-        }
-
-    if configuration(baseline) != configuration(current):
-        differences.append("configuration")
+    if any(m.get("workload") == "rag" for m in metadata):
+        for field in ("policy_sha256", "golden_dataset_sha256", "case_id"):
+            valid = all(isinstance(m.get(field), str) and bool(m[field].strip()) for m in metadata)
+            if field.endswith("sha256"):
+                valid = valid and all(re.fullmatch(r"[a-f0-9]{64}", m[field]) for m in metadata)
+            if not valid or before.get(field) != after.get(field):
+                differences.append(field)
+        for field in ("generation_model", "model_digest"):
+            if any(not isinstance(m.get(field), str) or not m[field].strip() for m in metadata):
+                differences.append(field)
+        configurations = []
+        for m in metadata:
+            try:
+                config = normalize_configuration(m.get("configuration"))
+                if not config or config.get("chatModel") != m.get("generation_model"):
+                    raise ValueError("Missing or inconsistent model configuration")
+                configurations.append({k: v for k, v in config.items() if k != "chatModel"})
+            except ValueError:
+                differences.append("configuration")
+        if len(configurations) == 2 and configurations[0] != configurations[1]:
+            differences.append("configuration")
+    differences = list(dict.fromkeys(differences))
     base = baseline["latency_seconds"]["p95"]
     if base <= 0 or baseline["failed"]:
         differences.append("baseline_not_healthy")
@@ -52,7 +76,7 @@ def compare_batches(
         "incomparable"
         if differences
         else "regression"
-        if current["failed"] or growth > maximum_growth
+        if current["failed"] or growth > maximum_growth + 1e-12
         else "passed"
     )
     return {
@@ -63,8 +87,8 @@ def compare_batches(
         "baseline_p95": base,
         "current_p95": current["latency_seconds"]["p95"],
         "incomparable_fields": differences,
-        "model_changed": baseline.get("metadata", {}).get("model_digest")
-        != current.get("metadata", {}).get("model_digest"),
+        "model_changed": (before.get("generation_model"), before.get("model_digest"))
+        != (after.get("generation_model"), after.get("model_digest")),
         "interpretation": "Bounded performance regression signal for comparable workload/machine metadata, not a statistically significant capacity estimate",
     }
 

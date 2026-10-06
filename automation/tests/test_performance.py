@@ -1,7 +1,4 @@
 import hashlib
-import platform
-from pathlib import Path
-from uuid import uuid4
 
 import pytest
 
@@ -9,35 +6,11 @@ from llm_testkit import assertions
 from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.datasets.golden import load_golden_dataset
-from llm_testkit.observation.evaluation_sample import write_sample
+from llm_testkit.performance.reporting import record_batch
 from llm_testkit.performance.runner import run_batch
-from llm_testkit.reporting.steps import attach_file, title
+from llm_testkit.reporting.steps import title
 
 pytestmark = pytest.mark.performance
-
-
-def save_batch(request, automation_root: Path, report: dict, settings, *, metadata: dict) -> None:
-    report["metadata"] = {
-        **metadata,
-        "python": platform.python_version(),
-        "system": platform.platform(),
-        "base_url": settings.base_url,
-        "timeout": settings.llm_timeout,
-        "warmup_requests": 0,
-    }
-    report["thresholds"] = {
-        "maximum_p95": request.config.getoption("performance_p95"),
-        "maximum_failure_rate": 0.0,
-    }
-    path = automation_root / f"reports/performance/{uuid4().hex}.json"
-    write_sample(path, report)
-    attach_file(
-        path,
-        name="Performance attempts and thresholds",
-        media_type="application/json",
-        extension="json",
-    )
-    assertions.assert_performance_batch(report, maximum_p95=report["thresholds"]["maximum_p95"])
 
 
 @title("Bounded concurrent health requests meet declared latency and error thresholds")
@@ -51,7 +24,14 @@ def test_health_performance(request, settings, automation_root):
         requests=request.config.getoption("performance_requests"),
         users=request.config.getoption("performance_users"),
     )
-    save_batch(request, automation_root, report, settings, metadata={"workload": "health"})
+    record_batch(
+        report,
+        automation_root / "reports/performance",
+        base_url=settings.base_url,
+        timeout=settings.http_timeout,
+        maximum_p95=request.config.getoption("performance_p95"),
+        metadata={"workload": "health"},
+    )
 
 
 @pytest.mark.rag
@@ -68,10 +48,6 @@ def test_rag_performance(
     workspace_configuration,
     policy_file,
 ):
-    if request.config.getoption("capture_rag"):
-        pytest.fail(
-            "Performance batches do not support the single-answer capture mode", pytrace=False
-        )
     dataset = load_golden_dataset(automation_root / "test_data/golden-policy.json", policy_file)
     case = next(c for c in dataset.cases if c.id == "carryover_limit")
 
@@ -90,11 +66,12 @@ def test_rag_performance(
         requests=request.config.getoption("performance_requests"),
         users=request.config.getoption("performance_users"),
     )
-    save_batch(
-        request,
-        automation_root,
+    record_batch(
         report,
-        settings,
+        automation_root / "reports/performance",
+        base_url=settings.base_url,
+        timeout=settings.llm_timeout,
+        maximum_p95=request.config.getoption("performance_p95"),
         metadata={
             "workload": "rag",
             "generation_model": generation_model,

@@ -1,6 +1,7 @@
 """CLI options and selection rules for costly integration scenarios."""
 
 import importlib.util
+import math
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ from llm_testkit.datasets.adversarial import load_adversarial_cases
 from llm_testkit.datasets.bias import load_bias_cases
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.datasets.prompts import load_prompt_catalog
+from llm_testkit.performance.runner import validate_budget
 
 DEFAULT_RAG_MODELS = ("qwen3.5:4b", "qwen2.5:7b")
 
@@ -205,11 +207,14 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
                     config.getoption("performance_requests"),
                     config.getoption("performance_users"),
                 )
-                if not 1 <= count <= 20 or not 1 <= users <= min(count, 4):
+                try:
+                    validate_budget(count, users)
+                except ValueError as error:
+                    raise pytest.UsageError(f"Performance budget: {error}") from error
+                if mode == "rag" and config.getoption("capture_rag"):
                     raise pytest.UsageError(
-                        "Performance budget: at most twenty requests and four users"
+                        "Performance batches do not support the single-answer capture mode"
                     )
-                import math
 
                 p95 = config.getoption("performance_p95")
                 if not math.isfinite(p95) or p95 <= 0:
