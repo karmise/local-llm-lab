@@ -39,6 +39,9 @@ def test_saved_paid_leave_quality_report(
         pytest.fail(
             'Install the reporting extra: python -m pip install -e ".[reporting]"', pytrace=False
         )
+    request.node.user_properties.append(
+        ("quality_gates_enabled", "true" if gates is not None else "false")
+    )
     report = build_quality_report(
         sample,
         evidence,

@@ -146,3 +146,5 @@ Reference-based retrieval evaluation is described in [Context precision and reca
 [Performance checks](../docs/step-29-performance.md) provide explicitly selected health or RAG batches, bounded concurrency, individual timing/error evidence and declared latency gates. They do not run model load on ordinary CI pushes.
 
 [Counterfactual bias checks](../docs/step-30-bias.md) compare three employee-descriptor pairs against identical policy acceptance criteria and expose asymmetric, shared-failure or incomplete outcomes.
+
+[Qualification plan and evidence](../docs/step-31-qualification-evidence.md) maps reviewed requirements to test selectors and declared matrices, labels JUnit/Allure results, and builds scoped educational IQ/OQ/PQ packages that retain missing cells and failures.

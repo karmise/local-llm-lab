@@ -476,3 +476,12 @@ Follow these guides after the basic paid-leave walkthrough:
 - [Quality gates](step-27-quality-gates.md): apply explicit experimental thresholds to validated saved evidence, and enforce framework coverage in CI.
 
 Keep the distinction between measurement, a scoped acceptance pass and statistical validation. Full matrices remain opt-in. Gate thresholds are illustrative; a saved paid-leave gate does not establish dataset-wide or clinical quality.
+
+## Monitoring and qualification extensions
+
+- [Metric history](step-28-metric-history.md): preserve provenance-bound measurements and compare new samples against explicit baselines.
+- [Performance](step-29-performance.md): run bounded health/RAG workloads with attempt timings and declared failure/latency gates.
+- [Paired bias checks](step-30-bias.md): vary employee descriptors while keeping policy acceptance fixed.
+- [Test plan](test-plan.md) and [educational qualification evidence](step-31-qualification-evidence.md): trace requirements to declared test matrices, preserve deviations and package selected IQ/OQ/PQ results.
+
+A scoped pass is not complete statistical validation or GxP approval. Full matrices remain opt-in, and human review is recorded as pending.

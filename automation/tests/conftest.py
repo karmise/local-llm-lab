@@ -7,6 +7,7 @@ pytest.register_assert_rewrite("llm_testkit.assertions")
 pytest_plugins = (
     "pytester",
     "llm_testkit.pytest_support.options",
+    "llm_testkit.pytest_support.evidence",
     "llm_testkit.pytest_support.environment",
     "llm_testkit.pytest_support.resources",
     "llm_testkit.pytest_support.rag",

@@ -13,9 +13,12 @@ LLM and retrieval-augmented generation workflows.
 The framework is developed incrementally. It currently provides a layered API
 client, authentication checks, workspace lifecycle, document retrieval,
 grounded policy-answer and missing-information checks across two generation models,
-actual context capture and local RAGAS faithfulness evaluation with hand-labelled
-judge controls, four Playwright UI scenarios and automated Ruff/unit checks in
-GitHub Actions. Broader model evaluation and integration CI are planned extensions.
+actual context capture and local RAGAS evaluation with hand-labelled judge controls,
+golden datasets, prompt/adversarial/bias regression scenarios, metric history,
+bounded performance checks and four Playwright UI scenarios. GitHub Actions runs
+offline framework checks with a coverage floor; saved evidence has explicit
+experimental quality gates. A test plan and educational IQ/OQ/PQ evidence builder
+link requirements to declared test matrices and execution results.
 
 ## Project structure
 
@@ -209,14 +212,16 @@ Inside the container, `localhost` refers to the container itself. Use
 `host.docker.internal` to reach native Ollama. Changing the embedding model
 requires re-indexing: vectors from different models are not interchangeable.
 
-## Planned coverage
+## Monitoring and qualification
 
-Additional question/answer checks; larger stability experiments;
-UI coverage; reference question sets; RAG evaluation and CI quality gates.
+- [Metric history and explicit baselines](docs/step-28-metric-history.md)
+- [Bounded performance checks](docs/step-29-performance.md)
+- [Counterfactual bias regression](docs/step-30-bias.md)
+- [Test plan](docs/test-plan.md) and [educational IQ/OQ/PQ evidence](docs/step-31-qualification-evidence.md)
 
-Use opt-in context capture before adding RAGAS. Returned source references alone
-do not establish the complete model context. A successful answer
-is an integration smoke result, not a statistical estimate of model accuracy.
+Full live matrices remain opt-in. Returned source references alone do not
+establish the complete model context. A scoped acceptance pass is not a statistical
+estimate of accuracy, demographic fairness validation or GxP approval.
 
 ## Official references
 

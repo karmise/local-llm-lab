@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "version": "policy-lab-plan-v1",
+  "educational_only": true,
+  "requirements": [
+    {
+      "id": "REQ-RUNTIME",
+      "phase": "IQ",
+      "risk": "medium",
+      "description": "Supported automation runtime is installed",
+      "acceptance": "Python 3.12 with pinned pytest and Requests",
+      "rationale": "An incompatible interpreter or base library can invalidate every result before application behavior is assessed.",
+      "tests": [
+        "tests/test_installation.py::test_supported_runtime"
+      ],
+      "axes": {}
+    },
+    {
+      "id": "REQ-SERVICE",
+      "phase": "IQ",
+      "risk": "high",
+      "description": "AnythingLLM is reachable",
+      "acceptance": "Health response satisfies the API health contract",
+      "rationale": "An unavailable service prevents intended use and makes downstream failures difficult to attribute.",
+      "tests": [
+        "tests/test_health.py::test_anythingllm_is_online"
+      ],
+      "axes": {}
+    },
+    {
+      "id": "REQ-MODELS",
+      "phase": "IQ",
+      "risk": "high",
+      "description": "Declared generation models are installed",
+      "acceptance": "Both model names exist with nonempty digests",
+      "rationale": "Missing models or unidentified weights invalidate reproducible model comparisons.",
+      "tests": [
+        "tests/test_installation.py::test_declared_models_available"
+      ],
+      "axes": {}
+    },
+    {
+      "id": "REQ-AUTH",
+      "phase": "OQ",
+      "risk": "high",
+      "description": "Developer API enforces authentication",
+      "acceptance": "Valid key is accepted; missing and invalid keys are rejected",
+      "rationale": "Accepting unauthorized developer calls exposes application resources and test data.",
+      "tests": [
+        "tests/test_authentication.py::test_valid_api_key_is_accepted",
+        "tests/test_authentication.py::test_missing_api_key_is_rejected",
+        "tests/test_authentication.py::test_invalid_api_key_is_rejected"
+      ],
+      "axes": {}
+    },
+    {
+      "id": "REQ-RESOURCE",
+      "phase": "OQ",
+      "risk": "high",
+      "description": "Test resources can be created and cleaned up",
+      "acceptance": "Workspace settings match and finalizer verifies absence",
+      "rationale": "Leaked or shared mutable resources contaminate later tests and leave uncontrolled application state.",
+      "tests": [
+        "tests/test_workspace.py::test_temporary_workspace_lifecycle"
+      ],
+      "axes": {}
+    },
+    {
+      "id": "REQ-RETRIEVAL",
+      "phase": "OQ",
+      "risk": "high",
+      "description": "Uploaded policy is indexed and searchable",
+      "acceptance": "Workspace attachment and vector search return policy anchors",
+      "rationale": "Missing or unrelated retrieved policy passages make grounded answer acceptance unreliable.",
+      "tests": [
+        "tests/test_documents.py::test_policy_document_is_indexed_and_searchable"
+      ],
+      "axes": {}
+    },
+    {
+      "id": "REQ-GOLDEN",
+      "phase": "PQ",
+      "risk": "high",
+      "description": "Reviewed policy answers preserve facts and acknowledge missing information",
+      "acceptance": "All declared golden cases meet required/forbidden/source criteria on both models",
+      "rationale": "Incorrect benefits or invented missing information can mislead users about the fictional policy.",
+      "tests": [
+        "tests/test_golden_rag.py::test_golden_policy_answer"
+      ],
+      "axes": {
+        "golden_case_id": [
+          "paid_leave",
+          "leave_approver",
+          "carryover_limit",
+          "carryover_deadline",
+          "travel_allowance",
+          "hotel_reimbursement",
+          "expense_deadline",
+          "travel_approvers",
+          "remote_work_limit",
+          "remote_availability",
+          "leave_day_type_correction",
+          "carryover_over_limit",
+          "hotel_receipt_condition",
+          "gym_missing",
+          "bonus_missing",
+          "parental_leave_missing"
+        ],
+        "generation_model": [
+          "qwen3.5:4b",
+          "qwen2.5:7b"
+        ]
+      }
+    },
+    {
+      "id": "REQ-PROMPT",
+      "phase": "PQ",
+      "risk": "high",
+      "description": "Versioned prompt changes preserve reviewed policy answers",
+      "acceptance": "Every golden case passes with baseline and candidate on both models",
+      "rationale": "A prompt change can silently weaken factual accuracy or missing-information behavior.",
+      "tests": [
+        "tests/test_prompt_regression.py::test_prompt_preserves_policy_answer"
+      ],
+      "axes": {
+        "golden_case_id": [
+          "paid_leave",
+          "leave_approver",
+          "carryover_limit",
+          "carryover_deadline",
+          "travel_allowance",
+          "hotel_reimbursement",
+          "expense_deadline",
+          "travel_approvers",
+          "remote_work_limit",
+          "remote_availability",
+          "leave_day_type_correction",
+          "carryover_over_limit",
+          "hotel_receipt_condition",
+          "gym_missing",
+          "bonus_missing",
+          "parental_leave_missing"
+        ],
+        "generation_model": [
+          "qwen3.5:4b",
+          "qwen2.5:7b"
+        ],
+        "prompt_id": [
+          "baseline",
+          "grounded_v2"
+        ]
+      }
+    },
+    {
+      "id": "REQ-ATTACK",
+      "phase": "PQ",
+      "risk": "high",
+      "description": "Curated attacks do not override policy expectations",
+      "acceptance": "All attack cases preserve golden acceptance; document attacks prove captured exposure",
+      "rationale": "Untrusted instructions can redirect generation away from the reviewed policy.",
+      "tests": [
+        "tests/test_adversarial.py::test_policy_resists_adversarial_input"
+      ],
+      "axes": {
+        "adversarial_case_id": [
+          "user_override",
+          "role_spoof",
+          "forged_source",
+          "fabricated_benefit",
+          "document_instruction",
+          "conflicting_note"
+        ],
+        "generation_model": [
+          "qwen3.5:4b",
+          "qwen2.5:7b"
+        ]
+      }
+    },
+    {
+      "id": "REQ-BIAS",
+      "phase": "PQ",
+      "risk": "high",
+      "description": "Employee descriptors do not change uniform entitlements",
+      "acceptance": "Every paired variant passes the same reviewed policy criteria",
+      "rationale": "Uniform policy entitlements should not depend on irrelevant employee descriptors.",
+      "tests": [
+        "tests/test_bias.py::test_counterfactual_policy_answer"
+      ],
+      "axes": {
+        "bias_pair_id": [
+          "gender_carryover",
+          "age_carryover",
+          "nationality_carryover"
+        ],
+        "bias_variant_id": [
+          "1",
+          "2"
+        ],
+        "generation_model": [
+          "qwen3.5:4b",
+          "qwen2.5:7b"
+        ]
+      }
+    },
+    {
+      "id": "REQ-UI",
+      "phase": "PQ",
+      "risk": "medium",
+      "description": "Policy answers and sources remain usable through the UI",
+      "acceptance": "Answer/source display, missing information, source passages and reload persistence pass",
+      "rationale": "Users must see the accepted answer, supporting evidence and persisted conversation.",
+      "tests": [
+        "tests/ui/test_workspace_chat.py::test_paid_leave_answer_and_source_are_visible",
+        "tests/ui/test_workspace_chat.py::test_missing_policy_does_not_display_invented_reimbursement",
+        "tests/ui/test_workspace_chat.py::test_source_details_display_supporting_policy_passages",
+        "tests/ui/test_workspace_chat.py::test_chat_history_survives_page_reload"
+      ],
+      "axes": {}
+    },
+    {
+      "id": "REQ-QUALITY",
+      "phase": "PQ",
+      "risk": "high",
+      "description": "Saved paid-leave evidence meets explicit experimental gates",
+      "acceptance": "Facts, sources and all four validated semantic metrics meet configured gates",
+      "rationale": "A single dimension can hide weaknesses in grounding, correctness or retrieval; missing evidence must fail closed.",
+      "tests": [
+        "tests/test_quality.py::test_saved_paid_leave_quality_report"
+      ],
+      "axes": {
+        "quality_gates_enabled": [
+          "true"
+        ]
+      }
+    },
+    {
+      "id": "REQ-PERFORMANCE",
+      "phase": "PQ",
+      "risk": "medium",
+      "description": "Declared bounded workloads meet latency and error criteria",
+      "acceptance": "Health and RAG batches meet recorded thresholds and preserve RAG correctness",
+      "rationale": "Long waits and request errors reduce usability; concurrent requests must preserve answer acceptance.",
+      "tests": [
+        "tests/test_performance.py::test_health_performance",
+        "tests/test_performance.py::test_rag_performance"
+      ],
+      "axes": {}
+    }
+  ],
+  "data_sha256": {
+    "golden-policy.json": "60b8edba5525ee74a2ed28472c2d9d6fcf192b98909b6295b84bd72b0a12fcf6",
+    "prompt-variants.json": "e4dee86a6fccf64e8ba3f7f55b8778fb0e8710e7a0f2bce85b8a582f5d808a30",
+    "adversarial-policy.json": "792411da12422ae1a8cff631601d911af42b5d2ed867791d9306f0e189f5e898",
+    "bias-policy.json": "222e97892722c4bec5bcc728268699a4121d80c2070ff2648fb58dff51a33198",
+    "quality-gates.json": "7e93f6c42cd4e8fd8ed4bd509af2816f16c199eb6bf0192fa634437c0f0715b5",
+    "quality-paid-leave.json": "1b71471c1772a12a3a542737c43807b3945da64a95f1c3d195c24897e6753996",
+    "company-policy.txt": "02ca83ffa0e66349e39eeb58de78fd1010471f2dd892e6c9739346000e841709",
+    "missing-policy.json": "724d0a799a9b0963414dbe388617ff2e7d237e8514adf7af8992b075f7945597"
+  }
+}

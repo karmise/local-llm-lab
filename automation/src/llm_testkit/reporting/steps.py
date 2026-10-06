@@ -84,3 +84,12 @@ def attach_browser_artifacts(directory: Path) -> None:
             attach_file(artifact, name=artifact.name, media_type="image/png", extension="png")
         elif artifact.suffix == ".zip":
             attach_file(artifact, name=artifact.name, media_type="application/zip", extension="zip")
+
+
+def traceability_labels(requirements: list[str], phases: list[str]) -> None:
+    backend = _backend()
+    if backend is not None:
+        for identifier in requirements:
+            backend.dynamic.label("requirement", identifier)
+        for phase in phases:
+            backend.dynamic.label("qualification_phase", phase)
