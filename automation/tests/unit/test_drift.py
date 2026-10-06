@@ -1,9 +1,11 @@
+import hashlib
 from copy import deepcopy
 
 import pytest
 
 from llm_testkit.reporting.drift import (
     compare_snapshots,
+    digest,
     record_snapshot,
     seal_snapshot,
     validate_snapshot,
@@ -15,28 +17,46 @@ pytestmark = pytest.mark.unit
 
 
 def snapshot(sample="a", **changes):
-    return seal_snapshot(
-        {
-            "schema_version": 1,
-            "kind": "quality_snapshot",
-            "run_id": sample,
-            "recorded_at": "2026-10-06T00:00:00+00:00",
-            "case_id": "paid_leave",
-            "sample_sha256": sample * 64,
-            "model": "model",
-            "model_digest": "b" * 64,
-            "policy_sha256": "c" * 64,
-            "dataset_sha256": "d" * 64,
-            "prompt_sha256": "e" * 64,
-            "judge_sha256": "f" * 64,
-            "configuration": {"chatModel": "model", "topN": 4},
-            "thinking_mode": "default",
-            "context_parser": "test",
-            "metrics": dict.fromkeys(METRICS, 1.0),
-            "acceptance": {"facts": "passed", "sources": "passed"},
-            **changes,
-        }
+    payload = {
+        "schema_version": 1,
+        "kind": "quality_snapshot",
+        "run_id": sample,
+        "recorded_at": "2026-10-06T00:00:00+00:00",
+        "case_id": "paid_leave",
+        "sample_sha256": sample * 64,
+        "model": "model",
+        "model_digest": "b" * 64,
+        "policy_sha256": "c" * 64,
+        "dataset_sha256": "d" * 64,
+        "configuration": {"chatModel": "model", "openAiPrompt": "Policy", "topN": 4},
+        "judges": {
+            name: {
+                "judge_model": "judge",
+                "judge_model_digest": "f" * 64,
+                "judge_configuration": {"think": False},
+                "ragas_version": "test",
+            }
+            for name in ("faithfulness", "correctness", "relevance")
+        },
+        "evidence_sha256": dict.fromkeys(("faithfulness", "correctness", "relevance"), "0" * 64),
+        "thinking_mode": "default",
+        "context_parser": "test",
+        "metrics": dict.fromkeys(METRICS, 1.0),
+        "acceptance": {"facts": "passed", "sources": "passed"},
+        **changes,
+    }
+    payload["configuration"] = {
+        "chatModel": "model",
+        "openAiPrompt": "Policy",
+        "topN": 4,
+        **payload["configuration"],
+    }
+    payload["prompt_sha256"] = changes.get(
+        "prompt_sha256",
+        hashlib.sha256(payload["configuration"]["openAiPrompt"].encode()).hexdigest(),
     )
+    payload["judge_sha256"] = changes.get("judge_sha256", digest(payload["judges"]))
+    return seal_snapshot(payload)
 
 
 @pytest.mark.parametrize(
@@ -59,8 +79,11 @@ def test_comparison(change, status):
         changes["metrics"] = {**base["metrics"], "context_recall": 0.8}
     elif change == "facts":
         changes["acceptance"] = {"facts": "failed", "sources": "passed"}
-    elif change in ("judge", "prompt"):
-        changes[change + "_sha256"] = "1" * 64
+    elif change == "judge":
+        changes["judges"] = deepcopy(base["judges"])
+        changes["judges"]["faithfulness"]["judge_model"] = "other-judge"
+    elif change == "prompt":
+        changes["configuration"] = {"chatModel": "model", "topN": 4, "openAiPrompt": "Changed"}
     elif change == "config":
         changes["configuration"] = {"chatModel": "model", "topN": 2}
     elif change == "model":
@@ -116,7 +139,18 @@ def test_drop_boundary():
     )
 
 
-@pytest.mark.parametrize("change", ["none", "error", "policy", "configuration"])
+@pytest.mark.parametrize(
+    "change",
+    [
+        "none",
+        "error",
+        "policy",
+        "configuration",
+        "changed-sample",
+        "changed-evidence",
+        "changed-dataset",
+    ],
+)
 @title(
     "Snapshot assembly binds measured evidence to captured configuration and reviewed policy [{param_id}]"
 )
@@ -183,6 +217,12 @@ def test_snapshot_assembly(tmp_path, monkeypatch, change):
     quality = {
         "status": "error" if change == "error" else "checks_passed",
         "generation_model": "model",
+        "sample_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "golden_dataset_sha256": dataset.sha256,
+        "evidence_sha256": dict.fromkeys(
+            ("faithfulness", "correctness", "relevance"),
+            hashlib.sha256(evidence.read_bytes()).hexdigest(),
+        ),
         "dimensions": [
             {"status": "passed"},
             {"status": "passed"},
@@ -201,6 +241,13 @@ def test_snapshot_assembly(tmp_path, monkeypatch, change):
         "policy": root / "company-policy.txt",
         "case_id": case.id,
     }
+    if change == "changed-sample":
+        sample["metadata"]["thinking_mode"] = "changed"
+        path.write_text(json.dumps(sample))
+    elif change == "changed-evidence":
+        evidence.write_text(evidence.read_text() + "\n")
+    elif change == "changed-dataset":
+        quality["golden_dataset_sha256"] = "0" * 64
     if change != "none":
         with pytest.raises(ValueError):
             make_snapshot(path, **arguments)
@@ -209,3 +256,28 @@ def test_snapshot_assembly(tmp_path, monkeypatch, change):
         assert row["configuration"]["openAiPrompt"] == "Policy"
         assert row["case_id"] == case.id
         assert set(row["evidence_sha256"]) == {"faithfulness", "correctness", "relevance"}
+
+
+@pytest.mark.parametrize("run_id", ["../escaped", "/absolute", "nested/file", ".."])
+def test_history_id_cannot_escape_destination(tmp_path, run_id):
+    with pytest.raises(ValueError):
+        record_snapshot(tmp_path / "history", snapshot(run_id=run_id))
+    assert not (tmp_path / "escaped.json").exists()
+
+
+def test_sealing_snapshot_is_idempotent():
+    row = snapshot()
+    assert seal_snapshot(row) == row
+
+
+@pytest.mark.parametrize("field", ["configuration", "judges", "evidence_sha256"])
+def test_resealed_history_revalidates_provenance_contents(field):
+    row = snapshot()
+    if field == "configuration":
+        row[field]["openAiPrompt"] = "Changed without updating its checksum"
+    elif field == "judges":
+        row[field]["faithfulness"]["judge_model"] = "Other judge with old checksum"
+    else:
+        row[field] = {}
+    with pytest.raises(ValueError):
+        validate_snapshot(seal_snapshot(row))

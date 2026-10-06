@@ -177,3 +177,43 @@ def test_saved_report_gates_require_all_evidence(tmp_path: Path) -> None:
     assert len(report["dimensions"]) == 6
     with pytest.raises(AssertionError, match="not supplied"):
         assertions.assert_quality_report(report)
+
+
+def test_relevance_dimensions_share_one_validated_evidence(tmp_path, monkeypatch):
+    from llm_testkit.reporting import quality
+
+    paths = _files(tmp_path)
+    evidence_path = tmp_path / "relevance.json"
+    evidence_path.write_text('{"observation": 1}')
+    loads = []
+    checks = []
+
+    def load_dataset(*args):
+        loads.append(1)
+        return Mock(sha256="a" * 64)
+
+    def check(evidence, *args):
+        checks.append(evidence)
+        evidence_path.write_text('{"observation": 2}')
+        return {
+            "context_precision": evidence["observation"] / 2,
+            "context_recall": evidence["observation"] / 2,
+        }
+
+    monkeypatch.setattr(quality, "load_golden_dataset", load_dataset)
+    monkeypatch.setattr(quality, "check_relevance_evidence", check)
+    report = build_quality_report(*paths, relevance_path=evidence_path)
+    assert [d["details"]["value"] for d in report["dimensions"][-2:]] == [0.5, 0.5]
+    assert loads == [1]
+    assert checks == [{"observation": 1}]
+
+
+def test_saved_faithfulness_rejects_summary_changed_from_raw_judge_calls(tmp_path):
+    paths = _files(tmp_path)
+    evidence = json.loads(paths[1].read_text())
+    evidence["judge_calls"] = [
+        {"output": {"statements": evidence["result"]["statements"]}},
+        {"output": {"statements": [{"statement": "different claim", "verdict": 0}]}},
+    ]
+    paths[1].write_text(json.dumps(evidence))
+    assert build_quality_report(*paths)["status"] == "error"

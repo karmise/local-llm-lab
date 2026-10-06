@@ -405,3 +405,100 @@ def test_pytest_traceability(framework_pytester, evidence_lab):
     plan["requirements"][0]["tests"] = ["tests/test_example.py::test_unknown"]
     (child / "test_data/qualification-plan.json").write_text(json.dumps(plan))
     assert framework_pytester.runpytest_subprocess("-q").ret == pytest.ExitCode.USAGE_ERROR
+
+
+@pytest.mark.parametrize("stale_first", [True, False])
+def test_conflicting_inline_provenance_cannot_pass(evidence_lab, stale_first):
+    root, _, plan = evidence_lab
+    junit = write_junit(root, plan, [("first", "passed", {}), ("second", "passed", {})])
+    tree = ET.parse(junit)
+    props = tree.getroot().find(".//properties")
+    duplicate = ET.Element("property", name="qualification_plan_sha256", value="stale")
+    if stale_first:
+        props.insert(0, duplicate)
+    else:
+        props.append(duplicate)
+    tree.write(junit)
+    assert package.trace_results(plan, [junit], ["OQ"])["status"] == "incomplete"
+
+
+@pytest.mark.parametrize("change", ["status", "plan", "resealed-trace", "trace-schema", "unlisted"])
+def test_package_verification_binds_outcomes_to_inputs(evidence_lab, change):
+    root, path, plan = evidence_lab
+    output = root / "reports/package"
+    package.build_package(
+        output, root=root, plan_path=path, junit_files=[write_junit(root, plan, [])], phases=["OQ"]
+    )
+    manifest_path = output / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    if change == "unlisted":
+        (output / "extra.json").write_text("{}")
+    elif change == "trace-schema":
+        trace_path = output / "traceability.json"
+        trace = json.loads(trace_path.read_text())
+        trace["schema_version"] = True
+        trace_path.write_text(json.dumps(trace))
+        row = next(r for r in manifest["files"] if r["path"] == "traceability.json")
+        row.update(
+            sha256=hashlib.sha256(trace_path.read_bytes()).hexdigest(),
+            size=trace_path.stat().st_size,
+        )
+    elif change == "plan":
+        manifest["plan_sha256"] = "0" * 64
+    else:
+        manifest["status"] = "passed"
+        if change == "resealed-trace":
+            trace_path = output / "traceability.json"
+            trace = json.loads(trace_path.read_text())
+            trace["status"] = "passed"
+            trace_path.write_text(json.dumps(trace))
+            row = next(r for r in manifest["files"] if r["path"] == "traceability.json")
+            row.update(
+                sha256=hashlib.sha256(trace_path.read_bytes()).hexdigest(),
+                size=trace_path.stat().st_size,
+            )
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError):
+        package.verify_package(output)
+
+
+def test_nested_fixture_changes_invalidate_framework_provenance(evidence_lab):
+    root, path, original = evidence_lab
+    (root / "tests/ui").mkdir()
+    (root / "tests/ui/conftest.py").write_text("FIXTURE_VERSION = 1\n")
+    changed = load_plan(path, root)
+    assert changed["framework_source_sha256"] != original["framework_source_sha256"]
+
+
+@pytest.mark.parametrize("change", ["selector-alias", "data-alias", "phase-type"])
+def test_plan_rejects_ambiguous_paths_and_phase_types(evidence_lab, change):
+    root, path, _ = evidence_lab
+    data = json.loads(path.read_text())
+    if change == "selector-alias":
+        data["requirements"][0]["tests"] = ["tests/../tests/test_example.py::test_example"]
+    elif change == "data-alias":
+        checksum = data["data_sha256"].pop("policy.txt")
+        data["data_sha256"]["./policy.txt"] = checksum
+    else:
+        data["requirements"][0]["phase"] = []
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError):
+        load_plan(path, root)
+
+
+def test_package_verification_is_independent_of_original_directory(evidence_lab):
+    import shutil
+
+    root, path, plan = evidence_lab
+    output = root / "reports/package"
+    package.build_package(
+        output,
+        root=root,
+        plan_path=path,
+        junit_files=[write_junit(root, plan, [("first", "passed", {}), ("second", "passed", {})])],
+        phases=["OQ"],
+    )
+    moved = root.parent / "archived-evidence"
+    shutil.move(output, moved)
+    shutil.rmtree(root)
+    package.verify_package(moved)

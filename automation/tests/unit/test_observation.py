@@ -131,3 +131,42 @@ console.log(JSON.stringify({ sameRequest, sameReturn: returned === response, sam
     assert actual["files"] == 1
     saved = json.loads(next(tmp_path.glob("*.json")).read_text())
     assert saved["request"] == _capture()["request"]
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), object()])
+def test_invalid_evidence_never_leaves_partial_output(tmp_path, value):
+    path = tmp_path / "sample.json"
+    with pytest.raises((ValueError, TypeError)):
+        write_sample(path, {"value": value})
+    assert not list(tmp_path.iterdir())
+
+
+def test_concurrent_evidence_writers_publish_once_without_overwrite(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    path = tmp_path / "sample.json"
+
+    def publish(index):
+        try:
+            write_sample(path, {"writer": index, "payload": "content" * 1000})
+            return index
+        except FileExistsError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=4) as workers:
+        outcomes = list(workers.map(publish, range(4)))
+    winners = [i for i in outcomes if i is not None]
+    assert len(winners) == 1
+    assert json.loads(path.read_text())["writer"] == winners[0]
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_publication_failure_removes_temporary_evidence(tmp_path, monkeypatch):
+    def fail(*args):
+        raise OSError("publication unavailable")
+
+    monkeypatch.setattr("llm_testkit.observation.evaluation_sample.os.link", fail)
+    with pytest.raises(OSError, match="publication unavailable"):
+        write_sample(tmp_path / "sample.json", {"value": 1})
+    assert not list(tmp_path.iterdir())

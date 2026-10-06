@@ -1,8 +1,10 @@
 """Build evaluation inputs from observed messages, never from response sources."""
 
 import json
+import os
 import re
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any
 
 
@@ -53,8 +55,21 @@ def build_sample(
 
 
 def write_sample(path: Path, sample: dict[str, Any]) -> None:
+    content = json.dumps(sample, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("x", encoding="utf-8") as output:
-        path.chmod(0o600)
-        json.dump(sample, output, ensure_ascii=False, indent=2)
-        output.write("\n")
+    # Publish complete bytes atomically and exclusively; concurrent readers never see a partial JSON.
+    output = NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        dir=path.parent,
+        prefix=".evidence-",
+        suffix=".tmp",
+        delete=False,
+    )
+    temporary = Path(output.name)
+    try:
+        with output:
+            output.write(content)
+        os.link(temporary, path)
+    finally:
+        temporary.unlink()

@@ -5,9 +5,8 @@ import hashlib
 import json
 import shutil
 import tempfile
-import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from llm_testkit.observation.evaluation_sample import write_sample
@@ -18,6 +17,7 @@ from llm_testkit.qualification.plan import (
     framework_sources,
     load_plan,
 )
+from llm_testkit.reporting.junit import read_junit
 
 
 def trace_results(
@@ -29,39 +29,20 @@ def trace_results(
     observations = {}
     deviations = []
     for path in junit_files:
-        # Each input is a run. Duplicate testcase elements within a run may represent teardown errors.
-        raw = path.read_bytes()
-        input_sha256[str(path.resolve())] = hashlib.sha256(raw).hexdigest()
-        for row in ET.fromstring(raw).iter("testcase"):
-            props = {
-                p.attrib["name"]: p.attrib.get("value", "")
-                for p in row.findall("./properties/property")
-            }
-            node = props.get("test_node_id")
+        # Each file is an independent run; phase entries within it share node identity.
+        junit = read_junit(path, identity_property="test_node_id")
+        input_sha256[str(path.resolve())] = junit.sha256
+        for entry in junit.cases.values():
+            node = entry.properties.get("test_node_id")
             if not node:
                 continue
-            identity = (str(path.resolve()), node)
-            entry = observations.setdefault(
-                identity, {"node": node, "properties": {}, "status": "passed", "details": []}
-            )
-            for name, value in props.items():
-                if name in entry["properties"] and entry["properties"][name] != value:
-                    entry["status"] = "error"
-                    entry["details"].append("Conflicting metadata: " + name)
-                entry["properties"][name] = value
-            priorities = {"passed": 0, "failed": 1, "skipped": 2, "error": 3}
-            for tag, status in [("failure", "failed"), ("skipped", "skipped"), ("error", "error")]:
-                child = row.find(tag)
-                if child is not None:
-                    if priorities[status] > priorities[entry["status"]]:
-                        entry["status"] = status
-                    entry["details"].append(
-                        {
-                            "kind": status,
-                            "message": child.attrib.get("message", ""),
-                            "text": child.text or "",
-                        }
-                    )
+            details = ["Conflicting metadata: " + name for name in sorted(entry.conflicts)]
+            observations[(str(path.resolve()), node)] = {
+                "node": node,
+                "properties": entry.properties,
+                "status": entry.status,
+                "details": [*details, *entry.details],
+            }
     requirements = []
     for req in plan["requirements"]:
         if req["phase"] not in phases:
@@ -270,23 +251,70 @@ def build_package(
 def verify_package(directory: Path) -> None:
     manifest = json.loads((directory / "manifest.json").read_text())
     if (
-        manifest.get("schema_version") != 1
+        not isinstance(manifest, dict)
+        or type(manifest.get("schema_version")) is not int
+        or manifest["schema_version"] != 1
         or manifest.get("educational_only") is not True
+        or not isinstance(manifest.get("files"), list)
         or not manifest.get("files")
     ):
         raise ValueError("Invalid evidence manifest")
     seen = set()
     for row in manifest["files"]:
+        if not isinstance(row, dict) or not isinstance(row.get("path"), str):
+            raise ValueError("Invalid evidence file entry")
         relative = row["path"]
+        parts = PurePosixPath(relative)
+        if (
+            parts.is_absolute()
+            or ".." in parts.parts
+            or parts.as_posix() != relative
+            or "\\" in relative
+            or relative == "manifest.json"
+        ):
+            raise ValueError("Invalid evidence path")
         path = (directory / relative).resolve()
         if relative in seen or not path.is_relative_to(directory.resolve()):
             raise ValueError("Invalid or duplicate evidence path")
         seen.add(relative)
         raw = path.read_bytes()
-        if hashlib.sha256(raw).hexdigest() != row["sha256"] or len(raw) != row["size"]:
+        if (
+            hashlib.sha256(raw).hexdigest() != row.get("sha256")
+            or type(row.get("size")) is not int
+            or len(raw) != row["size"]
+        ):
             raise ValueError("Evidence checksum or size mismatch: " + relative)
     if not {"traceability.json", "summary.md", "definitions/plan.json"} <= seen:
         raise ValueError("Evidence package is missing required definitions or outcomes")
+    actual = {p.relative_to(directory).as_posix() for p in directory.rglob("*") if p.is_file()}
+    if actual != seen | {"manifest.json"}:
+        raise ValueError("Evidence package contains unlisted files")
+    definitions = directory / "definitions"
+    plan = load_plan(definitions / "plan.json", definitions, data_root=definitions / "data")
+    if manifest.get("plan_sha256") != plan["sha256"]:
+        raise ValueError("Manifest plan checksum mismatch")
+    trace = json.loads((directory / "traceability.json").read_text())
+    if (
+        not isinstance(trace, dict)
+        or type(trace.get("schema_version")) is not int
+        or trace["schema_version"] != 1
+        or trace.get("educational_only") is not True
+        or not isinstance(trace.get("input_sha256"), dict)
+    ):
+        raise ValueError("Invalid qualification traceability")
+    inputs = [
+        directory / row["path"] for row in manifest["files"] if row["path"].startswith("junit/")
+    ]
+    if not inputs:
+        raise ValueError("Evidence package requires JUnit inputs")
+    expected = trace_results(plan, inputs, trace.get("protocol_scope", []))
+    # Original absolute paths change when a package moves; compare the retained bytes in run order.
+    if list(trace["input_sha256"].values()) != list(expected["input_sha256"].values()):
+        raise ValueError("Traceability input checksums differ from packaged evidence")
+    trace_payload = {k: v for k, v in trace.items() if k != "input_sha256"}
+    expected_payload = {k: v for k, v in expected.items() if k != "input_sha256"}
+    if trace_payload != expected_payload or manifest.get("status") != expected["status"]:
+        raise ValueError("Qualification outcomes differ from retained inputs and definitions")
 
 
 def main() -> int:

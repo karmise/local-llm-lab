@@ -5,16 +5,27 @@ import hashlib
 import json
 import re
 from itertools import product
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 PHASES = frozenset({"IQ", "OQ", "PQ"})
 
 
+def _relative_file(name: str) -> bool:
+    path = PurePosixPath(name)
+    return (
+        bool(name)
+        and not path.is_absolute()
+        and ".." not in path.parts
+        and path.as_posix() == name
+        and "\\" not in name
+    )
+
+
 def framework_sources(root: Path) -> list[Path]:
     files = [f for f in (root / "src").rglob("*") if f.suffix in (".py", ".cjs")]
     files += list(root.glob("requirements*.lock"))
-    files += [root / "pyproject.toml", root / "tests/conftest.py"]
+    files += [root / "pyproject.toml", *(root / "tests").rglob("conftest.py")]
     return sorted({f for f in files if f.is_file()})
 
 
@@ -28,7 +39,7 @@ def framework_checksum(root: Path) -> str:
     return source.hexdigest()
 
 
-def load_plan(path: Path, root: Path) -> dict[str, Any]:
+def load_plan(path: Path, root: Path, *, data_root: Path | None = None) -> dict[str, Any]:
     raw = path.read_bytes()
     plan = json.loads(raw)
     if (
@@ -43,15 +54,17 @@ def load_plan(path: Path, root: Path) -> dict[str, Any]:
     data = plan.get("data_sha256", {})
     if not isinstance(data, dict) or any(
         not isinstance(name, str)
+        or not _relative_file(name)
         or not isinstance(checksum, str)
         or not re.fullmatch(r"[a-f0-9]{64}", checksum)
         for name, checksum in data.items()
     ):
         raise ValueError("Data baselines must use file names and SHA-256 checksums")
+    data_root = data_root or root / "test_data"
     for name, checksum in data.items():
-        target = (root / "test_data" / name).resolve()
+        target = (data_root / name).resolve()
         if (
-            not target.is_relative_to((root / "test_data").resolve())
+            not target.is_relative_to(data_root.resolve())
             or hashlib.sha256(target.read_bytes()).hexdigest() != checksum
         ):
             raise ValueError("Plan data baseline changed; review expectations and version: " + name)
@@ -59,6 +72,8 @@ def load_plan(path: Path, root: Path) -> dict[str, Any]:
     if not isinstance(rows, list) or not rows:
         raise ValueError("Plan requires requirements")
     seen = set()
+    test_sources: dict[str, bytes] = {}
+    test_functions: dict[str, set[str]] = {}
     for row in rows:
         if not isinstance(row, dict):
             raise ValueError("Requirements must be objects")
@@ -70,7 +85,11 @@ def load_plan(path: Path, root: Path) -> dict[str, Any]:
         ):
             raise ValueError("Invalid or duplicate requirement id")
         seen.add(identifier)
-        if row.get("phase") not in PHASES or row.get("risk") not in ("low", "medium", "high"):
+        if (
+            not isinstance(row.get("phase"), str)
+            or row["phase"] not in PHASES
+            or row.get("risk") not in ("low", "medium", "high")
+        ):
             raise ValueError("Unknown qualification phase or risk")
         for field in ("description", "acceptance", "rationale"):
             if not isinstance(row.get(field), str) or not row[field].strip():
@@ -85,17 +104,25 @@ def load_plan(path: Path, root: Path) -> dict[str, Any]:
             raise ValueError("Requirement must map to distinct test selectors")
         for selector in selectors:
             parts = selector.split("::")
-            if len(parts) != 2 or not parts[0].startswith("tests/") or not parts[0].endswith(".py"):
+            if (
+                len(parts) != 2
+                or not _relative_file(parts[0])
+                or not parts[0].startswith("tests/")
+                or not parts[0].endswith(".py")
+            ):
                 raise ValueError("Use unparameterized test function selectors")
             target = (root / parts[0]).resolve()
             if not target.is_relative_to(root.resolve()):
                 raise ValueError("Test selector escapes automation root")
-            functions = {
-                node.name
-                for node in ast.parse(target.read_text()).body
-                if isinstance(node, ast.FunctionDef)
-            }
-            if parts[1] not in functions:
+            if parts[0] not in test_sources:
+                raw_source = target.read_bytes()
+                test_sources[parts[0]] = raw_source
+                test_functions[parts[0]] = {
+                    node.name
+                    for node in ast.parse(raw_source).body
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                }
+            if parts[1] not in test_functions[parts[0]]:
                 raise ValueError("Requirement references an unknown test: " + selector)
         axes = row.get("axes", {})
         if not isinstance(axes, dict) or any(
@@ -112,7 +139,7 @@ def load_plan(path: Path, root: Path) -> dict[str, Any]:
         "sha256": hashlib.sha256(raw).hexdigest(),
         "framework_source_sha256": framework_checksum(root),
         "test_source_sha256": {
-            selector: hashlib.sha256((root / selector.split("::")[0]).read_bytes()).hexdigest()
+            selector: hashlib.sha256(test_sources[selector.split("::")[0]]).hexdigest()
             for row in rows
             for selector in row["tests"]
         },

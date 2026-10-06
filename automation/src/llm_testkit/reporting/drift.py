@@ -10,6 +10,7 @@ from typing import Any
 from uuid import uuid4
 
 from llm_testkit import assertions
+from llm_testkit.core.provenance import normalize_configuration
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.evaluation.correctness import bind_case
 from llm_testkit.evaluation.faithfulness import load_sample
@@ -23,14 +24,19 @@ def digest(value: Any) -> str:
 
 
 def seal_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
-    return {**snapshot, "snapshot_sha256": digest(snapshot)}
+    payload = {k: v for k, v in snapshot.items() if k != "snapshot_sha256"}
+    return {**payload, "snapshot_sha256": digest(payload)}
 
 
 def validate_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
     payload = {k: v for k, v in snapshot.items() if k != "snapshot_sha256"}
     if snapshot.get("snapshot_sha256") != digest(payload):
         raise ValueError("Snapshot integrity checksum mismatch")
-    if snapshot.get("schema_version") != 1 or snapshot.get("kind") != "quality_snapshot":
+    if (
+        type(snapshot.get("schema_version")) is not int
+        or snapshot["schema_version"] != 1
+        or snapshot.get("kind") != "quality_snapshot"
+    ):
         raise ValueError("Unsupported history snapshot")
     if set(snapshot["metrics"]) != METRICS:
         raise ValueError("History requires all four measured metrics")
@@ -51,6 +57,40 @@ def validate_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
     for field in ("run_id", "recorded_at", "case_id", "model", "thinking_mode", "context_parser"):
         if not isinstance(snapshot.get(field), str) or not snapshot[field].strip():
             raise ValueError(f"Missing history identity: {field}")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", snapshot["run_id"]):
+        raise ValueError("History run_id must be a single safe file identifier")
+    configuration = normalize_configuration(snapshot.get("configuration"))
+    prompt = configuration.get("openAiPrompt")
+    if not isinstance(prompt, str) or configuration.get("chatModel") != snapshot["model"]:
+        raise ValueError("History configuration must bind to the generation model and prompt")
+    if hashlib.sha256(prompt.encode()).hexdigest() != snapshot["prompt_sha256"]:
+        raise ValueError("History prompt checksum differs from configuration")
+    judge_metrics = {"faithfulness", "correctness", "relevance"}
+    judges = snapshot.get("judges")
+    if not isinstance(judges, dict) or set(judges) != judge_metrics:
+        raise ValueError("History requires all three judge configurations")
+    if digest(judges) != snapshot["judge_sha256"]:
+        raise ValueError("History judge checksum differs from configurations")
+    for judge in judges.values():
+        if (
+            not isinstance(judge, dict)
+            or any(
+                not isinstance(judge.get(k), str) or not judge[k].strip()
+                for k in ("judge_model", "judge_model_digest", "ragas_version")
+            )
+            or not isinstance(judge.get("judge_configuration"), dict)
+        ):
+            raise ValueError("Incomplete history judge provenance")
+    evidence = snapshot.get("evidence_sha256")
+    if (
+        not isinstance(evidence, dict)
+        or set(evidence) != judge_metrics
+        or any(
+            not isinstance(v, str) or not re.fullmatch(r"[a-f0-9]{64}", v)
+            for v in evidence.values()
+        )
+    ):
+        raise ValueError("History requires checksums for all measured evidence")
     for status in snapshot["acceptance"].values():
         if status not in ("passed", "failed"):
             raise ValueError("Incomplete deterministic acceptance evidence")
@@ -83,15 +123,16 @@ def make_snapshot(
         raise ValueError("Incomplete or invalid quality evidence cannot enter metric history")
     sample, checksum = load_sample(sample_path)
     dataset = load_golden_dataset(dataset_path, policy)
+    if report["sample_sha256"] != checksum or report["golden_dataset_sha256"] != dataset.sha256:
+        raise ValueError("Sample or dataset changed during history assembly")
     case = bind_case(sample, dataset, case_id)
     metadata = sample["metadata"]
     if metadata["policy_sha256"] != dataset.policy_sha256:
         raise ValueError("Captured policy does not match reviewed dataset")
-    configuration = dict(metadata["workspace_configuration"])
+    configuration = normalize_configuration(metadata["workspace_configuration"])
     if configuration.get("chatModel") != report["generation_model"]:
         raise ValueError("Recorded generation configuration mismatch")
-    prompt = re.sub(r"\n\[LLM_TESTKIT_CAPTURE:[a-f0-9]{32}\]$", "", configuration["openAiPrompt"])
-    configuration["openAiPrompt"] = prompt
+    prompt = configuration["openAiPrompt"]
     metrics = {
         d["metric"]: d["details"]["value"]
         for d in report["dimensions"]
@@ -105,6 +146,8 @@ def make_snapshot(
         ("relevance", relevance),
     ]:
         raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != report["evidence_sha256"].get(name):
+            raise ValueError("Judge evidence changed during history assembly: " + name)
         evidence = json.loads(raw)
         judges[name] = {
             k: evidence[k]
@@ -159,7 +202,11 @@ def compare_snapshots(
     assertions.assert_quality_score(maximum_drop)
 
     def config(row):
-        return {k: v for k, v in row["configuration"].items() if k != "chatModel"}
+        return {
+            k: v
+            for k, v in normalize_configuration(row["configuration"]).items()
+            if k != "chatModel"
+        }
 
     fields = (
         "case_id",

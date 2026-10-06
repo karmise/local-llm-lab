@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import math
 from collections import Counter
 from datetime import datetime, timezone
 from importlib import import_module
@@ -41,6 +42,28 @@ def load_sample(path: Path) -> tuple[dict[str, Any], str]:
     return sample, hashlib.sha256(raw).hexdigest()
 
 
+def validate_result(result: dict[str, Any]) -> dict[str, Any]:
+    assertions.assert_quality_score(result["value"])
+    statements, verdicts = result.get("statements"), result.get("verdicts")
+    if (
+        not isinstance(statements, list)
+        or not statements
+        or any(not isinstance(s, str) or not s.strip() for s in statements)
+        or not isinstance(verdicts, list)
+        or any(not isinstance(v, dict) or not isinstance(v.get("statement"), str) for v in verdicts)
+        or Counter(statements) != Counter(item["statement"] for item in verdicts)
+    ):
+        raise ValueError("Judge verdicts must cover every extracted statement exactly once")
+    if any(
+        type(item.get("verdict")) is not int or item["verdict"] not in (0, 1) for item in verdicts
+    ):
+        raise ValueError("Judge verdict must be 0 or 1")
+    recomputed = sum(item["verdict"] for item in verdicts) / len(verdicts)
+    if not math.isclose(result["value"], recomputed, rel_tol=0, abs_tol=1e-9):
+        raise ValueError("Faithfulness score does not match its verdicts")
+    return result
+
+
 async def score_sample(sample: dict[str, Any], judge: Any) -> dict[str, Any]:
     from ragas.metrics.collections import Faithfulness
 
@@ -49,16 +72,15 @@ async def score_sample(sample: dict[str, Any], judge: Any) -> dict[str, Any]:
         response=sample["response"],
         retrieved_contexts=sample["retrieved_contexts"],
     )
-    assertions.assert_quality_score(result.value)
     if len(judge.calls) != 2:
         raise ValueError("Expected statement extraction and claim verification")
-    statements = judge.calls[0]["output"]["statements"]
-    verdicts = judge.calls[1]["output"]["statements"]
-    if not statements or Counter(statements) != Counter(item["statement"] for item in verdicts):
-        raise ValueError("Judge verdicts must cover every extracted statement exactly once")
-    if any(type(item["verdict"]) is not int or item["verdict"] not in (0, 1) for item in verdicts):
-        raise ValueError("Judge verdict must be 0 or 1")
-    return {"value": result.value, "statements": statements, "verdicts": verdicts}
+    return validate_result(
+        {
+            "value": result.value,
+            "statements": judge.calls[0]["output"]["statements"],
+            "verdicts": judge.calls[1]["output"]["statements"],
+        }
+    )
 
 
 def evaluate_sample_report(

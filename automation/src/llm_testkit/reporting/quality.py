@@ -2,38 +2,43 @@
 
 import hashlib
 import json
-import math
 import re
-from collections import Counter
 from datetime import datetime, timezone
+from functools import cache
 from pathlib import Path
 from typing import Any, Callable
 
 from llm_testkit import assertions
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.evaluation.correctness import check_correctness_evidence
-from llm_testkit.evaluation.faithfulness import load_sample
+from llm_testkit.evaluation.faithfulness import load_sample, validate_result
 from llm_testkit.evaluation.relevance import check_relevance_evidence
 from llm_testkit.reporting.gates import apply_quality_gates
 
 
 def check_faithfulness_evidence(evidence: dict[str, Any], checksum: str) -> dict[str, Any]:
-    if evidence.get("schema_version") != 1 or evidence.get("metric") != "faithfulness":
+    if (
+        type(evidence.get("schema_version")) is not int
+        or evidence["schema_version"] != 1
+        or evidence.get("metric") != "faithfulness"
+    ):
         raise ValueError("Unsupported faithfulness report")
     if evidence.get("sample_sha256") != checksum:
         raise ValueError("Faithfulness evidence belongs to a different sample")
     if evidence.get("status") != "completed":
         raise ValueError("Faithfulness evaluation did not complete")
-    result = evidence["result"]
-    assertions.assert_quality_score(result["value"])
+    result = validate_result(evidence["result"])
     statements, verdicts = result["statements"], result["verdicts"]
-    if not statements or Counter(statements) != Counter(item["statement"] for item in verdicts):
-        raise ValueError("Incomplete faithfulness claim evidence")
-    if any(type(item["verdict"]) is not int or item["verdict"] not in (0, 1) for item in verdicts):
-        raise ValueError("Invalid faithfulness verdict")
-    recomputed = sum(item["verdict"] for item in verdicts) / len(verdicts)
-    if not math.isclose(result["value"], recomputed, rel_tol=0, abs_tol=1e-9):
-        raise ValueError("Faithfulness score does not match its verdicts")
+    # Older saved reports may omit raw calls; when present, summaries must match them.
+    if "judge_calls" in evidence:
+        calls = evidence["judge_calls"]
+        if (
+            not isinstance(calls, list)
+            or len(calls) != 2
+            or calls[0]["output"]["statements"] != statements
+            or calls[1]["output"]["statements"] != verdicts
+        ):
+            raise ValueError("Faithfulness summary differs from raw judge calls")
     return {
         "value": result["value"],
         "statements": statements,
@@ -77,6 +82,14 @@ def build_quality_report(
     profile = json.loads(profile_bytes)
     if profile.get("schema_version") != 1 or sample["user_input"] != profile["question"]:
         raise ValueError("Quality profile does not match the captured question")
+    evidence_sha256: dict[str, str] = {}
+    dataset_sha256 = None
+
+    @cache
+    def evidence_bytes(name: str, path: Path) -> bytes:
+        raw = path.read_bytes()
+        evidence_sha256[name] = hashlib.sha256(raw).hexdigest()
+        return raw
 
     def source_check() -> dict[str, Any]:
         # Resolve the expected document from observed context, not response citations.
@@ -100,7 +113,7 @@ def build_quality_report(
         return {"expected_document_title": title}
 
     def faithfulness_check() -> dict[str, Any]:
-        evidence = json.loads(evidence_path.read_text())
+        evidence = json.loads(evidence_bytes("faithfulness", evidence_path))
         return check_faithfulness_evidence(evidence, checksum)
 
     dimensions = [
@@ -116,15 +129,25 @@ def build_quality_report(
             "Faithfulness measurement (no quality threshold)", faithfulness_check, measured=True
         ),
     ]
+
+    @cache
+    def dataset():
+        nonlocal dataset_sha256
+        loaded = load_golden_dataset(
+            golden_dataset_path or profile_path.parent / "golden-policy.json",
+            policy_file or profile_path.parent / "company-policy.txt",
+        )
+        dataset_sha256 = loaded.sha256
+        return loaded
+
     if correctness_path is not None:
 
         def correctness_check() -> dict[str, Any]:
-            dataset = load_golden_dataset(
-                golden_dataset_path or profile_path.parent / "golden-policy.json",
-                policy_file or profile_path.parent / "company-policy.txt",
-            )
             return check_correctness_evidence(
-                json.loads(correctness_path.read_text()), checksum, sample, dataset
+                json.loads(evidence_bytes("correctness", correctness_path)),
+                checksum,
+                sample,
+                dataset(),
             )
 
         dimensions.append(
@@ -136,14 +159,14 @@ def build_quality_report(
         )
     if relevance_path is not None:
 
+        @cache
+        def checked_relevance() -> dict[str, Any]:
+            return check_relevance_evidence(
+                json.loads(evidence_bytes("relevance", relevance_path)), checksum, sample, dataset()
+            )
+
         def relevance_check(metric: str) -> dict[str, Any]:
-            dataset = load_golden_dataset(
-                golden_dataset_path or profile_path.parent / "golden-policy.json",
-                policy_file or profile_path.parent / "company-policy.txt",
-            )
-            result = check_relevance_evidence(
-                json.loads(relevance_path.read_text()), checksum, sample, dataset
-            )
+            result = checked_relevance()
             return {
                 "value": result[metric],
                 "threshold": None,
@@ -167,6 +190,8 @@ def build_quality_report(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "scenario": profile["id"],
         "sample_sha256": checksum,
+        "golden_dataset_sha256": dataset_sha256,
+        "evidence_sha256": evidence_sha256,
         "profile_sha256": hashlib.sha256(profile_bytes).hexdigest(),
         "faithfulness_report_path": str(evidence_path.resolve()),
         "relevance_report_path": str(relevance_path.resolve()) if relevance_path else None,

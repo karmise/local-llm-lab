@@ -132,6 +132,9 @@ visible and generation counts stay predictable.
 
 The current changes and validation are recorded in the
 [refactoring notes](../docs/step-21-framework-refactoring.md).
+The [second refactoring review (Russian)](../docs/automation-refactor-review.ru.md)
+documents report-integrity fixes, shared validation, baseline compatibility and
+the latest local verification after the expanded suites were added.
 
 Reference-based retrieval evaluation is described in [Context precision and recall](../docs/step-24-context-relevance.md). It reuses captured samples and adds two independently validated dimensions to the quality report.
 

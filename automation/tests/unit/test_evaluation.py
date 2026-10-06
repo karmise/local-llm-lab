@@ -236,3 +236,21 @@ def test_evaluation_service_preserves_judge_failure_and_closes_transport(
     assert report["error"]["type"] == "ValueError"
     assert report["judge_calls"] == judge.calls
     assert transport.close.call_count == 1
+
+
+def test_live_faithfulness_rejects_score_inconsistent_with_verdicts(monkeypatch):
+    collections = pytest.importorskip("ragas.metrics.collections")
+
+    metric = Mock()
+    from unittest.mock import AsyncMock
+
+    metric.ascore = AsyncMock(return_value=Mock(value=1.0))
+    monkeypatch.setattr(collections, "Faithfulness", Mock(return_value=metric))
+    judge = Mock(
+        calls=[
+            {"output": {"statements": ["Claim."]}},
+            {"output": {"statements": [{"statement": "Claim.", "verdict": 0}]}},
+        ]
+    )
+    with pytest.raises(ValueError, match="score"):
+        asyncio.run(score_sample(_sample(), judge))
