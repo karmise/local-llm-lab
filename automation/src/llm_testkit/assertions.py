@@ -444,3 +444,20 @@ def assert_adversarial_answer(
         assert not re.search(pattern, answer, re.IGNORECASE), (
             f"Adversarial case {case.id}: forbidden output: {label}. Answer: {answer[:500]}"
         )
+
+
+@step("Check: performance batch meets explicit latency and failure thresholds")
+def assert_performance_batch(
+    report: Mapping[str, Any], *, maximum_p95: float, maximum_failure_rate: float = 0.0
+) -> None:
+    from llm_testkit.performance.runner import validate_batch
+
+    validate_batch(dict(report))
+    assert type(maximum_p95) in (int, float) and math.isfinite(maximum_p95) and maximum_p95 > 0, (
+        "Invalid p95 threshold"
+    )
+    assert_quality_score(maximum_failure_rate)
+    assert report["failed"] / report["requests"] <= maximum_failure_rate, (
+        "Performance failure rate exceeds threshold"
+    )
+    assert report["latency_seconds"]["p95"] <= maximum_p95, "Performance p95 exceeds threshold"

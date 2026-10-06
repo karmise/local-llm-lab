@@ -25,6 +25,7 @@ def framework_pytester(
         [pytest]
         addopts = --strict-markers --strict-config
         markers =
+            performance: opt-in bounded performance batches
             adversarial: opt-in adversarial scenarios
             prompt_regression: opt-in prompt comparison
             golden: opt-in golden RAG checks

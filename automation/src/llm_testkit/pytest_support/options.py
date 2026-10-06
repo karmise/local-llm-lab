@@ -31,6 +31,18 @@ def _model_name(value: str) -> str:
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
+        "--run-performance", action="store_true", help="Enable bounded performance batches"
+    )
+    parser.addoption("--performance-mode", choices=("health", "rag"), default="health")
+    parser.addoption("--performance-requests", type=int, default=1)
+    parser.addoption("--performance-users", type=int, default=1)
+    parser.addoption(
+        "--performance-p95",
+        type=float,
+        default=5.0,
+        help="Explicit maximum p95 seconds; use a model-appropriate threshold for RAG",
+    )
+    parser.addoption(
         "--quality-gates", type=Path, help="Explicit experimental quality gates for saved evidence"
     )
     parser.addoption(
@@ -143,6 +155,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         defaults = (
             ("qwen3.5:4b",)
             if metafunc.definition.get_closest_marker("live_quality")
+            or metafunc.definition.get_closest_marker("performance")
             else DEFAULT_RAG_MODELS
         )
         models = list(dict.fromkeys(metafunc.config.getoption("rag_models") or defaults))
@@ -158,6 +171,31 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     # Validate only selected tests, after pytest applies -k and -m filters.
+    for item in items:
+        if item.get_closest_marker("performance"):
+            mode = "rag" if item.get_closest_marker("rag") else "health"
+            if not config.getoption("run_performance") or mode != config.getoption(
+                "performance_mode"
+            ):
+                item.add_marker(
+                    pytest.mark.skip(
+                        reason="Select explicitly with --run-performance and --performance-mode"
+                    )
+                )
+            else:
+                count, users = (
+                    config.getoption("performance_requests"),
+                    config.getoption("performance_users"),
+                )
+                if not 1 <= count <= 20 or not 1 <= users <= min(count, 4):
+                    raise pytest.UsageError(
+                        "Performance budget: at most twenty requests and four users"
+                    )
+                import math
+
+                p95 = config.getoption("performance_p95")
+                if not math.isfinite(p95) or p95 <= 0:
+                    raise pytest.UsageError("Performance p95 must be finite and positive")
     if not config.getoption("run_adversarial"):
         for item in items:
             if item.get_closest_marker("adversarial"):
