@@ -115,3 +115,17 @@ def test_golden_summary_preserves_case_and_dataset_identity(
         assert len(rows) == 2
         assert all(row["runs"] == 1 for row in rows)
         assert all(not row["mixed_pass_fail_observed"] for row in rows)
+
+
+@title("Stability summaries keep different prompt variants in separate groups")
+def test_prompt_variants_are_not_reported_as_flaky_repetitions(tmp_path: Path) -> None:
+    path = _report(tmp_path, ["passed", "failure"])
+    tree = ET.parse(path)
+    for i, row in enumerate(tree.getroot().findall(".//testcase")):
+        props = row.find("properties")
+        ET.SubElement(props, "property", name="prompt_id", value=["baseline", "grounded_v2"][i])
+        ET.SubElement(props, "property", name="prompt_sha256", value=str(i))
+    tree.write(path)
+    rows = summarize_report(path)
+    assert len(rows) == 2
+    assert all(not r["mixed_pass_fail_observed"] for r in rows)

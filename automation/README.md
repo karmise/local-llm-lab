@@ -134,3 +134,5 @@ The current changes and validation are recorded in the
 [refactoring notes](../docs/step-21-framework-refactoring.md).
 
 Reference-based retrieval evaluation is described in [Context precision and recall](../docs/step-24-context-relevance.md). It reuses captured samples and adds two independently validated dimensions to the quality report.
+
+[Prompt regression](../docs/step-25-prompt-regression.md) compares versioned system prompts against unchanged golden expectations. The suite is opt-in and the comparison command requires an explicit case/model scope, with missing or uncontrolled runs treated as incomplete.

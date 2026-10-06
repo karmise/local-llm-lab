@@ -16,6 +16,7 @@ from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.clients.ollama_client import OllamaClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
+from llm_testkit.datasets.prompts import PromptVariant, load_prompt_catalog
 from llm_testkit.observation.evaluation_sample import build_sample, write_sample
 
 
@@ -35,12 +36,20 @@ def capture_id(request: pytest.FixtureRequest) -> str | None:
 
 
 @pytest.fixture
+def prompt_variant() -> PromptVariant | None:
+    return None
+
+
+@pytest.fixture
 def workspace_configuration(
     workspace_template: dict[str, Any],
     generation_model: str,
     capture_id: str | None,
+    prompt_variant: PromptVariant | None,
 ) -> dict[str, Any]:
     configuration = {**deepcopy(workspace_template), "chatModel": generation_model}
+    if prompt_variant is not None:
+        configuration["openAiPrompt"] = prompt_variant.prompt
     if capture_id:
         configuration["openAiPrompt"] += f"\n[LLM_TESTKIT_CAPTURE:{capture_id}]"
     return configuration
@@ -63,6 +72,9 @@ def generation_model_digest(generation_model: str, ollama_models: list[dict[str,
 def rag_environment(
     generation_model: str,
     rag_iteration: int,
+    prompt_variant: PromptVariant | None,
+    automation_root: Path,
+    workspace_template: dict[str, Any],
     generation_model_digest: str,
     authenticated_anythingllm_api: AnythingLLMClient,
     indexed_workspace: dict[str, Any],
@@ -74,6 +86,21 @@ def rag_environment(
     assertions.assert_workspace_matches(
         response, slug=indexed_workspace["slug"], configuration=workspace_configuration
     )
+    if prompt_variant is not None:
+        catalog = load_prompt_catalog(automation_root / "test_data/prompt-variants.json")
+        baseline = next(v for v in catalog.variants if v.id == catalog.baseline)
+        if (
+            baseline.prompt != workspace_template["openAiPrompt"]
+            or prompt_variant not in catalog.variants
+        ):
+            pytest.fail(
+                "Prompt catalog differs from collected variants or workspace baseline",
+                pytrace=False,
+            )
+        record_property("prompt_id", prompt_variant.id)
+        record_property("prompt_version", prompt_variant.version)
+        record_property("prompt_sha256", prompt_variant.sha256)
+        record_property("prompt_catalog_sha256", catalog.sha256)
     record_property("generation_model", generation_model)
     record_property("rag_iteration", rag_iteration)
     record_property("model_digest", generation_model_digest)
@@ -130,7 +157,7 @@ def rag_chat(
             sample["metadata"].update(
                 (name, value)
                 for name, value in request.node.user_properties
-                if name.startswith("golden_")
+                if name.startswith(("golden_", "prompt_"))
             )
             path = automation_root / "reports" / "rag-samples" / f"{capture_id}.json"
             write_sample(path, sample)

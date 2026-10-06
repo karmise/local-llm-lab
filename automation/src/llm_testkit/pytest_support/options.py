@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from llm_testkit.datasets.golden import load_golden_dataset
+from llm_testkit.datasets.prompts import load_prompt_catalog
 
 DEFAULT_RAG_MODELS = ("qwen3.5:4b", "qwen2.5:7b")
 
@@ -28,6 +29,17 @@ def _model_name(value: str) -> str:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-prompt-regression",
+        action="store_true",
+        help="Enable versioned prompt comparisons against golden cases",
+    )
+    parser.addoption(
+        "--rag-prompt",
+        action="append",
+        dest="rag_prompts",
+        help="Select prompt variant IDs for prompt regression",
+    )
     parser.addoption("--relevance-report", type=Path, help="Existing precision/recall evidence")
     parser.addoption(
         "--run-golden",
@@ -86,6 +98,22 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    if metafunc.definition.get_closest_marker("prompt_regression"):
+        try:
+            catalog = load_prompt_catalog(
+                metafunc.config.rootpath / "test_data/prompt-variants.json"
+            )
+            selected = metafunc.config.getoption("rag_prompts") or [v.id for v in catalog.variants]
+            variants = {v.id: v for v in catalog.variants}
+            if any(identifier not in variants for identifier in selected):
+                raise ValueError("Unknown prompt variant")
+        except (ValueError, OSError) as error:
+            raise pytest.UsageError(f"Invalid prompt selection: {error}") from error
+        metafunc.parametrize(
+            "prompt_variant",
+            [variants[i] for i in dict.fromkeys(selected)],
+            ids=list(dict.fromkeys(selected)),
+        )
     if "golden_case" in metafunc.fixturenames:
         root = metafunc.config.rootpath / "test_data"
         try:
@@ -115,6 +143,12 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     # Validate only selected tests, after pytest applies -k and -m filters.
+    if not config.getoption("run_prompt_regression"):
+        for item in items:
+            if item.get_closest_marker("prompt_regression"):
+                item.add_marker(
+                    pytest.mark.skip(reason="Enable explicitly with --run-prompt-regression")
+                )
     if not config.getoption("run_golden"):
         for item in items:
             if item.get_closest_marker("golden"):

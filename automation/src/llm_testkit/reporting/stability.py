@@ -59,6 +59,8 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
         golden_case = properties.get("golden_case_id")
         if golden_case:
             scenario += f"[{golden_case}]"
+        if properties.get("prompt_id"):
+            scenario += f"[prompt={properties['prompt_id']}]"
         group = groups.setdefault(
             (scenario, model),
             {
@@ -86,6 +88,8 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
         )
         if golden_case:
             complete = complete and bool(properties.get("golden_dataset_sha256"))
+        if properties.get("prompt_id"):
+            complete = complete and bool(properties.get("prompt_sha256"))
         group["metadata_complete"] = group["metadata_complete"] and complete
         if complete:
             configuration = json.dumps(
@@ -98,6 +102,7 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
                     configuration,
                     properties["thinking_mode"],
                     properties.get("golden_dataset_sha256", ""),
+                    properties.get("prompt_sha256", ""),
                 )
             )
 

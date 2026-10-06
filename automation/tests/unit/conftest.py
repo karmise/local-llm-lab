@@ -25,6 +25,7 @@ def framework_pytester(
         [pytest]
         addopts = --strict-markers --strict-config
         markers =
+            prompt_regression: opt-in prompt comparison
             golden: opt-in golden RAG checks
             ui: live browser tests
             browser: offline browser tests
