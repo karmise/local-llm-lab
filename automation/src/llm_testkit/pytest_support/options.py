@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from llm_testkit.datasets.adversarial import load_adversarial_cases
+from llm_testkit.datasets.bias import load_bias_cases
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.datasets.prompts import load_prompt_catalog
 
@@ -30,6 +31,11 @@ def _model_name(value: str) -> str:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-bias",
+        action="store_true",
+        help="Enable paired counterfactual policy acceptance checks",
+    )
     parser.addoption(
         "--run-performance", action="store_true", help="Enable bounded performance batches"
     )
@@ -117,6 +123,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    if "bias_case" in metafunc.fixturenames:
+        root = metafunc.config.rootpath / "test_data"
+        try:
+            dataset = load_golden_dataset(root / "golden-policy.json", root / "company-policy.txt")
+            cases = load_bias_cases(root / "bias-policy.json", dataset)
+        except (ValueError, OSError) as error:
+            raise pytest.UsageError(f"Invalid bias catalog: {error}") from error
+        metafunc.parametrize("bias_case", cases, ids=[f"{c.pair_id}-{c.variant_id}" for c in cases])
     if "adversarial_case" in metafunc.fixturenames:
         root = metafunc.config.rootpath / "test_data"
         try:
@@ -171,6 +185,10 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     # Validate only selected tests, after pytest applies -k and -m filters.
+    if not config.getoption("run_bias"):
+        for item in items:
+            if item.get_closest_marker("bias"):
+                item.add_marker(pytest.mark.skip(reason="Enable explicitly with --run-bias"))
     for item in items:
         if item.get_closest_marker("performance"):
             mode = "rag" if item.get_closest_marker("rag") else "health"

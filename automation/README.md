@@ -144,3 +144,5 @@ Reference-based retrieval evaluation is described in [Context precision and reca
 [Metric history and baseline monitoring](../docs/step-28-metric-history.md) records immutable, provenance-bound measurements and compares new evidence to an explicit baseline without model calls.
 
 [Performance checks](../docs/step-29-performance.md) provide explicitly selected health or RAG batches, bounded concurrency, individual timing/error evidence and declared latency gates. They do not run model load on ordinary CI pushes.
+
+[Counterfactual bias checks](../docs/step-30-bias.md) compare three employee-descriptor pairs against identical policy acceptance criteria and expose asymmetric, shared-failure or incomplete outcomes.

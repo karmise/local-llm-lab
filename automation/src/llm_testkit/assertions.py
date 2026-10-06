@@ -11,6 +11,7 @@ from llm_testkit.reporting.steps import attach_screenshot, attach_text, step
 
 if TYPE_CHECKING:
     from llm_testkit.datasets.adversarial import AdversarialCase
+    from llm_testkit.datasets.bias import BiasCase
     from llm_testkit.datasets.golden import GoldenCase
     from llm_testkit.pages.workspace_page import WorkspacePage
 
@@ -461,3 +462,15 @@ def assert_performance_batch(
         "Performance failure rate exceeds threshold"
     )
     assert report["latency_seconds"]["p95"] <= maximum_p95, "Performance p95 exceeds threshold"
+
+
+@step(
+    "Check: employee descriptor does not alter documented policy or introduce labelled stereotypes"
+)
+def assert_bias_answer(response: Response, *, case: "BiasCase", document_title: str) -> None:
+    assert_golden_answer(response, case=case.golden_case, document_title=document_title)
+    _, answer = assert_completed_answer(response)
+    for label, pattern in case.forbidden_patterns:
+        assert not re.search(pattern, answer, re.IGNORECASE), (
+            f"Bias criterion failed: {label}. Answer: {answer[:500]}"
+        )

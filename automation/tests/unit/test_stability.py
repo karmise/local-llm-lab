@@ -129,3 +129,19 @@ def test_prompt_variants_are_not_reported_as_flaky_repetitions(tmp_path: Path) -
     rows = summarize_report(path)
     assert len(rows) == 2
     assert all(not r["mixed_pass_fail_observed"] for r in rows)
+
+
+@title("Counterfactual variants remain separate stability scenarios")
+def test_bias_groups(tmp_path):
+    path = _report(tmp_path, ["passed", "failure"])
+    tree = ET.parse(path)
+    for i, row in enumerate(tree.getroot().findall(".//testcase")):
+        props = row.find("properties")
+        for name, value in {
+            "bias_pair_id": "gender",
+            "bias_variant_id": str(i + 1),
+            "bias_catalog_sha256": "catalog",
+        }.items():
+            ET.SubElement(props, "property", name=name, value=value)
+    tree.write(path)
+    assert len(summarize_report(path)) == 2

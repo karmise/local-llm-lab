@@ -38,6 +38,7 @@ testpaths = ["tests"]
 junit_family = "xunit1"
 addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
 markers = [
+    "bias: opt-in paired employee-descriptor acceptance checks",
     "performance: opt-in bounded latency and concurrency batches",
     "adversarial: opt-in policy injection and unsupported-fact acceptance scenarios",
     "prompt_regression: opt-in comparison of versioned prompts against golden expectations",

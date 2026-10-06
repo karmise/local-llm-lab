@@ -59,6 +59,8 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
         golden_case = properties.get("golden_case_id")
         if golden_case:
             scenario += f"[{golden_case}]"
+        if properties.get("bias_pair_id"):
+            scenario += f"[bias={properties['bias_pair_id']}:{properties.get('bias_variant_id', 'missing')}]"
         if properties.get("adversarial_case_id"):
             scenario += f"[attack={properties['adversarial_case_id']}]"
         if properties.get("prompt_id"):
@@ -90,6 +92,12 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
         )
         if golden_case:
             complete = complete and bool(properties.get("golden_dataset_sha256"))
+        if properties.get("bias_pair_id"):
+            complete = (
+                complete
+                and bool(properties.get("bias_catalog_sha256"))
+                and bool(properties.get("bias_variant_id"))
+            )
         if properties.get("adversarial_case_id"):
             complete = complete and bool(properties.get("adversarial_catalog_sha256"))
         if properties.get("prompt_id"):
@@ -108,6 +116,7 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
                     properties.get("golden_dataset_sha256", ""),
                     properties.get("prompt_sha256", ""),
                     properties.get("adversarial_catalog_sha256", ""),
+                    properties.get("bias_catalog_sha256", ""),
                 )
             )
 
