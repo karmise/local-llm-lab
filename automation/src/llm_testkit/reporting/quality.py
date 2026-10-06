@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from llm_testkit import assertions
+from llm_testkit.datasets.golden import load_golden_dataset
+from llm_testkit.evaluation.correctness import check_correctness_evidence
 from llm_testkit.evaluation.faithfulness import load_sample
 
 
@@ -58,7 +60,13 @@ def _dimension(name: str, check: Callable[[], Any], *, measured: bool = False) -
 
 
 def build_quality_report(
-    sample_path: Path, evidence_path: Path, profile_path: Path
+    sample_path: Path,
+    evidence_path: Path,
+    profile_path: Path,
+    *,
+    correctness_path: Path | None = None,
+    golden_dataset_path: Path | None = None,
+    policy_file: Path | None = None,
 ) -> dict[str, Any]:
     sample, checksum = load_sample(sample_path)
     profile_bytes = profile_path.read_bytes()
@@ -104,6 +112,24 @@ def build_quality_report(
             "Faithfulness measurement (no quality threshold)", faithfulness_check, measured=True
         ),
     ]
+    if correctness_path is not None:
+
+        def correctness_check() -> dict[str, Any]:
+            dataset = load_golden_dataset(
+                golden_dataset_path or profile_path.parent / "golden-policy.json",
+                policy_file or profile_path.parent / "company-policy.txt",
+            )
+            return check_correctness_evidence(
+                json.loads(correctness_path.read_text()), checksum, sample, dataset
+            )
+
+        dimensions.append(
+            _dimension(
+                "Factual correctness measurement (no quality threshold)",
+                correctness_check,
+                measured=True,
+            )
+        )
     statuses = [dimension["status"] for dimension in dimensions]
     return {
         "schema_version": 1,
@@ -112,12 +138,13 @@ def build_quality_report(
         "sample_sha256": checksum,
         "profile_sha256": hashlib.sha256(profile_bytes).hexdigest(),
         "faithfulness_report_path": str(evidence_path.resolve()),
+        "correctness_report_path": str(correctness_path.resolve()) if correctness_path else None,
         "status": "error"
         if "error" in statuses
         else "failed"
         if "failed" in statuses
         else "checks_passed",
-        "interpretation": "Required facts and source checks; faithfulness is a recorded measurement, not a quality gate",
+        "interpretation": "Required facts and source checks; judge metrics are recorded measurements, not calibrated quality gates",
         "generation_model": sample["observation"]["request"]["model"],
         "question": sample["user_input"],
         "answer": sample["response"],

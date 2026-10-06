@@ -53,6 +53,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--quality-sample", type=Path, help="Captured sample for an offline quality report."
     )
     parser.addoption(
+        "--correctness-report",
+        type=Path,
+        help="Optional existing golden-reference correctness evidence.",
+    )
+    parser.addoption(
         "--faithfulness-report",
         type=Path,
         help="Existing judge report bound to the sample checksum.",

@@ -70,6 +70,14 @@ generations on one explicitly selected model, or 32 with the default two models,
 before repetitions. Start with one case. These are curated policy acceptance
 checks, not a statistical model-accuracy benchmark or semantic correctness metric.
 
+## Factual correctness evaluation
+
+The [correctness guide](../docs/step-23-factual-correctness.md) describes reference-based
+RAGAS factual F1 with four bounded local judge calls and labelled controls. It is
+explicitly invoked for a captured golden case and can be added as optional saved
+evidence with `--correctness-report`. Existing live-quality budgets are unchanged.
+No correctness threshold or context precision/recall metric is introduced.
+
 ## Structure and extension rules
 
 | Location | Responsibility |

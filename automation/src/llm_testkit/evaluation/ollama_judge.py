@@ -13,7 +13,12 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class OllamaJudge(InstructorBaseRagasLLM):
-    def __init__(self, client: OllamaClient, model: str, timeout: float = 300) -> None:
+    def __init__(
+        self, client: OllamaClient, model: str, timeout: float = 300, *, max_calls: int = 2
+    ) -> None:
+        if type(max_calls) is not int or not 1 <= max_calls <= 4:
+            raise ValueError("Judge budget must be an integer between one and four")
+        self.max_calls = max_calls
         self.client = client
         self.model = model
         self.timeout = timeout
@@ -21,8 +26,8 @@ class OllamaJudge(InstructorBaseRagasLLM):
         self.calls: list[dict[str, Any]] = []
 
     def generate(self, prompt: str, response_model: type[T]) -> T:
-        if len(self.calls) >= 2:
-            raise ValueError("Faithfulness judge call budget exceeded (maximum: 2)")
+        if len(self.calls) >= self.max_calls:
+            raise ValueError(f"Judge call budget exceeded (maximum: {self.max_calls})")
         schema = response_model.model_json_schema()
         full_prompt = f"{prompt}\nReturn JSON matching this schema:\n{json.dumps(schema)}"
         call: dict[str, Any] = {"response_schema": response_model.__name__, "prompt": full_prompt}

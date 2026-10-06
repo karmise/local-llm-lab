@@ -442,8 +442,10 @@ Each requires its own evidence and a deliberate change in test meaning.
 The [golden dataset guide](step-22-golden-dataset.md) adds 16 versioned policy
 scenarios with references, required/forbidden criteria and source fragments.
 The suite is opt-in with `--run-golden`; start with one case on one model.
-Catalog validation and reference checks run offline in the unit suite. This
-extension does not introduce semantic correctness metrics or calibrated gates.
+Catalog validation and reference checks run offline in the unit suite. The dataset stage does not introduce calibrated gates. The subsequent
+[correctness guide](step-23-factual-correctness.md) adds optional reference-based
+RAGAS factual F1 and a fourth saved-report dimension, with four bounded judge
+calls. It remains a measurement without a calibrated pass/fail threshold.
 
 ## 9. Check your understanding
 

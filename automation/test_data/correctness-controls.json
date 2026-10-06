@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "description": "Small synthetic judge checks, not statistical calibration or application evidence",
+  "cases": [
+    {
+      "id": "correct",
+      "case_id": "paid_leave",
+      "response": "Each employee receives 23 working days of paid leave per year. A request must be submitted at least 12 calendar days before leave starts.",
+      "expected_f1_range": [
+        1,
+        1
+      ],
+      "response_verdict": 1,
+      "reference_rules": {
+        "leave entitlement": {
+          "pattern": "\\b23\\b.*\\bworking\\b.*\\bdays\\b",
+          "verdict": 1
+        },
+        "notice period": {
+          "pattern": "\\b12\\b.*\\bcalendar\\b.*\\bdays\\b",
+          "verdict": 1
+        }
+      }
+    },
+    {
+      "id": "paraphrase",
+      "case_id": "paid_leave",
+      "response": "Employees get twenty-three working days of annual paid leave. Submit the request no fewer than twelve calendar days before the leave starts.",
+      "expected_f1_range": [
+        1,
+        1
+      ],
+      "response_verdict": 1,
+      "reference_rules": {
+        "leave entitlement": {
+          "pattern": "\\b23\\b.*\\bworking\\b.*\\bdays\\b",
+          "verdict": 1
+        },
+        "notice period": {
+          "pattern": "\\b12\\b.*\\bcalendar\\b.*\\bdays\\b",
+          "verdict": 1
+        }
+      }
+    },
+    {
+      "id": "incomplete",
+      "case_id": "paid_leave",
+      "response": "Each employee receives 23 working days of paid leave per year.",
+      "expected_f1_range": [
+        0.01,
+        0.99
+      ],
+      "response_verdict": 1,
+      "reference_rules": {
+        "leave entitlement": {
+          "pattern": "\\b23\\b.*\\bworking\\b.*\\bdays\\b",
+          "verdict": 1
+        },
+        "notice period": {
+          "pattern": "\\b12\\b.*\\bcalendar\\b.*\\bdays\\b",
+          "verdict": 0
+        }
+      }
+    },
+    {
+      "id": "contradicted",
+      "case_id": "paid_leave",
+      "response": "Each employee receives 30 working days of paid leave per year. Requests must be submitted at least 2 calendar days before leave starts.",
+      "expected_f1_range": [
+        0,
+        0
+      ],
+      "response_verdict": 0,
+      "reference_rules": {
+        "leave entitlement": {
+          "pattern": "\\b23\\b.*\\bworking\\b.*\\bdays\\b",
+          "verdict": 0
+        },
+        "notice period": {
+          "pattern": "\\b12\\b.*\\bcalendar\\b.*\\bdays\\b",
+          "verdict": 0
+        }
+      }
+    }
+  ]
+}
