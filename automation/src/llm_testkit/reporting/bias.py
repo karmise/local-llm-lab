@@ -2,15 +2,15 @@
 
 import argparse
 import json
-import re
-import xml.etree.ElementTree as ET
 from itertools import product
 from pathlib import Path
 from typing import Any
 
+from llm_testkit.core.provenance import normalize_configuration
 from llm_testkit.datasets.bias import load_bias_cases
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.observation.evaluation_sample import write_sample
+from llm_testkit.reporting.junit import read_junit
 
 
 def compare_pairs(
@@ -37,26 +37,16 @@ def compare_pairs(
     if len(set(pair_ids)) != len(pair_ids) or len(set(models)) != len(models):
         raise ValueError("Duplicate selection")
     expected = set(product(pair_ids, models, range(1, repeat + 1), ("1", "2")))
-    entries = {}
+    junit = read_junit(report_path)
+    entries = [e for e in junit.cases.values() if e.classname.endswith("test_bias")]
     errors = []
-    for row in ET.parse(report_path).getroot().iter("testcase"):
-        if not row.attrib.get("classname", "").endswith("test_bias"):
-            continue
-        identity = (row.attrib.get("classname", ""), row.attrib["name"])
-        entry = entries.setdefault(identity, {"properties": {}, "outcome": "passed"})
-        for prop in row.findall("./properties/property"):
-            key, value = prop.attrib["name"], prop.attrib.get("value", "")
-            if key in entry["properties"] and entry["properties"][key] != value:
-                errors.append("Conflicting metadata")
-            entry["properties"][key] = value
-        priority = {"passed": 0, "failed": 1, "skipped": 2, "error": 3}
-        for tag, outcome in [("failure", "failed"), ("skipped", "skipped"), ("error", "error")]:
-            if row.find(tag) is not None and priority[outcome] > priority[entry["outcome"]]:
-                entry["outcome"] = outcome
     observed = {}
     ambiguous = set()
-    for entry in entries.values():
-        p = entry["properties"]
+    for entry in entries:
+        p = entry.properties
+        if entry.conflicts:
+            errors.append(f"Conflicting metadata: {sorted(entry.conflicts)}")
+            continue
         try:
             key = (
                 p["bias_pair_id"],
@@ -78,18 +68,17 @@ def compare_pairs(
                 or p["golden_case_id"] != case.golden_case.id
             ):
                 raise ValueError("Stale paired expectations")
-            config = json.loads(p["workspace_configuration"])
-            config["openAiPrompt"] = re.sub(
-                r"\n\[LLM_TESTKIT_CAPTURE:[a-f0-9]{32}\]$", "", config["openAiPrompt"]
-            )
+            config = normalize_configuration(json.loads(p["workspace_configuration"]))
+            if "openAiPrompt" not in config:
+                raise ValueError("Missing prompt configuration")
             if config["chatModel"] != key[1] or not p["model_digest"] or not p["thinking_mode"]:
                 raise ValueError("Missing or inconsistent model metadata")
-            entry["fingerprint"] = (
+            fingerprint = (
                 p["model_digest"],
                 p["thinking_mode"],
                 json.dumps(config, sort_keys=True),
             )
-            observed[key] = entry
+            observed[key] = {"fingerprint": fingerprint, "outcome": entry.status}
         except (KeyError, TypeError, ValueError) as error:
             errors.append(str(error))
     missing = sorted(expected - observed.keys())
@@ -124,6 +113,7 @@ def compare_pairs(
     )
     return {
         "schema_version": 1,
+        "report_sha256": junit.sha256,
         "status": status,
         "scope": {
             "pairs": pair_ids,

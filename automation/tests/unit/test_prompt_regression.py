@@ -172,3 +172,19 @@ def test_teardown_error_is_not_hidden(tmp_path):
     suite.append(duplicate)
     tree.write(path)
     assert compare(path)["status"] == "incomplete"
+
+
+@pytest.mark.parametrize("stale_first", [True, False])
+def test_conflicting_properties_within_one_testcase(tmp_path, stale_first):
+    path = report(tmp_path)
+    tree = ET.parse(path)
+    props = tree.getroot().find(".//properties")
+    duplicate = ET.Element("property", name="policy_sha256", value="stale")
+    if stale_first:
+        props.insert(0, duplicate)
+    else:
+        props.append(duplicate)
+    tree.write(path)
+    result = compare(path)
+    assert result["status"] == "incomplete"
+    assert result["errors"]

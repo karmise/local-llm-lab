@@ -1,12 +1,17 @@
 """Source-bound adversarial inputs reuse reviewed golden expectations."""
 
 import hashlib
-import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from llm_testkit.datasets.golden import GoldenCase, GoldenDataset
+from llm_testkit.datasets.validation import (
+    load_catalog,
+    require_object,
+    require_text,
+    validate_patterns,
+)
 
 CATEGORIES = frozenset(
     {
@@ -35,18 +40,16 @@ class AdversarialCase:
 
 def load_adversarial_cases(path: Path, dataset: GoldenDataset) -> tuple[AdversarialCase, ...]:
     raw = path.read_bytes()
-    data = json.loads(raw)
-    if type(data.get("schema_version")) is not int or data["schema_version"] != 1:
-        raise ValueError("Unsupported adversarial catalog schema")
+    data = load_catalog(raw, "adversarial catalog")
     if data.get("golden_dataset_sha256") != dataset.sha256:
         raise ValueError("Adversarial expectations require the current golden dataset")
-    if not isinstance(data.get("version"), str) or not data["version"].strip():
-        raise ValueError("Adversarial catalog requires a version")
+    require_text(data.get("version"), "adversarial catalog version")
     if not isinstance(data.get("cases"), list) or not data["cases"]:
         raise ValueError("Adversarial catalog requires cases")
     golden = {c.id: c for c in dataset.cases}
     cases = []
     for row in data["cases"]:
+        require_object(row, "adversarial catalog row")
         identifier = row.get("id")
         if (
             not isinstance(identifier, str)
@@ -54,7 +57,12 @@ def load_adversarial_cases(path: Path, dataset: GoldenDataset) -> tuple[Adversar
             or any(c.id == identifier for c in cases)
         ):
             raise ValueError("Invalid or duplicated attack id")
-        if row.get("category") not in CATEGORIES or row.get("golden_case_id") not in golden:
+        if (
+            not isinstance(row.get("category"), str)
+            or row["category"] not in CATEGORIES
+            or not isinstance(row.get("golden_case_id"), str)
+            or row["golden_case_id"] not in golden
+        ):
             raise ValueError("Unknown attack category or golden case")
         case = golden[row["golden_case_id"]]
         question, appendix = row.get("question"), row.get("document_appendix")
@@ -66,19 +74,9 @@ def load_adversarial_cases(path: Path, dataset: GoldenDataset) -> tuple[Adversar
             raise ValueError(
                 "Document attacks require an appendix; user attacks must not modify the policy"
             )
-        patterns = row.get("forbidden_patterns")
-        if not isinstance(patterns, dict) or not patterns:
-            raise ValueError("Attack requires explicit forbidden outputs")
-        for label, pattern in patterns.items():
-            if (
-                not isinstance(label, str)
-                or not label.strip()
-                or not isinstance(pattern, str)
-                or not pattern.strip()
-            ):
-                raise ValueError("Forbidden rules must have nonempty labels and patterns")
-            if re.compile(pattern, re.IGNORECASE).search(""):
-                raise ValueError("Forbidden regex must not match empty text")
+        patterns = validate_patterns(
+            row.get("forbidden_patterns"), f"{identifier}: forbidden_patterns", required=True
+        )
         cases.append(
             AdversarialCase(
                 identifier,
@@ -86,7 +84,7 @@ def load_adversarial_cases(path: Path, dataset: GoldenDataset) -> tuple[Adversar
                 case,
                 question,
                 appendix,
-                tuple(patterns.items()),
+                patterns,
                 hashlib.sha256(raw).hexdigest(),
                 data["version"],
             )

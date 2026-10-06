@@ -145,3 +145,42 @@ def test_bias_groups(tmp_path):
             ET.SubElement(props, "property", name=name, value=value)
     tree.write(path)
     assert len(summarize_report(path)) == 2
+
+
+@pytest.mark.parametrize("change", ["capture", "conflict", "invalid-json"])
+def test_configuration_metadata_is_normalized_and_validated(tmp_path, change):
+    import json
+
+    path = _report(tmp_path, ["passed", "passed"])
+    tree = ET.parse(path)
+    for i, row in enumerate(tree.getroot().findall(".//testcase")):
+        props = row.find("properties")
+        prop = props.find("property[@name='workspace_configuration']")
+        prop.set(
+            "value",
+            json.dumps(
+                {
+                    "chatModel": "qwen",
+                    "openAiPrompt": "Policy\n[LLM_TESTKIT_CAPTURE:" + str(i) * 32 + "]",
+                }
+            ),
+        )
+        if change == "conflict" and i == 0:
+            props.insert(0, ET.Element("property", name="model_digest", value="stale"))
+        elif change == "invalid-json" and i == 0:
+            prop.set("value", "not-json")
+    tree.write(path)
+    result = summarize_report(path)[0]
+    assert result["configuration_consistent"] is (change == "capture")
+    assert result["metadata_complete"] is (change == "capture")
+
+
+def test_equal_function_names_in_different_modules_are_distinct_scenarios(tmp_path):
+    path = _report(tmp_path, ["passed", "failure"])
+    tree = ET.parse(path)
+    tree.getroot().findall(".//testcase")[1].set("classname", "tests.test_other_rag")
+    tree.write(path)
+    rows = summarize_report(path)
+    assert len(rows) == 2
+    assert {r["classname"] for r in rows} == {"tests.test_rag", "tests.test_other_rag"}
+    assert all(r["runs"] == 1 and not r["mixed_pass_fail_observed"] for r in rows)

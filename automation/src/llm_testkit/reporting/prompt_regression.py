@@ -1,17 +1,16 @@
 """Compare a declared prompt/case/model matrix without hiding missing or failed runs."""
 
 import argparse
-import hashlib
 import json
-import re
-import xml.etree.ElementTree as ET
 from itertools import product
 from pathlib import Path
 from typing import Any
 
+from llm_testkit.core.provenance import normalize_configuration
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.datasets.prompts import load_prompt_catalog
 from llm_testkit.observation.evaluation_sample import write_sample
+from llm_testkit.reporting.junit import read_junit
 
 
 def compare_prompts(
@@ -37,28 +36,19 @@ def compare_prompts(
     if not set(case_ids) <= {c.id for c in dataset.cases}:
         raise ValueError("Unknown golden case")
     expected = set(product(case_ids, models, range(1, repeat + 1), (catalog.baseline, candidate)))
-    entries = {}
+    junit = read_junit(report_path)
+    entries = {
+        identity: entry
+        for identity, entry in junit.cases.items()
+        if entry.classname.endswith("test_prompt_regression")
+    }
     errors = []
-    for row in ET.parse(report_path).getroot().iter("testcase"):
-        if not row.attrib.get("classname", "").endswith("test_prompt_regression"):
-            continue
-        identity = (row.attrib.get("classname", ""), row.attrib["name"])
-        props = {
-            p.attrib["name"]: p.attrib.get("value", "")
-            for p in row.findall("./properties/property")
-        }
-        entry = entries.setdefault(identity, {"properties": {}, "outcome": "passed"})
-        for name, value in props.items():
-            if name in entry["properties"] and entry["properties"][name] != value:
-                errors.append("Conflicting metadata for " + str(identity))
-            entry["properties"][name] = value
-        for tag, outcome in [("failure", "failed"), ("skipped", "skipped"), ("error", "error")]:
-            priorities = {"passed": 0, "failed": 1, "skipped": 2, "error": 3}
-            if row.find(tag) is not None and priorities[outcome] > priorities[entry["outcome"]]:
-                entry["outcome"] = outcome
     observed = {}
     for identity, entry in entries.items():
-        p = entry["properties"]
+        p = entry.properties
+        if entry.conflicts:
+            errors.append(f"{identity}: Conflicting metadata: {sorted(entry.conflicts)}")
+            continue
         try:
             key = (
                 p["golden_case_id"],
@@ -79,18 +69,16 @@ def compare_prompts(
                 or not p["thinking_mode"]
             ):
                 raise ValueError("Changed or missing provenance")
-            configuration = json.loads(p["workspace_configuration"])
-            prompt = re.sub(
-                r"\n\[LLM_TESTKIT_CAPTURE:[a-f0-9]{32}\]$", "", configuration.pop("openAiPrompt")
-            )
+            configuration = normalize_configuration(json.loads(p["workspace_configuration"]))
+            prompt = configuration.pop("openAiPrompt")
             if prompt != variant.prompt or configuration["chatModel"] != key[1]:
                 raise ValueError("Configuration does not match selected prompt/model")
-            entry["fingerprint"] = (
+            fingerprint = (
                 p["model_digest"],
                 p["thinking_mode"],
                 json.dumps(configuration, sort_keys=True),
             )
-            observed[key] = entry
+            observed[key] = {"fingerprint": fingerprint, "outcome": entry.status}
         except (KeyError, ValueError, TypeError) as error:
             errors.append(f"{identity}: {error}")
     missing = sorted(expected - observed.keys())
@@ -137,7 +125,7 @@ def compare_prompts(
         "candidate": candidate,
         "catalog_sha256": catalog.sha256,
         "golden_dataset_sha256": dataset.sha256,
-        "report_sha256": hashlib.sha256(report_path.read_bytes()).hexdigest(),
+        "report_sha256": junit.sha256,
         "scope": {
             "cases": case_ids,
             "models": models,
