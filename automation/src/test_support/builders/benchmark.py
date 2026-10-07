@@ -246,7 +246,7 @@ def make_subprocess_run_stub(sample_path):
     return subprocess_run
 
 
-def prepare_different_configurations_rejected_step_2(calibration, definition):
+def mutate_benchmark_configuration(calibration, definition):
     for change in ("prompt", "digest"):
         row = _row("gym_missing", "missing_information")
         prepare_different_configurations_rejected_case(change, row)
@@ -254,7 +254,7 @@ def prepare_different_configurations_rejected_step_2(calibration, definition):
             summarize(definition, [_row(), row], calibration)
 
 
-def prepare_forged_top_level_summary_step_2(tmp_path):
+def make_forged_benchmark_summary(tmp_path):
     for name in (
         "golden-policy.json",
         "quality-gates.json",

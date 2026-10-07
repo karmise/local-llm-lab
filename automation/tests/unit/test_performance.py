@@ -6,27 +6,26 @@ import pytest
 
 from llm_testkit import assertions
 from llm_testkit.performance.comparison import compare_batches
+from llm_testkit.performance.reporting import record_batch
 from llm_testkit.performance.runner import run_batch, validate_batch
 from llm_testkit.reporting.steps import title
 from test_support.builders.performance import (
-    check_recorded_batches_retain_actual_timeout_and_failures_outcome,
-    check_recorded_batches_retain_actual_timeout_and_failures_outcome_2,
-    make_operation_stub,
-    make_operation_stub_2,
+    make_bounded_failure_workload,
+    make_timeout_workload,
+    mutate_health_execution_conditions,
+    mutate_saved_attempt,
     prepare_evidence_case,
-    prepare_health_comparison_requires_matching_execution_conditions_case,
-    prepare_malformed_saved_attempts_are_rejected_as_validation_errors_case,
     prepare_performance_comparison_case,
 )
 from test_support.data.performance import (
     BUDGET_REQUESTS_USERS_CASES,
     EVIDENCE_CHANGE_CASES,
-    HEALTH_COMPARISON_REQUIRES_MATCHING_EXECUTION_CONDITIONS_CHANGE_CASES,
-    MALFORMED_SAVED_ATTEMPTS_ARE_REJECTED_AS_VALIDATION_ERRORS_CHANGE_CASES,
-    PERFORMANCE_COMPARISON_CHANGE_EXPECTED_CASES,
-    RAG_COMPARISON_REQUIRES_EXPLICIT_PROVENANCE_FIELD_CASES,
-    RECORDED_BATCHES_RETAIN_ACTUAL_TIMEOUT_AND_FAILURES_FAILURE_CASES,
-    SAVED_BATCH_REVALIDATES_BUDGET_AND_NUMERIC_TYPES_FIELD_VALUE_CASES,
+    HEALTH_BATCH_CONTEXT,
+    HEALTH_EXECUTION_CHANGES,
+    INVALID_BATCH_FIELD_CASES,
+    INVALID_SAVED_ATTEMPT_CASES,
+    PERFORMANCE_COMPARISON_CASES,
+    RAG_PROVENANCE_FIELDS,
 )
 from test_support.data.scripts.performance import (
     INCOMPATIBLE_CAPTURE_MODE_FAILS_BEFORE_EXTERNAL_SETUP_MAKEPYFILE_SOURCE,
@@ -41,7 +40,7 @@ def test_bounded_batch():
     lock = Lock()
     calls = []
 
-    operation = make_operation_stub(calls, lock)
+    operation = make_bounded_failure_workload(calls, lock)
 
     report = run_batch(operation, requests=4, users=2)
     assert len(calls) == 4
@@ -101,7 +100,7 @@ def test_selection(framework_pytester):
 
 @pytest.mark.parametrize(
     ("change", "expected"),
-    PERFORMANCE_COMPARISON_CHANGE_EXPECTED_CASES,
+    PERFORMANCE_COMPARISON_CASES,
 )
 @title(
     "Performance baselines detect slowdown while rejecting changed or missing experiment metadata [{param_id}]"
@@ -125,7 +124,7 @@ def test_performance_comparison(change, expected):
 
 @pytest.mark.parametrize(
     "field,value",
-    SAVED_BATCH_REVALIDATES_BUDGET_AND_NUMERIC_TYPES_FIELD_VALUE_CASES,
+    INVALID_BATCH_FIELD_CASES,
 )
 def test_saved_batch_revalidates_budget_and_numeric_types(field, value):
     report = run_batch(lambda: None)
@@ -136,7 +135,7 @@ def test_saved_batch_revalidates_budget_and_numeric_types(field, value):
 
 @pytest.mark.parametrize(
     "field",
-    RAG_COMPARISON_REQUIRES_EXPLICIT_PROVENANCE_FIELD_CASES,
+    RAG_PROVENANCE_FIELDS,
 )
 def test_rag_comparison_requires_explicit_provenance(field):
 
@@ -171,9 +170,7 @@ def test_incompatible_capture_mode_fails_before_external_setup(framework_pyteste
     assert result.ret == pytest.ExitCode.USAGE_ERROR
 
 
-@pytest.mark.parametrize(
-    "change", HEALTH_COMPARISON_REQUIRES_MATCHING_EXECUTION_CONDITIONS_CHANGE_CASES
-)
+@pytest.mark.parametrize("change", HEALTH_EXECUTION_CHANGES)
 def test_health_comparison_requires_matching_execution_conditions(change):
 
     base = run_batch(lambda: None)
@@ -187,39 +184,41 @@ def test_health_comparison_requires_matching_execution_conditions(change):
         "timeout": 5,
     }
     current = deepcopy(base)
-    prepare_health_comparison_requires_matching_execution_conditions_case(base, change, current)
+    mutate_health_execution_conditions(base, change, current)
     assert compare_batches(base, current)["status"] == "incomparable"
 
 
-@pytest.mark.parametrize(
-    "failure", RECORDED_BATCHES_RETAIN_ACTUAL_TIMEOUT_AND_FAILURES_FAILURE_CASES
-)
-def test_recorded_batches_retain_actual_timeout_and_failures(tmp_path, failure):
-
-    operation = make_operation_stub_2(failure)
-
-    report = run_batch(operation)
-    kwargs = dict(
-        base_url="http://localhost", timeout=3, maximum_p95=10, metadata={"workload": "health"}
-    )
-    check_recorded_batches_retain_actual_timeout_and_failures_outcome(
-        failure, kwargs, report, tmp_path
-    )
+@title("Completed performance batches retain actual timeout and machine identity")
+def test_completed_batches_retain_actual_timeout(tmp_path):
+    report = run_batch(lambda: None)
+    record_batch(report, tmp_path, **HEALTH_BATCH_CONTEXT)
     paths = list(tmp_path.glob("*.json"))
     assert len(paths) == 1
     saved = json.loads(paths[0].read_text())
     assert saved["metadata"]["timeout"] == 3
     assert saved["metadata"]["machine"]
     assert "metadata" not in report
-    assert saved["failed"] == int(failure)
-    check_recorded_batches_retain_actual_timeout_and_failures_outcome_2(failure, saved)
+    assert saved["failed"] == 0
 
 
-@pytest.mark.parametrize(
-    "change", MALFORMED_SAVED_ATTEMPTS_ARE_REJECTED_AS_VALIDATION_ERRORS_CHANGE_CASES
-)
+@title("Failed performance batches save original attempt evidence before rejecting the gate")
+def test_failed_batches_retain_attempt_evidence(tmp_path):
+    report = run_batch(make_timeout_workload())
+    with pytest.raises(AssertionError, match="failure rate"):
+        record_batch(report, tmp_path, **HEALTH_BATCH_CONTEXT)
+    paths = list(tmp_path.glob("*.json"))
+    assert len(paths) == 1
+    saved = json.loads(paths[0].read_text())
+    assert saved["metadata"]["timeout"] == 3
+    assert saved["metadata"]["machine"]
+    assert "metadata" not in report
+    assert saved["failed"] == 1
+    assert saved["attempts"][0]["error"] == "retained"
+
+
+@pytest.mark.parametrize("change", INVALID_SAVED_ATTEMPT_CASES)
 def test_malformed_saved_attempts_are_rejected_as_validation_errors(change):
     report = run_batch(lambda: None)
-    prepare_malformed_saved_attempts_are_rejected_as_validation_errors_case(change, report)
+    mutate_saved_attempt(change, report)
     with pytest.raises(ValueError):
         validate_batch(report)

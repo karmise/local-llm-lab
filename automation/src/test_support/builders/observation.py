@@ -79,6 +79,6 @@ def make_fail_stub():
     return fail
 
 
-def check_sdk_hook_preserves_request_return_values_streams_and_errors_step_7(actual):
+def check_capture_hook_results(actual):
     for field in ("sameRequest", "sameReturn", "sameStream", "sameError"):
         assert actual[field] is True

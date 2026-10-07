@@ -12,7 +12,7 @@ from llm_testkit.reporting.steps import title
 from test_support.builders.observation import (
     _capture,
     _sample,
-    check_sdk_hook_preserves_request_return_values_streams_and_errors_step_7,
+    check_capture_hook_results,
     make_fail_stub,
     make_publish_stub,
     prepare_sample_rejects_mismatched_or_ambiguous_observations_case,
@@ -91,7 +91,7 @@ console.log(JSON.stringify({ sameRequest, sameReturn: returned === response, sam
         text=True,
     )
     actual = json.loads(result.stdout)
-    check_sdk_hook_preserves_request_return_values_streams_and_errors_step_7(actual)
+    check_capture_hook_results(actual)
     assert actual["files"] == 1
     saved = json.loads(next(tmp_path.glob("*.json")).read_text())
     assert saved["request"] == _capture()["request"]

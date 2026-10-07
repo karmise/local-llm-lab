@@ -24,10 +24,10 @@ from test_support.builders.correctness import (
     _result,
     _sample,
     _verdicts,
-    check_control_catalog_has_valid_expectations_step_3,
+    append_judge_responses,
+    check_control_expectations,
     make_failed_score_stub,
     prepare_invalid_claim_evidence_is_rejected_case,
-    prepare_real_ragas_correctness_with_mocked_judge_step_6,
 )
 from test_support.builders.optional import load_ollama_judge
 from test_support.data.correctness import (
@@ -63,7 +63,7 @@ def test_real_ragas_correctness_with_mocked_judge(rv, gv, expected):
         {"statements": result["reference_verdicts"]},
     ]
     responses = []
-    prepare_real_ragas_correctness_with_mocked_judge_step_6(outputs, responses)
+    append_judge_responses(outputs, responses)
     client = Mock()
     client.structured_chat.side_effect = responses
     judge = OllamaJudge(client, "test-model", max_calls=4)
@@ -199,7 +199,7 @@ def test_incomplete_control_checks_semantics_instead_of_fixed_claim_count():
 def test_control_catalog_has_valid_expectations():
     cases = json.loads((ROOT / "correctness-controls.json").read_text())["cases"]
     assert len({c["id"] for c in cases}) == len(cases) == 4
-    check_control_catalog_has_valid_expectations_step_3(cases)
+    check_control_expectations(cases)
 
 
 @title("Correctness report rejects summaries that differ from raw judge evidence")

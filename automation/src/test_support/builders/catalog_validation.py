@@ -16,5 +16,5 @@ def prepare_malformed_catalog_case(change, data, rows_key):
     return data
 
 
-def prepare_nonstring_lookup_step_3(data, field, rows_key):
+def set_invalid_lookup_field(data, field, rows_key):
     (data if field == "baseline" else data[rows_key][0])[field] = []

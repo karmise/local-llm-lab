@@ -54,6 +54,6 @@ def make_factory_stub(judges):
     return factory
 
 
-def prepare_control_loader_rejects_wrong_context_or_bad_labels_step_5(change, path):
+def mutate_control_catalog(change, path):
     with pytest.raises(ValueError):
         load_controls(path, ["Other document" if change == "context" else "Policy"])

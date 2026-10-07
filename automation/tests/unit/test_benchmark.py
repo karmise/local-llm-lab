@@ -20,10 +20,10 @@ from test_support.builders.benchmark import (
     _row,
     _sample,
     make_calibrate_stub,
+    make_forged_benchmark_summary,
     make_generate_stub,
     make_subprocess_run_stub,
-    prepare_different_configurations_rejected_step_2,
-    prepare_forged_top_level_summary_step_2,
+    mutate_benchmark_configuration,
     prepare_invalid_summary_case,
 )
 from test_support.data.benchmark import (
@@ -108,7 +108,7 @@ def test_invalid_summary(benchmark_data, change):
 @title("Model comparisons reject changed prompts or generation weights")
 def test_different_configurations_rejected(benchmark_data):
     _, _, _, definition, calibration = benchmark_data
-    prepare_different_configurations_rejected_step_2(calibration, definition)
+    mutate_benchmark_configuration(calibration, definition)
 
 
 @title("Judge control mismatch prevents a benchmark from claiming acceptance")
@@ -296,7 +296,7 @@ def test_two_model_summary(benchmark_data):
 @title("Offline benchmark rendering recomputes a forged passing summary without model calls")
 def test_forged_top_level_summary(tmp_path, benchmark_data):
     dataset, gates, _, definition, _ = benchmark_data
-    prepare_forged_top_level_summary_step_2(tmp_path)
+    make_forged_benchmark_summary(tmp_path)
     write_sample(tmp_path / "manifest.json", definition)
     saved = {
         "manifest": definition,

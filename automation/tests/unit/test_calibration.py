@@ -14,8 +14,8 @@ from test_support.builders.calibration import (
     _result,
     make_factory_stub,
     make_fake_score_stub,
+    mutate_control_catalog,
     prepare_control_loader_rejects_wrong_context_or_bad_labels_case,
-    prepare_control_loader_rejects_wrong_context_or_bad_labels_step_5,
 )
 from test_support.data.calibration import (
     CONTROL_LOADER_REJECTS_WRONG_CONTEXT_OR_BAD_LABELS_CHANGE_CASES,
@@ -79,7 +79,7 @@ def test_control_loader_rejects_wrong_context_or_bad_labels(tmp_path: Path, chan
     prepare_control_loader_rejects_wrong_context_or_bad_labels_case(change, controls)
     path = tmp_path / "controls.json"
     path.write_text(json.dumps(controls))
-    prepare_control_loader_rejects_wrong_context_or_bad_labels_step_5(change, path)
+    mutate_control_catalog(change, path)
 
 
 @title("Calibration runner records mismatches and errors before continuing")

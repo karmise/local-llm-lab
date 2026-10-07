@@ -50,7 +50,3 @@ def prepare_configuration_case(change, config):
         config["calibration"] = "clinically validated"
     else:
         config["version"] = ""
-
-
-def check_fail_closed_step_5(change, gated):
-    assert gated["status"] == ("failed" if change == "low" else "error")

@@ -4,7 +4,7 @@ import pytest
 
 from test_support.builders.catalog_validation import (
     prepare_malformed_catalog_case,
-    prepare_nonstring_lookup_step_3,
+    set_invalid_lookup_field,
 )
 from test_support.data.catalog_validation import (
     DATA,
@@ -48,7 +48,7 @@ def test_duplicate_json_fields_are_not_silently_overwritten(tmp_path, catalog):
 def test_nonstring_lookup_fields_raise_validation_errors(tmp_path, catalog, field):
     filename, rows_key, load = LOADERS[catalog]
     data = json.loads((DATA / filename).read_text())
-    prepare_nonstring_lookup_step_3(data, field, rows_key)
+    set_invalid_lookup_field(data, field, rows_key)
     path = tmp_path / "invalid.json"
     path.write_text(json.dumps(data))
     with pytest.raises(ValueError):

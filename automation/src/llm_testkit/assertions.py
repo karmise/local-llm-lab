@@ -424,7 +424,9 @@ def assert_ui_question_visible(workspace: "WorkspacePage", question: str) -> Non
 
 
 @step("Check: completed final answer is visible")
-def assert_ui_completed_answer(workspace: "WorkspacePage") -> str:
+def assert_ui_completed_answer(
+    workspace: "WorkspacePage", *, expected_text: str | None = None
+) -> str:
     from playwright.sync_api import expect
 
     # The response edit control scopes this locator to a persisted assistant reply.
@@ -437,6 +439,8 @@ def assert_ui_completed_answer(workspace: "WorkspacePage") -> str:
     answer = workspace.final_answer.inner_text()
     assert answer.strip(), "Expected a non-empty final answer in the UI"
     attach_text(answer, name="Displayed final answer")
+    if expected_text is not None:
+        assert answer == expected_text, f"Expected {expected_text!r}, got {answer!r}"
     return answer
 
 
@@ -535,3 +539,16 @@ def assert_bias_answer(response: Response, *, case: "BiasCase", document_title: 
         assert not re.search(pattern, answer, re.IGNORECASE), (
             f"Bias criterion failed: {label}. Answer: {answer[:500]}"
         )
+
+
+@step("Check: supported Python runtime and pinned libraries")
+def assert_supported_runtime(runtime: Mapping[str, Any], libraries: Mapping[str, str]) -> None:
+    assert_field_equals(runtime, "python_major_minor", ("3", "12"))
+    for name, expected in libraries.items():
+        assert_field_equals(runtime["libraries"], name, expected)
+
+
+@step("Check: declared generation models are installed")
+def assert_models_available(models: Sequence[Mapping[str, Any]], expected: Sequence[str]) -> None:
+    for name in expected:
+        assert_model_available(models, name)

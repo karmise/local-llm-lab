@@ -13,6 +13,7 @@ pytest_plugins = (
     "test_support.fixtures.quality",
     "test_support.fixtures.performance",
     "test_support.fixtures.environment",
+    "test_support.fixtures.installation",
     "test_support.fixtures.resources",
     "test_support.fixtures.rag",
 )

@@ -39,7 +39,7 @@ def prepare_invalid_catalogs_fail_before_any_generation_case(data, defect, row):
         row["reference"] = "Hi! You have 23 working days of paid leave."
 
 
-def prepare_policy_parts_require_the_expected_document_and_supporting_passage_step_2(case, defect):
+def make_defective_policy_source(case, defect):
     reply = response(
         case.reference,
         title="other.txt" if defect == "wrong document" else "policy.txt",
@@ -49,9 +49,7 @@ def prepare_policy_parts_require_the_expected_document_and_supporting_passage_st
     return reply
 
 
-def prepare_walking_intent_accepts_fresh_air_without_requiring_literal_walk_step_3(
-    case, case_id, suggestion
-):
+def make_walking_response(case, case_id, suggestion):
     answer = (
         suggestion
         if case_id == "small_talk"

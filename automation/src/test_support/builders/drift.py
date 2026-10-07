@@ -123,7 +123,7 @@ def prepare_resealed_history_case(field, row):
         row[field] = {}
 
 
-def prepare_snapshot_assembly_step_12(change, dataset, evidence, path):
+def mutate_snapshot_evidence(change, dataset, evidence, path):
     quality = {
         "status": "error" if change == "error" else "checks_passed",
         "generation_model": "model",

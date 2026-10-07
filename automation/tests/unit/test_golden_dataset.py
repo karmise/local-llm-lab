@@ -9,17 +9,17 @@ from llm_testkit.datasets.golden import CATEGORIES, load_golden_dataset
 from llm_testkit.reporting.steps import title
 from test_support.builders.golden_dataset import (
     _response,
+    invent_missing_benefit,
     prepare_invalid_catalog_is_rejected_case,
-    prepare_missing_benefit_step_2,
 )
 from test_support.data.golden_dataset import (
-    BAD_EVIDENCE_IS_REJECTED_ANSWER_SOURCE_DOCUMENT_MESSAGE_CASES,
     DATA_ROOT,
     DATASET,
-    INVALID_CATALOG_IS_REJECTED_MUTATION_MESSAGE_CASES,
-    MISSING_BENEFIT_CASE_ID_CASES,
-    REFERENCE_SATISFIES_ACCEPTANCE_CASE_CASES,
-    REFERENCE_SATISFIES_ACCEPTANCE_CASE_IDS,
+    INVALID_ANSWER_EVIDENCE_CASES,
+    INVALID_GOLDEN_CATALOG_CASES,
+    MISSING_BENEFIT_CASE_IDS,
+    REFERENCE_ACCEPTANCE_CASES,
+    golden_case_id,
 )
 
 pytestmark = pytest.mark.unit
@@ -47,9 +47,7 @@ def test_paid_leave_reference_matches_existing_profile() -> None:
     assertions.assert_required_facts(case.reference, fact_patterns=profile["fact_patterns"])
 
 
-@pytest.mark.parametrize(
-    "case", REFERENCE_SATISFIES_ACCEPTANCE_CASE_CASES, ids=REFERENCE_SATISFIES_ACCEPTANCE_CASE_IDS
-)
+@pytest.mark.parametrize("case", REFERENCE_ACCEPTANCE_CASES, ids=golden_case_id)
 @title("Golden reference satisfies its configured answer and source criteria [{param_id}]")
 def test_reference_satisfies_acceptance(case) -> None:
     assertions.assert_golden_answer(
@@ -59,7 +57,7 @@ def test_reference_satisfies_acceptance(case) -> None:
 
 @pytest.mark.parametrize(
     ("mutation", "message"),
-    INVALID_CATALOG_IS_REJECTED_MUTATION_MESSAGE_CASES,
+    INVALID_GOLDEN_CATALOG_CASES,
 )
 @title("Golden loader rejects inconsistent or stale expectations [{param_id}]")
 def test_invalid_catalog_is_rejected(tmp_path: Path, mutation: str, message: str) -> None:
@@ -72,11 +70,11 @@ def test_invalid_catalog_is_rejected(tmp_path: Path, mutation: str, message: str
         load_golden_dataset(path, DATA_ROOT / "company-policy.txt")
 
 
-@pytest.mark.parametrize("case_id", MISSING_BENEFIT_CASE_ID_CASES)
+@pytest.mark.parametrize("case_id", MISSING_BENEFIT_CASE_IDS)
 @title("Missing-information golden case rejects an invented benefit [{param_id}]")
 def test_missing_policy_rejects_invented_benefit(case_id: str) -> None:
     case = next(case for case in DATASET.cases if case.id == case_id)
-    invented = prepare_missing_benefit_step_2(case_id)
+    invented = invent_missing_benefit(case_id)
     with pytest.raises(AssertionError, match="forbidden content"):
         assertions.assert_golden_answer(
             _response(case.reference + invented), case=case, document_title="policy.txt"
@@ -85,7 +83,7 @@ def test_missing_policy_rejects_invented_benefit(case_id: str) -> None:
 
 @pytest.mark.parametrize(
     ("answer", "source", "document", "message"),
-    BAD_EVIDENCE_IS_REJECTED_ANSWER_SOURCE_DOCUMENT_MESSAGE_CASES,
+    INVALID_ANSWER_EVIDENCE_CASES,
 )
 @title(
     "Golden criteria reject incomplete answers, unsupported sources and thinking-only facts [{param_id}]"

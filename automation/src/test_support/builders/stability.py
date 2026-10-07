@@ -71,7 +71,7 @@ def check_conversation_summary_outcome(change, rows):
         assert rows[0]["metadata_complete"] is (change == "changed-catalog")
 
 
-def prepare_golden_summary_step_3(same_case, tree):
+def add_golden_case_metadata(same_case, tree):
     for index, case in enumerate(tree.getroot().findall(".//testcase")):
         properties = case.find("properties")
         ET.SubElement(
@@ -83,14 +83,14 @@ def prepare_golden_summary_step_3(same_case, tree):
         ET.SubElement(properties, "property", name="golden_dataset_sha256", value=str(index))
 
 
-def prepare_prompt_variants_are_not_reported_as_flaky_repetitions_step_3(tree):
+def add_prompt_variant_metadata(tree):
     for i, row in enumerate(tree.getroot().findall(".//testcase")):
         props = row.find("properties")
         ET.SubElement(props, "property", name="prompt_id", value=["baseline", "grounded_v2"][i])
         ET.SubElement(props, "property", name="prompt_sha256", value=str(i))
 
 
-def prepare_bias_groups_step_3(tree):
+def add_bias_group_metadata(tree):
     for i, row in enumerate(tree.getroot().findall(".//testcase")):
         props = row.find("properties")
         for name, value in {
@@ -101,7 +101,7 @@ def prepare_bias_groups_step_3(tree):
             ET.SubElement(props, "property", name=name, value=value)
 
 
-def prepare_configuration_metadata_step_3(change, tree):
+def add_configuration_metadata(change, tree):
     for i, row in enumerate(tree.getroot().findall(".//testcase")):
         props = row.find("properties")
         prop = props.find("property[@name='workspace_configuration']")
@@ -117,7 +117,7 @@ def prepare_configuration_metadata_step_3(change, tree):
         prepare_configuration_metadata_case(change, i, prop, props)
 
 
-def prepare_conversation_summary_step_3(change, tree):
+def add_conversation_metadata(change, tree):
     for i, case in enumerate(tree.getroot().findall(".//testcase")):
         props = case.find("properties")
         ET.SubElement(

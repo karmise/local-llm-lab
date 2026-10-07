@@ -7,13 +7,13 @@ from llm_testkit.reporting.stability import summarize_report
 from llm_testkit.reporting.steps import title
 from test_support.builders.stability import (
     _report,
+    add_bias_group_metadata,
+    add_configuration_metadata,
+    add_conversation_metadata,
+    add_golden_case_metadata,
+    add_prompt_variant_metadata,
     check_conversation_summary_outcome,
     check_golden_summary_outcome,
-    prepare_bias_groups_step_3,
-    prepare_configuration_metadata_step_3,
-    prepare_conversation_summary_step_3,
-    prepare_golden_summary_step_3,
-    prepare_prompt_variants_are_not_reported_as_flaky_repetitions_step_3,
 )
 from test_support.data.stability import (
     CONFIGURATION_METADATA_CHANGE_CASES,
@@ -88,7 +88,7 @@ def test_golden_summary_preserves_case_and_dataset_identity(
 ) -> None:
     path = _report(tmp_path, ["passed", "failure"])
     tree = ET.parse(path)
-    prepare_golden_summary_step_3(same_case, tree)
+    add_golden_case_metadata(same_case, tree)
     tree.write(path)
     rows = summarize_report(path)
     check_golden_summary_outcome(rows, same_case)
@@ -98,7 +98,7 @@ def test_golden_summary_preserves_case_and_dataset_identity(
 def test_prompt_variants_are_not_reported_as_flaky_repetitions(tmp_path: Path) -> None:
     path = _report(tmp_path, ["passed", "failure"])
     tree = ET.parse(path)
-    prepare_prompt_variants_are_not_reported_as_flaky_repetitions_step_3(tree)
+    add_prompt_variant_metadata(tree)
     tree.write(path)
     rows = summarize_report(path)
     assert len(rows) == 2
@@ -109,7 +109,7 @@ def test_prompt_variants_are_not_reported_as_flaky_repetitions(tmp_path: Path) -
 def test_bias_groups(tmp_path):
     path = _report(tmp_path, ["passed", "failure"])
     tree = ET.parse(path)
-    prepare_bias_groups_step_3(tree)
+    add_bias_group_metadata(tree)
     tree.write(path)
     assert len(summarize_report(path)) == 2
 
@@ -119,7 +119,7 @@ def test_configuration_metadata_is_normalized_and_validated(tmp_path, change):
 
     path = _report(tmp_path, ["passed", "passed"])
     tree = ET.parse(path)
-    prepare_configuration_metadata_step_3(change, tree)
+    add_configuration_metadata(change, tree)
     tree.write(path)
     result = summarize_report(path)[0]
     assert result["configuration_consistent"] is (change == "capture")
@@ -142,7 +142,7 @@ def test_equal_function_names_in_different_modules_are_distinct_scenarios(tmp_pa
 def test_conversation_summary_retains_case_identity_and_reviewed_catalog(tmp_path, change):
     path = _report(tmp_path, ["passed", "failure"])
     tree = ET.parse(path)
-    prepare_conversation_summary_step_3(change, tree)
+    add_conversation_metadata(change, tree)
     tree.write(path)
     rows = summarize_report(path)
     check_conversation_summary_outcome(change, rows)

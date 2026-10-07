@@ -11,13 +11,13 @@ from llm_testkit.reporting.steps import title
 from test_support.builders.qualification import (
     check_trace_outcomes_outcome,
     make_change_after_parsing_stub,
+    make_teardown_entries,
     prepare_conflicting_inline_provenance_cannot_pass_case,
     prepare_invalid_manifest_case,
     prepare_invalid_package_inputs_case,
     prepare_invalid_plan_case,
     prepare_package_verification_binds_outcomes_to_inputs_case,
     prepare_plan_rejects_ambiguous_paths_and_phase_types_case,
-    prepare_teardown_entries_step_2,
     prepare_trace_outcomes_case,
     write_junit,
 )
@@ -120,7 +120,7 @@ def test_later_pass_preserves_failure(evidence_lab):
 )
 def test_teardown_entries(evidence_lab, change):
     root, _, plan = evidence_lab
-    duplicate = prepare_teardown_entries_step_2(change)
+    duplicate = make_teardown_entries(change)
     junit = write_junit(root, plan, [("first", "passed", {}), duplicate, ("second", "passed", {})])
     trace = package.trace_results(plan, [junit], ["OQ"])
     assert trace["status"] == "incomplete"

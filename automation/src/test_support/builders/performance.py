@@ -1,11 +1,7 @@
 """Named scenario preparation and test doubles."""
 
-import pytest
 
-from llm_testkit.performance.reporting import record_batch
-
-
-def make_operation_stub(calls, lock):
+def make_bounded_failure_workload(calls, lock):
     def operation():
         with lock:
             calls.append(1)
@@ -42,7 +38,7 @@ def prepare_performance_comparison_case(change, current):
         current.pop("metadata")
 
 
-def prepare_health_comparison_requires_matching_execution_conditions_case(base, change, current):
+def mutate_health_execution_conditions(base, change, current):
     if change == "empty-machine":
         base["metadata"]["machine"] = current["metadata"]["machine"] = ""
     elif change == "boolean-warmup":
@@ -51,30 +47,14 @@ def prepare_health_comparison_requires_matching_execution_conditions_case(base, 
         current["metadata"][change] = 10 if change == "timeout" else "second"
 
 
-def make_operation_stub_2(failure):
+def make_timeout_workload():
     def operation():
-        if failure:
-            raise TimeoutError("retained")
+        raise TimeoutError("retained")
 
     return operation
 
 
-def check_recorded_batches_retain_actual_timeout_and_failures_outcome(
-    failure, kwargs, report, tmp_path
-):
-    if failure:
-        with pytest.raises(AssertionError, match="failure rate"):
-            record_batch(report, tmp_path, **kwargs)
-    else:
-        record_batch(report, tmp_path, **kwargs)
-
-
-def check_recorded_batches_retain_actual_timeout_and_failures_outcome_2(failure, saved):
-    if failure:
-        assert saved["attempts"][0]["error"] == "retained"
-
-
-def prepare_malformed_saved_attempts_are_rejected_as_validation_errors_case(change, report):
+def mutate_saved_attempt(change, report):
     if change == "row":
         report["attempts"][0] = None
     elif change == "index":

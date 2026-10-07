@@ -167,7 +167,7 @@ def prepare_plan_rejects_ambiguous_paths_and_phase_types_case(change, data):
         data["requirements"][0]["phase"] = []
 
 
-def prepare_teardown_entries_step_2(change):
+def make_teardown_entries(change):
     duplicate = (
         ("first", "error", {})
         if change == "error"

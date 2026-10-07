@@ -8,13 +8,13 @@ from llm_testkit.reporting.live_quality import generate_captured_answer
 from llm_testkit.reporting.steps import title
 from test_support.builders.reporting_steps import (
     check_reported_operation_outcome,
+    expected_reporting_events,
     make_missing_allure_stub,
     make_missing_transitive_dependency_stub,
     make_operation_stub,
     make_reported_step_stub,
+    make_reporting_backend,
     prepare_reported_operation_case,
-    prepare_reported_operation_step_1,
-    prepare_reported_operation_step_12,
 )
 from test_support.data.reporting_steps import (
     REPORTED_OPERATION_REPORTING_INSTALLED_CASES,
@@ -32,7 +32,7 @@ def test_reported_operation_preserves_result_and_failure_without_exposing_argume
     monkeypatch: pytest.MonkeyPatch,
     reporting_installed: bool,
 ) -> None:
-    backend = prepare_reported_operation_step_1(reporting_installed)
+    backend = make_reporting_backend(reporting_installed)
     events = []
 
     reported_step = make_reported_step_stub(events)
@@ -48,7 +48,7 @@ def test_reported_operation_preserves_result_and_failure_without_exposing_argume
     with pytest.raises(RuntimeError, match="Operation failed") as caught:
         operation("private-key", fail=True)
     assert caught.value is failure
-    expected = prepare_reported_operation_step_12(reporting_installed)
+    expected = expected_reporting_events(reporting_installed)
     assert events == expected
     assert operation.__wrapped__.__name__ == "operation"
     check_reported_operation_outcome(backend)

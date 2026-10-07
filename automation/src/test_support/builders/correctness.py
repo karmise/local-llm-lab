@@ -120,7 +120,7 @@ def make_failed_score_stub():
     return failed_score
 
 
-def prepare_real_ragas_correctness_with_mocked_judge_step_6(outputs, responses):
+def append_judge_responses(outputs, responses):
     for output in outputs:
         response = Response()
         response.status_code = 200
@@ -135,7 +135,7 @@ def prepare_real_ragas_correctness_with_mocked_judge_step_6(outputs, responses):
         responses.append(response)
 
 
-def check_control_catalog_has_valid_expectations_step_3(cases):
+def check_control_expectations(cases):
     for control in cases:
         validate_control(control)
         assert control["case_id"] == CASE.id

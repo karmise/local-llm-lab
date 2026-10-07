@@ -93,9 +93,10 @@ Correctness remains a measurement until explicit gates are supplied. Context pre
 | `src/llm_testkit/pages/` | Browser locators and actions |
 | `src/llm_testkit/assertions.py` | API/answer/source/quality/UI acceptance criteria |
 | `src/llm_testkit/pytest_support/options.py` | CLI selection, model matrix, opt-in validation after `-k`/`-m` |
-| `src/llm_testkit/pytest_support/environment.py` | Paths, configuration, clients and scenario data |
-| `src/llm_testkit/pytest_support/resources.py` | Temporary workspace, document folder, upload and indexing |
-| `src/llm_testkit/pytest_support/rag.py` | Model metadata, generation and optional context capture |
+| `src/test_support/fixtures/` | Scoped setup, dependencies, resource ownership, evidence and cleanup |
+| `src/test_support/builders/` | Test objects, deterministic doubles and named scenario preparation |
+| `src/test_support/data/` | Named parameter cases and offline test inputs |
+| `src/test_support/data/scripts/` | Isolated pytest source templates for collection/lifecycle checks |
 | `src/llm_testkit/datasets/` | Typed, source-bound golden dataset loading and validation |
 | `test_data/` | Fictional documents and shared question/reference/fact profiles |
 | `tests/unit/` | Framework behavior with HTTP calls mocked |
@@ -117,6 +118,17 @@ exercise real child pytest runs, not private fixture wrappers or `sys.modules`.
 Put shared questions, references and acceptance patterns in `test_data`. API, UI
 and quality scenarios should consume the same profiles. `rag_chat` and
 `workspace_page` declare their metadata/setup dependencies directly.
+
+Keep fixtures out of test modules. Register shared fixture plugins in
+`tests/conftest.py`; re-export narrowly scoped fixtures from the relevant suite
+or module so an adversarial document override cannot affect ordinary RAG tests.
+Use imported parameter tables rather than inline lists. Keep scenario bodies
+linear: prepare, act, check. Conditional setup, test doubles and browser simulation
+belong to test support; acceptance rules belong to `Assertions`. Optional browser
+and judge imports remain lazy in supporting code.
+
+The [test readability guide](../docs/step-34-test-readability.md) explains these
+boundaries and the selection of representative unit cases.
 
 Use Playwright's retrying expectations instead of fixed sleeps. After sending a
 question, the Page Object targets the next persisted assistant reply; completion

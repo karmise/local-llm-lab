@@ -52,7 +52,7 @@ def prepare_invalid_catalog_is_rejected_case(case, data, mutation):
         data["cases"] = []
 
 
-def prepare_missing_benefit_step_2(case_id):
+def invent_missing_benefit(case_id):
     invented = (
         " An allowance of KGS 500 is available."
         if case_id != "parental_leave_missing"

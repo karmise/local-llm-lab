@@ -11,9 +11,9 @@ from llm_testkit.config import Settings
 from llm_testkit.datasets.conversation import ConversationCatalog, load_conversation_catalog
 from llm_testkit.reporting.steps import title
 from test_support.builders.conversation import (
+    make_defective_policy_source,
+    make_walking_response,
     prepare_invalid_catalogs_fail_before_any_generation_case,
-    prepare_policy_parts_require_the_expected_document_and_supporting_passage_step_2,
-    prepare_walking_intent_accepts_fresh_air_without_requiring_literal_walk_step_3,
     response,
 )
 from test_support.data.conversation import (
@@ -80,9 +80,7 @@ def test_policy_parts_require_the_expected_document_and_supporting_passage(
     catalog: ConversationCatalog, case_id: str, defect: str
 ) -> None:
     case = next(case for case in catalog.cases if case.id == case_id)
-    reply = prepare_policy_parts_require_the_expected_document_and_supporting_passage_step_2(
-        case, defect
-    )
+    reply = make_defective_policy_source(case, defect)
     with pytest.raises(AssertionError, match="did not cite|source_text"):
         assertions.assert_conversation_answer(reply, case=case, document_title="policy.txt")
 
@@ -106,9 +104,7 @@ def test_walking_intent_accepts_fresh_air_without_requiring_literal_walk(
 ) -> None:
     case = next(case for case in catalog.cases if case.id == case_id)
     suggestion = "That sounds like a lovely idea; enjoy the fresh air and nature!"
-    answer = prepare_walking_intent_accepts_fresh_air_without_requiring_literal_walk_step_3(
-        case, case_id, suggestion
-    )
+    answer = make_walking_response(case, case_id, suggestion)
     assertions.assert_conversation_answer(response(answer), case=case, document_title="policy.txt")
 
 

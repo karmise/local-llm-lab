@@ -15,12 +15,12 @@ from llm_testkit.reporting.gates import METRICS
 from llm_testkit.reporting.steps import title
 from test_support.builders.drift import (
     check_snapshot_assembly_outcome,
+    mutate_snapshot_evidence,
     prepare_comparison_case,
     prepare_invalid_snapshot_case,
     prepare_resealed_history_case,
     prepare_snapshot_assembly_case,
     prepare_snapshot_assembly_case_2,
-    prepare_snapshot_assembly_step_12,
     snapshot,
 )
 from test_support.data.drift import (
@@ -144,7 +144,7 @@ def test_snapshot_assembly(tmp_path, monkeypatch, change):
             }
         )
     )
-    quality = prepare_snapshot_assembly_step_12(change, dataset, evidence, path)
+    quality = mutate_snapshot_evidence(change, dataset, evidence, path)
     monkeypatch.setattr(
         "llm_testkit.reporting.drift.build_quality_report", lambda *args, **kwargs: quality
     )

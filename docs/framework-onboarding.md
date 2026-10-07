@@ -119,6 +119,9 @@ answer is correct.
 | [test_support/fixtures/environment.py](../automation/src/test_support/fixtures/environment.py) | Paths, settings, API clients and shared scenario profiles. | Tests do not need to find local credentials or duplicate file-loading logic. |
 | [test_support/fixtures/resources.py](../automation/src/test_support/fixtures/resources.py) | Workspace/folder creation, upload, indexing and cleanup. | Resource ownership must remain reliable when a scenario or setup check fails. |
 | [test_support/fixtures/rag.py](../automation/src/test_support/fixtures/rag.py) | Model selection, metadata, generation and optional capture. | Comparisons need a record of the model/configuration that produced each answer. |
+| `test_support/fixtures/unit_*.py` | Scoped offline fixtures, patching and temporary framework resources. | Unit test bodies stay focused on the operation and expected result. |
+| `test_support/builders/` | Object construction, deterministic test doubles and named scenario preparation. | Data mutation and simulation details do not obscure the scenario. |
+| `test_support/data/` | Named parameter tables and isolated pytest source templates in `scripts/`. | Test bodies describe behavior; parameter input and synthetic child-test code are located separately. |
 | [pytest_support/options.py](../automation/src/llm_testkit/pytest_support/options.py) | CLI flags, model/repetition matrix and opt-in validation. | Selection rules belong in one place and apply after `-k`/`-m` filtering. |
 | `evaluation/` | RAGAS adapter, faithful-claim measurement and judge controls. | Evaluation mechanics can be investigated separately from app scenarios. |
 | `reporting/` | Allure integration, combined quality evidence and stability summaries. | A reporter presents evidence; it must not silently retry or relax checks. |
@@ -132,6 +135,14 @@ patches and, for lifecycle/collection behavior, real child pytest runs.
 
 These are project choices, not a universal requirement that every Python test
 must hide its assertions or that every application needs this many layers.
+
+All fixture implementations live under `src/test_support/fixtures`. Suite
+`conftest.py` files and occasional explicit fixture re-exports select their scope.
+There are no fixture definitions, conditional branches, loops or imports inside
+the executable test functions. Different expectations can use separate tests or
+explicit expected values in a parameter table. Supporting code may use control
+flow where the setup or check requires it. See the
+[readability guide](step-34-test-readability.md) for examples and extension rules.
 
 ## 4. Walk through one paid-leave scenario
 

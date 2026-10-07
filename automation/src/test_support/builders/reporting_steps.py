@@ -56,7 +56,7 @@ def make_missing_transitive_dependency_stub():
     return missing_transitive_dependency
 
 
-def prepare_reported_operation_step_1(
+def make_reporting_backend(
     reporting_installed,
 ):
     backend = Mock() if reporting_installed else None
@@ -64,7 +64,7 @@ def prepare_reported_operation_step_1(
     return backend
 
 
-def prepare_reported_operation_step_12(
+def expected_reporting_events(
     reporting_installed,
 ):
     expected = (

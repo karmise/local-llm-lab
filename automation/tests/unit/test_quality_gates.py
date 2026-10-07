@@ -7,7 +7,6 @@ from llm_testkit import assertions
 from llm_testkit.reporting.gates import apply_quality_gates, load_quality_gates
 from llm_testkit.reporting.steps import title
 from test_support.builders.quality_gates import (
-    check_fail_closed_step_5,
     measured_report,
     prepare_configuration_case,
     prepare_fail_closed_case,
@@ -15,8 +14,7 @@ from test_support.builders.quality_gates import (
 from test_support.data.quality_gates import (
     BOUNDARY_METRIC_CASES,
     CONFIGURATION_CHANGE_CASES,
-    FAIL_CLOSED_CHANGE_CASES,
-    FAIL_CLOSED_METRIC_CASES,
+    FAIL_CLOSED_CASES,
     GATES,
 )
 from test_support.data.scripts.quality_gates import render_pytest_exit_code_makepyfile_source
@@ -38,15 +36,14 @@ def test_apply_gates():
     assert all(d["status"] == "passed" for d in gated["dimensions"])
 
 
-@pytest.mark.parametrize("metric", FAIL_CLOSED_METRIC_CASES)
-@pytest.mark.parametrize("change", FAIL_CLOSED_CHANGE_CASES)
+@pytest.mark.parametrize("metric,change,expected_status", FAIL_CLOSED_CASES)
 @title("Quality gates fail closed for missing, invalid or low-scoring metrics [{param_id}]")
-def test_fail_closed(metric, change):
+def test_fail_closed(metric, change, expected_status):
     report = measured_report()
     row = next(d for d in report["dimensions"] if d.get("metric") == metric)
     prepare_fail_closed_case(change, report, row)
     gated = apply_quality_gates(report, GATES)
-    check_fail_closed_step_5(change, gated)
+    assert gated["status"] == expected_status
     with pytest.raises(AssertionError):
         assertions.assert_quality_report(gated)
 
