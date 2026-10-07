@@ -78,6 +78,24 @@ def test_workspace_creation_does_not_mutate_configuration(session: Mock) -> None
     }
 
 
+def test_workspace_update_uses_authenticated_route_and_preserves_settings(session: Mock) -> None:
+    configuration = {"chatMode": "chat", "openAiPrompt": "Reviewed prompt"}
+    with HttpClient("http://localhost", 5) as http:
+        response = AnythingLLMClient(http, api_key="test-key").update_workspace(
+            "policy/lab", configuration
+        )
+    assert response is session.request.return_value
+    session.request.assert_called_once_with(
+        method="POST",
+        url="http://localhost/api/v1/workspace/policy%2Flab/update",
+        headers={"Authorization": "Bearer test-key"},
+        json={"chatMode": "chat", "openAiPrompt": "Reviewed prompt"},
+        timeout=5,
+        allow_redirects=False,
+    )
+    assert configuration == {"chatMode": "chat", "openAiPrompt": "Reviewed prompt"}
+
+
 @pytest.mark.parametrize("fail", [False, True])
 def test_upload_closes_document_even_when_request_fails(
     session: Mock, tmp_path: Path, fail: bool

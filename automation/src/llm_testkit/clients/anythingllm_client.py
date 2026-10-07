@@ -28,6 +28,12 @@ class AnythingLLMClient:
     def get_workspace(self, slug: str) -> Response:
         return self._developer_request("GET", f"workspace/{quote(slug, safe='')}")
 
+    @step("API: update workspace settings")
+    def update_workspace(self, slug: str, configuration: Mapping[str, Any]) -> Response:
+        return self._developer_request(
+            "POST", f"workspace/{quote(slug, safe='')}/update", json=dict(configuration)
+        )
+
     @step("API: create workspace")
     def create_workspace(
         self, name: str, configuration: Mapping[str, Any] | None = None

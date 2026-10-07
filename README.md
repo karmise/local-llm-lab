@@ -183,6 +183,10 @@ exports and logs containing real data out of Git. The application is bound to
 
 ## Manual RAG checks
 
+The manual workspace uses the [conversational Chat profile](docs/step-32-conversation.md)
+for greetings, everyday conversation and mixed policy questions. Existing RAG
+automation retains its reviewed document-only Query profile.
+
 Use the `Company Policy Lab` workspace. Upload the policy and save/embed it into
 the workspace. Attaching a file to a message is a separate workflow; RAG checks
 require an indexed document.
