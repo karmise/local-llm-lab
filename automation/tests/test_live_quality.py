@@ -17,14 +17,10 @@ pytestmark = [pytest.mark.rag, pytest.mark.live_quality]
 
 @title("Live paid-leave answer passes quality checks with local judge evidence [{param_id}]")
 def test_live_paid_leave_quality(
-    rag_chat: Callable[[str, str], Response],
-    captured_sample_path: Path,
-    settings: Settings,
-    request: pytest.FixtureRequest,
-    automation_root: Path,
-    paid_leave_profile: dict[str, Any],
-    paid_leave_profile_path: Path,
-) -> None:
+    rag_chat: Callable[[str, str], Response], captured_sample_path: Path,
+    settings: Settings, request: pytest.FixtureRequest, automation_root: Path,
+    paid_leave_profile: dict[str, Any], paid_leave_profile_path: Path
+) -> None:  # fmt: skip
     generate_captured_answer(rag_chat, paid_leave_profile, captured_sample_path)
     directory = automation_root / "reports/live-quality" / captured_sample_path.stem
     evidence_path = directory / "faithfulness.json"
