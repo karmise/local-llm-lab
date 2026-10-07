@@ -184,3 +184,34 @@ def test_equal_function_names_in_different_modules_are_distinct_scenarios(tmp_pa
     assert len(rows) == 2
     assert {r["classname"] for r in rows} == {"tests.test_rag", "tests.test_other_rag"}
     assert all(r["runs"] == 1 and not r["mixed_pass_fail_observed"] for r in rows)
+
+
+@pytest.mark.parametrize("change", ["different-cases", "changed-catalog", "missing-catalog"])
+@title("Conversation stability preserves case identity and catalog fingerprints [{param_id}]")
+def test_conversation_summary_retains_case_identity_and_reviewed_catalog(tmp_path, change):
+    path = _report(tmp_path, ["passed", "failure"])
+    tree = ET.parse(path)
+    for i, case in enumerate(tree.getroot().findall(".//testcase")):
+        props = case.find("properties")
+        ET.SubElement(
+            props,
+            "property",
+            name="conversation_case_id",
+            value="greeting" if i == 0 or change != "different-cases" else "mixed_request",
+        )
+        if change != "missing-catalog":
+            ET.SubElement(
+                props,
+                "property",
+                name="conversation_catalog_sha256",
+                value=str(i) if change == "changed-catalog" else "catalog",
+            )
+    tree.write(path)
+    rows = summarize_report(path)
+    if change == "different-cases":
+        assert len(rows) == 2
+        assert all(row["runs"] == 1 and not row["mixed_pass_fail_observed"] for row in rows)
+    else:
+        assert len(rows) == 1
+        assert rows[0]["configuration_consistent"] is False
+        assert rows[0]["metadata_complete"] is (change == "changed-catalog")

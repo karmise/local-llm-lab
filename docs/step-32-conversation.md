@@ -32,3 +32,48 @@ documents or chat history. Reload the UI after changing the mode or prompt.
 
 These curated acceptance checks exercise response behavior, not universal
 conversational quality, medical advice safety or a guarantee against hallucination.
+
+## Acceptance scenarios
+
+The five reviewed cases in `automation/test_data/conversation-policy.json` cover:
+
+1. A greeting: a short reply without an unsolicited policy or document summary.
+2. An everyday walk suggestion: a relevant reply without invented weather.
+3. Northern Lighthouse leave: 23 working days per year, at least 12 calendar
+   days' notice, direct manager approval, and the uploaded source.
+4. HarborWorks leave: no approved information and no invented entitlement.
+5. A mixed request: greeting, walking, Northern Lighthouse leave and an explicit
+   limitation for HarborWorks, with the company claims kept separate.
+
+Run from `automation` with its virtual environment active:
+
+```bash
+python -m pytest tests/conversation --run-conversation --rag-model qwen3.5:4b \
+  --junitxml=reports/conversation/junit.xml --alluredir=reports/conversation/allure
+```
+
+Omit `--alluredir` without reporting dependencies. For a smaller first run add
+`-k greeting`. Each selected case/model/repetition makes one answer request with
+no retry. Five cases on one model make five sequential generations; no judge
+calls are added. A failed answer stays failed. To compare models, add another
+`--rag-model qwen2.5:7b`; this doubles the generation budget.
+
+The dataset loader validates its policy checksum, IDs, regex rules, source
+anchors, word budgets and reviewed reference examples before generation.
+References demonstrate acceptable content, not exact wording. Shared assertions
+check the completed final answer, all required intents, prohibited content and
+source passages for policy answers. Word limits of 40/90/140/160 are explicit
+conversational acceptance budgets, not semantic-quality scores. Regex checks have
+limited paraphrase coverage and do not prove that every possible assertion is true.
+
+Fixtures own fresh indexed workspaces and verify cleanup. Tests contain scenario
+calls and shared assertions; Allure steps stay in clients/assertions. Each Allure
+test has a case-specific title. JUnit records case/catalog identity, model digest,
+policy hash and actual workspace settings. Stability summaries keep different
+conversation cases separate and reject changed or missing catalog fingerprints.
+
+`--capture-rag` is rejected for enabled conversation checks: greetings and small
+talk are not document-grounded evaluation samples. Returned `sources` may still
+contain policy matches for a greeting; the final answer must not dump them.
+These supplemental checks are not included in the existing 13-requirement
+IQ/OQ/PQ qualification protocol; they do not close that protocol's PQ matrix.

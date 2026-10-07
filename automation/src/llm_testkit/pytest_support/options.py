@@ -8,6 +8,7 @@ import pytest
 
 from llm_testkit.datasets.adversarial import load_adversarial_cases
 from llm_testkit.datasets.bias import load_bias_cases
+from llm_testkit.datasets.conversation import load_conversation_catalog
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.datasets.prompts import load_prompt_catalog
 from llm_testkit.performance.runner import validate_budget
@@ -33,6 +34,11 @@ def _model_name(value: str) -> str:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-conversation",
+        action="store_true",
+        help="Enable Chat-mode conversational acceptance checks (one generation per case).",
+    )
     parser.addoption(
         "--run-bias",
         action="store_true",
@@ -125,6 +131,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    if "conversation_case" in metafunc.fixturenames:
+        root = metafunc.config.rootpath / "test_data"
+        try:
+            catalog = load_conversation_catalog(
+                root / "conversation-policy.json", root / "company-policy.txt"
+            )
+        except (ValueError, OSError) as error:
+            raise pytest.UsageError(f"Invalid conversation catalog: {error}") from error
+        metafunc.parametrize("conversation_case", catalog.cases, ids=[c.id for c in catalog.cases])
     if "bias_case" in metafunc.fixturenames:
         root = metafunc.config.rootpath / "test_data"
         try:
@@ -172,6 +187,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             ("qwen3.5:4b",)
             if metafunc.definition.get_closest_marker("live_quality")
             or metafunc.definition.get_closest_marker("performance")
+            or metafunc.definition.get_closest_marker("conversation")
             else DEFAULT_RAG_MODELS
         )
         models = list(dict.fromkeys(metafunc.config.getoption("rag_models") or defaults))
@@ -187,6 +203,16 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     # Validate only selected tests, after pytest applies -k and -m filters.
+    for item in items:
+        if item.get_closest_marker("conversation"):
+            if not config.getoption("run_conversation"):
+                item.add_marker(
+                    pytest.mark.skip(reason="Enable explicitly with --run-conversation")
+                )
+            elif config.getoption("capture_rag"):
+                raise pytest.UsageError(
+                    "Conversation checks do not support --capture-rag: small talk is not a RAG sample"
+                )
     if not config.getoption("run_bias"):
         for item in items:
             if item.get_closest_marker("bias"):

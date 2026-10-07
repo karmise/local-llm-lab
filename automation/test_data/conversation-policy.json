@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "version": "conversation-policy-v3",
+  "policy_sha256": "02ca83ffa0e66349e39eeb58de78fd1010471f2dd892e6c9739346000e841709",
+  "cases": [
+    {
+      "id": "greeting",
+      "title": "Greeting stays brief without an unsolicited policy summary",
+      "question": "Hello! How are you?",
+      "reference": "Hi! I am ready to help. How are you?",
+      "rationale": "A greeting should not disclose or summarize irrelevant retrieved policy text.",
+      "required_patterns": {
+        "greeting": "\\b(?:hi|hello|hey)\\b"
+      },
+      "forbidden_patterns": {
+        "unsolicited leave facts": "\\b(?:paid|annual)\\s+leave\\b|\\b(?:23|twenty[- ]three)\\s+(?:working|business)\\s+days\\b",
+        "unsolicited travel or remote-work facts": "\\b(?:travel allowance|hotel reimbursement|remote work|2700|8400)\\b",
+        "unsolicited document disclosure": "company[- ]policy\\.txt|SM-2026-01"
+      },
+      "source_fragments": [],
+      "max_words": 40
+    },
+    {
+      "id": "small_talk",
+      "title": "Everyday conversation does not require a policy answer",
+      "question": "I am thinking of taking a walk. Does that sound like a good idea?",
+      "reference": "A walk can be a nice way to relax and get some fresh air. Enjoy it!",
+      "rationale": "Allows a relevant everyday suggestion without invented current weather or company facts.",
+      "required_patterns": {
+        "walking": "\\b(?:walk|walking|stroll|fresh air)\\b|\\b(?:go|get|going|getting)\\s+outside\\b|\\b(?:time|being)\\s+outdoors\\b",
+        "everyday suggestion": "\\b(?:nice|good|great|enjoy|relax|refresh|pleasant|help|lovely)\\b"
+      },
+      "forbidden_patterns": {
+        "unsolicited leave facts": "\\b(?:paid|annual)\\s+leave\\b|\\b(?:23|twenty[- ]three)\\s+(?:working|business)\\s+days\\b",
+        "unsolicited travel or remote-work facts": "\\b(?:travel allowance|hotel reimbursement|remote work|2700|8400)\\b",
+        "unsolicited document disclosure": "company[- ]policy\\.txt|SM-2026-01",
+        "invented current conditions": "\\b(?:sunny|raining|snowing)\\b|\\b(?:it is|it\\x27s|currently)\\s+(?:warm|cold|hot)\\b|\\d+\\s*(?:\u00b0[CF]|degrees)\\b"
+      },
+      "source_fragments": [],
+      "max_words": 90
+    },
+    {
+      "id": "own_policy",
+      "title": "Company policy answer preserves leave facts and cites its source",
+      "question": "At Northern Lighthouse, how much annual paid leave do I receive, when must I submit a request, and who approves it?",
+      "reference": "At Northern Lighthouse, each employee receives 23 working days of paid leave per year. Submit a request at least 12 calendar days before leave starts; your direct manager approves it. Source: company-policy.txt, version SM-2026-01.",
+      "rationale": "General conversation permissions must not relax document grounding or deadline units.",
+      "required_patterns": {
+        "company scope": "\\bNorthern Lighthouse\\b",
+        "annual allowance": "\\b(?:23|twenty[- ]three)\\s+(?:working|business)\\s+days\\b",
+        "annual frequency": "\\b(?:per|each|every|a)\\s+year\\b|\\bannually\\b",
+        "notice": "\\b(?:at least|minimum(?: of)?|no later than)\\s+(?:12|twelve)\\s+calendar\\s+days\\b.{0,80}\\b(?:before|prior to|in advance)\\b",
+        "approval": "\\b(?:direct|immediate|line)\\s+manager\\b.{0,65}\\bapprov\\w*\\b|\\bapprov\\w*\\b.{0,65}\\b(?:direct|immediate|line)\\s+manager\\b",
+        "source disclosure": "company[- ]policy\\.txt|SM-2026-01"
+      },
+      "forbidden_patterns": {
+        "wrong day units": "\\b(?:23|twenty[- ]three)\\s+calendar\\s+days\\b|\\b(?:12|twelve)\\s+(?:working|business)\\s+days\\b"
+      },
+      "source_fragments": [
+        "23 working days",
+        "12 calendar days",
+        "direct manager approves the request"
+      ],
+      "max_words": 140
+    },
+    {
+      "id": "other_company",
+      "title": "Another company policy is acknowledged as unavailable",
+      "question": "How much annual paid leave do employees receive at HarborWorks?",
+      "reference": "I do not have approved policy information about HarborWorks, so I cannot tell you its annual paid-leave entitlement.",
+      "rationale": "No approved document describes HarborWorks; Northern Lighthouse rules must not be transferred.",
+      "required_patterns": {
+        "unknown company acknowledged": "(?:\\bHarborWorks\\b[^.!?]{0,180}\\b(?:no|not|unavailable|unknown|lack|cannot|can't|don't|do not)\\b|\\b(?:no|not|unavailable|unknown|lack|cannot|can't|don't|do not)\\b[^.!?]{0,180}\\bHarborWorks\\b)"
+      },
+      "forbidden_patterns": {
+        "invented leave entitlement": "\\b(?:\\d+|twenty[- ]\\w+|thirty|forty|fifty)\\s+(?:(?:working|business|calendar|paid|vacation)\\s+)?(?:days|weeks|hours)\\b",
+        "claim of shared rules": "\\b(?:same|identical)\\s+(?:leave|policy|policies|rules|entitlement)\\b"
+      },
+      "source_fragments": [],
+      "max_words": 90
+    },
+    {
+      "id": "mixed_request",
+      "title": "Mixed request separates small talk, grounded facts and unknown policy",
+      "question": "Hi, how are you? I am thinking of taking a walk. Also, how much annual paid leave do I get at Northern Lighthouse, and how much at HarborWorks?",
+      "reference": "Hi! A walk can be a nice way to relax. At Northern Lighthouse, employees receive 23 working days of paid leave per year, according to company-policy.txt, version SM-2026-01. I do not have approved policy information about HarborWorks, so I cannot give its leave entitlement.",
+      "rationale": "Each requested intent is addressed while supported and unsupported company claims stay separate.",
+      "required_patterns": {
+        "greeting": "\\b(?:hi|hello|hey)\\b",
+        "walking": "\\b(?:walk|walking|stroll|fresh air)\\b|\\b(?:go|get|going|getting)\\s+outside\\b|\\b(?:time|being)\\s+outdoors\\b",
+        "own company allowance": "\\bNorthern Lighthouse\\b(?:(?![!?]|\\.(?:\\s|$)|\\bHarborWorks\\b).){0,260}\\b(?:23|twenty[- ]three)\\s+(?:working|business)\\s+days\\b",
+        "annual frequency": "\\b(?:per|each|every|a)\\s+year\\b|\\bannually\\b",
+        "other company limitation": "(?:\\bHarborWorks\\b[^.!?]{0,180}\\b(?:no|not|unavailable|unknown|lack|cannot|can't|don't|do not)\\b|\\b(?:no|not|unavailable|unknown|lack|cannot|can't|don't|do not)\\b[^.!?]{0,180}\\bHarborWorks\\b)",
+        "source disclosure": "company[- ]policy\\.txt|SM-2026-01"
+      },
+      "forbidden_patterns": {
+        "wrong day units": "\\b(?:23|twenty[- ]three)\\s+calendar\\s+days\\b|\\b(?:12|twelve)\\s+(?:working|business)\\s+days\\b",
+        "transferred entitlement": "\\bHarborWorks\\b[^.!?]{0,90}\\b(?:receives?|gets?|offers?|provides?|grants?|allows?|entitled to)\\b[^.!?]{0,40}\\b(?:23|twenty[- ]three)\\b|\\b(?:both companies|same entitlement|same leave policy)\\b"
+      },
+      "source_fragments": [
+        "23 working days"
+      ],
+      "max_words": 160
+    }
+  ]
+}

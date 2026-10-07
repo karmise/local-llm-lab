@@ -40,6 +40,8 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
             scenario += f"[bias={properties['bias_pair_id']}:{properties.get('bias_variant_id', 'missing')}]"
         if properties.get("adversarial_case_id"):
             scenario += f"[attack={properties['adversarial_case_id']}]"
+        if properties.get("conversation_case_id"):
+            scenario += f"[conversation={properties['conversation_case_id']}]"
         if properties.get("prompt_id"):
             scenario += f"[prompt={properties['prompt_id']}]"
         group = groups.setdefault(
@@ -76,6 +78,8 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
             )
         if properties.get("adversarial_case_id"):
             complete = complete and bool(properties.get("adversarial_catalog_sha256"))
+        if properties.get("conversation_case_id"):
+            complete = complete and bool(properties.get("conversation_catalog_sha256"))
         if properties.get("prompt_id"):
             complete = complete and bool(properties.get("prompt_sha256"))
         configuration = None
@@ -99,6 +103,7 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
                     properties.get("prompt_sha256", ""),
                     properties.get("adversarial_catalog_sha256", ""),
                     properties.get("bias_catalog_sha256", ""),
+                    properties.get("conversation_catalog_sha256", ""),
                 )
             )
 

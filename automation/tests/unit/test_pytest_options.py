@@ -22,8 +22,10 @@ def test_opt_in_scenarios_skip_before_resolving_external_fixtures(runner: pytest
         def test_live(missing_judge): pass
         @pytest.mark.golden
         def test_golden(missing_model): pass
+        @pytest.mark.conversation
+        def test_conversation(missing_model): pass
     """)
-    runner.runpytest_subprocess("-q").assert_outcomes(skipped=4)
+    runner.runpytest_subprocess("-q").assert_outcomes(skipped=5)
 
 
 @title("Explicit golden flag enables selected acceptance scenarios")

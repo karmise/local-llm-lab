@@ -35,6 +35,7 @@ Run commands from `automation` with its virtual environment activated.
 | RAG answers | `python -m pytest tests/test_rag.py --rag-model qwen3.5:4b` | AnythingLLM, API key, generation and embedding models |
 | Golden policy dataset (one case) | `python -m pytest tests/test_golden_rag.py --run-golden --rag-model qwen3.5:4b -k carryover_limit` | Same as RAG; broader catalog is opt-in |
 | Application UI | `python -m pytest tests/ui --run-ui` | Same as RAG, plus Chromium |
+| Conversational assistant | `python -m pytest tests/conversation --run-conversation --rag-model qwen3.5:4b` | AnythingLLM, API key, generation and embedding models; five sequential generations |
 
 `python -m pytest` retains the existing behavior: it includes live API and RAG
 tests. Use `tests/unit` or `-m unit` for an offline run. Browser, golden and live-quality
@@ -42,6 +43,11 @@ tests skip until explicitly enabled. Ordinary RAG tests use both configured
 default models when `--rag-model` is omitted; repeat the flag to select several.
 `--rag-repeat N` creates independent workspaces for each repetition. UI tests use
 the workspace-template model and are not expanded by `--rag-model`.
+
+Conversation checks use the separate Chat profile and skip without
+`--run-conversation`. Their default is one model (`qwen3.5:4b`); an explicit model
+matrix and independent repetitions are supported. See the
+[conversation guide](../docs/step-32-conversation.md) for the contract and scope.
 
 For browser diagnostics, add:
 
@@ -95,6 +101,7 @@ Correctness remains a measurement until explicit gates are supplied. Context pre
 | `tests/unit/` | Framework behavior with HTTP calls mocked |
 | `tests/browser/` | Real browser with deterministic HTML; no model generation |
 | `tests/ui/` | End-to-end application browser scenarios |
+| `tests/conversation/` | Opt-in Chat behavior with a scoped conversational workspace profile |
 
 Keep fixtures function-scoped for mutable resources. Register cleanup as soon as
 a successful create response provides a usable resource identifier, before

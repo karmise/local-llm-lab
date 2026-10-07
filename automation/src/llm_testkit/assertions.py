@@ -1,5 +1,6 @@
 """Reusable API, quality and UI checks; clients and page objects do not assert outcomes."""
 
+import json
 import math
 import re
 from collections.abc import Mapping, Sequence, Sized
@@ -12,6 +13,7 @@ from llm_testkit.reporting.steps import attach_screenshot, attach_text, step
 if TYPE_CHECKING:
     from llm_testkit.datasets.adversarial import AdversarialCase
     from llm_testkit.datasets.bias import BiasCase
+    from llm_testkit.datasets.conversation import ConversationCase
     from llm_testkit.datasets.golden import GoldenCase
     from llm_testkit.pages.workspace_page import WorkspacePage
 
@@ -291,6 +293,31 @@ def assert_document_sources(
     combined = " ".join(passages)
     for fragment in fragments:
         assert_field_contains({"source_text": combined}, "source_text", fragment)
+
+
+@step("Check: conversation addresses requested intents and respects policy scope")
+def assert_conversation_answer(
+    response: Response, *, case: "ConversationCase", document_title: str
+) -> None:
+    payload, answer = assert_completed_answer(response)
+    attach_text(case.question, name=f"Conversation request: {case.id}")
+    attach_text(answer, name=f"Conversation answer: {case.id}")
+    attach_text(
+        json.dumps({"final_answer": answer, "response_sources": payload.get("sources")}),
+        name=f"Conversation answer and source evidence: {case.id}",
+    )
+    assert len(answer.split()) <= case.max_words, (
+        f"Conversation case {case.id}: answer exceeds {case.max_words} words"
+    )
+    assert_required_facts(answer, fact_patterns=dict(case.required_patterns))
+    for label, pattern in case.forbidden_patterns:
+        assert not re.search(pattern, answer, flags=re.IGNORECASE), (
+            f"Conversation case {case.id}: forbidden content: {label}. Answer: {answer[:500]}"
+        )
+    if case.source_fragments:
+        assert_document_sources(
+            payload, document_title=document_title, fragments=case.source_fragments
+        )
 
 
 def assert_missing_policy_information(

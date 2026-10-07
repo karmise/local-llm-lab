@@ -5,6 +5,7 @@ import pytest
 pytest.register_assert_rewrite("llm_testkit.assertions")
 
 pytest_plugins = (
+    "llm_testkit.pytest_support.conversation",
     "pytester",
     "llm_testkit.pytest_support.options",
     "llm_testkit.pytest_support.evidence",

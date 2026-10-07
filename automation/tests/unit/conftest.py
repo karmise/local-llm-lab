@@ -25,6 +25,7 @@ def framework_pytester(
         [pytest]
         addopts = --strict-markers --strict-config
         markers =
+            conversation: opt-in conversational acceptance checks
             bias: opt-in paired counterfactual scenarios
             performance: opt-in bounded performance batches
             adversarial: opt-in adversarial scenarios

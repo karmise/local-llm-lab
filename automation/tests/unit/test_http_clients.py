@@ -6,6 +6,7 @@ import requests
 
 from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.core.http_client import HttpClient
+from llm_testkit.reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -78,6 +79,7 @@ def test_workspace_creation_does_not_mutate_configuration(session: Mock) -> None
     }
 
 
+@title("Workspace settings update uses the authenticated API and preserves its input")
 def test_workspace_update_uses_authenticated_route_and_preserves_settings(session: Mock) -> None:
     configuration = {"chatMode": "chat", "openAiPrompt": "Reviewed prompt"}
     with HttpClient("http://localhost", 5) as http:
