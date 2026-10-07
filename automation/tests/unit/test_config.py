@@ -3,6 +3,12 @@ from pathlib import Path
 import pytest
 
 from llm_testkit.config import Settings
+from test_support.data.config import (
+    INVALID_TIMEOUTS_VALUE_CASES,
+    INVALID_TIMEOUTS_VARIABLE_CASES,
+    INVALID_URLS_VALUE_CASES,
+    INVALID_URLS_VARIABLE_CASES,
+)
 from test_support.fixtures.unit_config import (
     clean_settings_environment as clean_settings_environment,
 )
@@ -43,21 +49,10 @@ def test_explicit_missing_key_file_fails_early(
         Settings.from_env()
 
 
-@pytest.mark.parametrize("variable", ["ANYTHINGLLM_BASE_URL", "OLLAMA_BASE_URL"])
+@pytest.mark.parametrize("variable", INVALID_URLS_VARIABLE_CASES)
 @pytest.mark.parametrize(
     "value",
-    [
-        "file:///tmp",
-        "http://",
-        "http://user:secret@localhost",
-        "http://localhost?x=1",
-        "http://localhost#fragment",
-        "http://localhost:bad",
-        "http://localhost:65536",
-        "http://localhost:0",
-        "http://local host",
-        "http://[broken",
-    ],
+    INVALID_URLS_VALUE_CASES,
 )
 def test_invalid_urls_fail_with_setting_name(
     monkeypatch: pytest.MonkeyPatch, variable: str, value: str
@@ -69,13 +64,9 @@ def test_invalid_urls_fail_with_setting_name(
 
 @pytest.mark.parametrize(
     "variable",
-    [
-        "ANYTHINGLLM_HTTP_TIMEOUT",
-        "ANYTHINGLLM_DOCUMENT_TIMEOUT",
-        "ANYTHINGLLM_LLM_TIMEOUT",
-    ],
+    INVALID_TIMEOUTS_VARIABLE_CASES,
 )
-@pytest.mark.parametrize("value", ["0", "-1", "nan", "inf"])
+@pytest.mark.parametrize("value", INVALID_TIMEOUTS_VALUE_CASES)
 def test_timeouts_must_be_finite_and_positive(
     monkeypatch: pytest.MonkeyPatch, variable: str, value: str
 ) -> None:

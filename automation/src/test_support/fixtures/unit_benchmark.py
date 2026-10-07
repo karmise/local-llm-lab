@@ -5,7 +5,7 @@ import pytest
 from llm_testkit.datasets.benchmark import make_plan, manifest
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.reporting.gates import load_quality_gates
-from test_support.builders.benchmark import ROOT
+from test_support.data.benchmark import ROOT
 
 
 @pytest.fixture

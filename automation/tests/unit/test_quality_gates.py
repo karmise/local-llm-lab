@@ -4,9 +4,22 @@ from copy import deepcopy
 import pytest
 
 from llm_testkit import assertions
-from llm_testkit.reporting.gates import METRICS, apply_quality_gates, load_quality_gates
+from llm_testkit.reporting.gates import apply_quality_gates, load_quality_gates
 from llm_testkit.reporting.steps import title
-from test_support.builders.quality_gates import GATES, measured_report
+from test_support.builders.quality_gates import (
+    check_fail_closed_step_5,
+    measured_report,
+    prepare_configuration_case,
+    prepare_fail_closed_case,
+)
+from test_support.data.quality_gates import (
+    BOUNDARY_METRIC_CASES,
+    CONFIGURATION_CHANGE_CASES,
+    FAIL_CLOSED_CHANGE_CASES,
+    FAIL_CLOSED_METRIC_CASES,
+    GATES,
+)
+from test_support.data.scripts.quality_gates import render_pytest_exit_code_makepyfile_source
 
 pytestmark = pytest.mark.unit
 
@@ -25,27 +38,20 @@ def test_apply_gates():
     assert all(d["status"] == "passed" for d in gated["dimensions"])
 
 
-@pytest.mark.parametrize("metric", sorted(METRICS))
-@pytest.mark.parametrize("change", ["low", "missing", "invalid", "not-measured"])
+@pytest.mark.parametrize("metric", FAIL_CLOSED_METRIC_CASES)
+@pytest.mark.parametrize("change", FAIL_CLOSED_CHANGE_CASES)
 @title("Quality gates fail closed for missing, invalid or low-scoring metrics [{param_id}]")
 def test_fail_closed(metric, change):
     report = measured_report()
     row = next(d for d in report["dimensions"] if d.get("metric") == metric)
-    if change == "low":
-        row["details"]["value"] = 0.0
-    elif change == "missing":
-        report["dimensions"].remove(row)
-    elif change == "invalid":
-        row.update(status="error", error="Checksum mismatch")
-    else:
-        row["status"] = "passed"
+    prepare_fail_closed_case(change, report, row)
     gated = apply_quality_gates(report, GATES)
-    assert gated["status"] == ("failed" if change == "low" else "error")
+    check_fail_closed_step_5(change, gated)
     with pytest.raises(AssertionError):
         assertions.assert_quality_report(gated)
 
 
-@pytest.mark.parametrize("metric", sorted(METRICS))
+@pytest.mark.parametrize("metric", BOUNDARY_METRIC_CASES)
 @title("Quality threshold equality passes and an immediately lower measurement fails [{param_id}]")
 def test_boundary(metric):
     report = measured_report()
@@ -56,28 +62,13 @@ def test_boundary(metric):
     assert apply_quality_gates(report, GATES)["status"] == "failed"
 
 
-@pytest.mark.parametrize(
-    "change", ["missing", "unknown", "nan", "boolean", "range", "clinical", "version"]
-)
+@pytest.mark.parametrize("change", CONFIGURATION_CHANGE_CASES)
 @title(
     "Gate configuration requires all metrics, finite thresholds and an explicit calibration boundary [{param_id}]"
 )
 def test_configuration(tmp_path, change):
     config = json.loads(GATES.read_text())
-    if change == "missing":
-        config["minimum_scores"].pop("faithfulness")
-    elif change == "unknown":
-        config["minimum_scores"]["accuracy"] = 0.8
-    elif change in ("nan", "boolean", "range"):
-        config["minimum_scores"]["faithfulness"] = {
-            "nan": float("nan"),
-            "boolean": True,
-            "range": 1.1,
-        }[change]
-    elif change == "clinical":
-        config["calibration"] = "clinically validated"
-    else:
-        config["version"] = ""
+    prepare_configuration_case(change, config)
     path = tmp_path / "gates.json"
     path.write_text(json.dumps(config))
     with pytest.raises((ValueError, AssertionError)):
@@ -94,15 +85,7 @@ def test_duplicate_metric():
 
 @title("A low measured value produces a failing pytest exit code for CI")
 def test_pytest_exit_code(framework_pytester):
-    framework_pytester.makepyfile(f"""
-        from pathlib import Path
-        from llm_testkit.reporting.gates import apply_quality_gates
-        from llm_testkit.assertions import assert_quality_report
-        def test_gate():
-            report = {measured_report()!r}
-            report['dimensions'][2]['details']['value'] = 0.0
-            assert_quality_report(apply_quality_gates(report, Path({str(GATES)!r})))
-    """)
+    framework_pytester.makepyfile(render_pytest_exit_code_makepyfile_source())
     result = framework_pytester.runpytest_subprocess("-q")
     result.assert_outcomes(failed=1)
     assert result.ret == pytest.ExitCode.TESTS_FAILED

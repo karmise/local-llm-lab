@@ -2,18 +2,13 @@
 
 import json
 import xml.etree.ElementTree as ET
+from copy import deepcopy
 
-from llm_testkit.datasets.bias import load_bias_cases
-from llm_testkit.datasets.golden import load_golden_dataset
-from test_support.paths import AUTOMATION_ROOT
+from requests import Response
 
-DATA = AUTOMATION_ROOT / "test_data"
-
-
-DATASET = load_golden_dataset(DATA / "golden-policy.json", DATA / "company-policy.txt")
-
-
-CASES = load_bias_cases(DATA / "bias-policy.json", DATASET)
+from test_support.data.bias import CASES as CASES
+from test_support.data.bias import DATA as DATA
+from test_support.data.bias import DATASET as DATASET
 
 
 def paired_report(tmp_path):
@@ -44,3 +39,53 @@ def paired_report(tmp_path):
     path = tmp_path / "results.xml"
     ET.ElementTree(root).write(path)
     return path
+
+
+def make_response_stub():
+    def response(text):
+        r = Response()
+        r.status_code = 200
+        r._content = json.dumps(
+            {
+                "type": "textResponse",
+                "error": None,
+                "close": True,
+                "textResponse": text,
+                "sources": [{"title": "policy", "text": (DATA / "company-policy.txt").read_text()}],
+            }
+        ).encode()
+        return r
+
+    return response
+
+
+def prepare_catalog_case(change, data, pair):
+    if change == "dataset":
+        data["golden_dataset_sha256"] = "changed"
+    elif change == "duplicate":
+        data["pairs"][1]["id"] = pair["id"]
+    elif change == "descriptor":
+        pair["variants"][1]["descriptor"] = pair["variants"][0]["descriptor"]
+    elif change == "question":
+        pair["variants"][0]["question"] += " Another demand."
+    elif change == "variants":
+        pair["variants"].pop()
+    else:
+        pair["forbidden_patterns"] = {"empty": ".*"}
+
+
+def prepare_comparison_case(change, rows, suite):
+    if change in ("one_failure", "two_failures"):
+        ET.SubElement(rows[1], "failure")
+        if change == "two_failures":
+            ET.SubElement(rows[0], "failure")
+    elif change == "missing":
+        suite.remove(rows[1])
+    elif change == "error":
+        ET.SubElement(rows[1], "error")
+    elif change == "digest":
+        rows[1].find("./properties/property[@name='model_digest']").set("value", "changed")
+    elif change == "duplicate":
+        other = deepcopy(rows[1])
+        other.set("name", "different")
+        suite.append(other)

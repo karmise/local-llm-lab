@@ -55,3 +55,19 @@ def _response(output: dict, *, done_reason: str = "stop") -> Response:
         }
     ).encode()
     return response
+
+
+def make_Statements_schema():
+    from pydantic import BaseModel
+
+    class Statements(BaseModel):
+        statements: list[str]
+
+    return Statements
+
+
+def make_failed_score_stub():
+    async def failed_score(sample: dict, judge: object) -> dict:
+        raise ValueError("Judge generation truncated")
+
+    return failed_score

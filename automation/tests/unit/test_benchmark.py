@@ -1,8 +1,6 @@
-import copy
 import hashlib
 import json
 import shutil
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -17,7 +15,22 @@ from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.reporting.benchmark import markdown, review_worksheet, summarize
 from llm_testkit.reporting.benchmark_evidence import load_saved_benchmark
 from llm_testkit.reporting.steps import title
-from test_support.builders.benchmark import ROOT, _mock_metrics, _row, _sample
+from test_support.builders.benchmark import (
+    _mock_metrics,
+    _row,
+    _sample,
+    make_calibrate_stub,
+    make_generate_stub,
+    make_subprocess_run_stub,
+    prepare_different_configurations_rejected_step_2,
+    prepare_forged_top_level_summary_step_2,
+    prepare_invalid_summary_case,
+)
+from test_support.data.benchmark import (
+    INVALID_PLAN_OPTIONS_CASES,
+    INVALID_SUMMARY_CHANGE_CASES,
+    ROOT,
+)
 from test_support.fixtures.unit_benchmark import benchmark_data as benchmark_data
 
 pytestmark = pytest.mark.unit
@@ -35,19 +48,7 @@ def test_default_plan_budget(benchmark_data):
 
 @pytest.mark.parametrize(
     "options",
-    [
-        {"case_ids": []},
-        {"case_ids": ["unknown"]},
-        {"case_ids": ["gym_missing"]},
-        {"case_ids": ["paid_leave", "paid_leave"]},
-        {"models": []},
-        {"models": ["x", "x"]},
-        {"models": ["x", "y", "z"]},
-        {"models": ["../bad[model]"]},
-        {"max_model_calls": 42},
-        {"max_model_calls": True},
-        {"max_model_calls": 401},
-    ],
+    INVALID_PLAN_OPTIONS_CASES,
 )
 @title("Benchmark rejects invalid or over-budget matrices before model calls [{param_id}]")
 def test_invalid_plan(benchmark_data, options):
@@ -92,38 +93,14 @@ def test_failures_remain_visible(benchmark_data):
 
 @pytest.mark.parametrize(
     "change",
-    [
-        "duplicate",
-        "unknown",
-        "category",
-        "missing_metric",
-        "nan",
-        "minimum",
-        "false_pass",
-        "inapplicable",
-    ],
+    INVALID_SUMMARY_CHANGE_CASES,
 )
 @title("Benchmark refuses inconsistent case identities and metric outcomes [{param_id}]")
 def test_invalid_summary(benchmark_data, change):
     _, _, _, definition, calibration = benchmark_data
     row = _row()
     rows = [row]
-    if change == "duplicate":
-        rows.append(copy.deepcopy(row))
-    elif change == "unknown":
-        row["case_id"] = "unknown"
-    elif change == "category":
-        row["category"] = "boundary"
-    elif change == "missing_metric":
-        row["dimensions"].pop()
-    elif change == "nan":
-        row["dimensions"][2]["value"] = float("nan")
-    elif change == "minimum":
-        row["dimensions"][2]["minimum"] = 0.2
-    elif change == "false_pass":
-        row["dimensions"][2]["value"] = 0.1
-    else:
-        row["dimensions"][2]["status"] = "not_applicable"
+    prepare_invalid_summary_case(change, row, rows)
     with pytest.raises((ValueError, AssertionError)):
         summarize(definition, rows, calibration)
 
@@ -131,14 +108,7 @@ def test_invalid_summary(benchmark_data, change):
 @title("Model comparisons reject changed prompts or generation weights")
 def test_different_configurations_rejected(benchmark_data):
     _, _, _, definition, calibration = benchmark_data
-    for change in ("prompt", "digest"):
-        row = _row("gym_missing", "missing_information")
-        if change == "prompt":
-            row["workspace_configuration"]["openAiPrompt"] = "Changed prompt"
-        else:
-            row["model_digest"] = "changed"
-        with pytest.raises(ValueError, match="changed"):
-            summarize(definition, [_row(), row], calibration)
+    prepare_different_configurations_rejected_step_2(calibration, definition)
 
 
 @title("Judge control mismatch prevents a benchmark from claiming acceptance")
@@ -225,51 +195,11 @@ def test_runner_pipeline(tmp_path, benchmark_data, monkeypatch):
     catalog.json.return_value = {"models": [{"name": "qwen3.5:4b", "digest": "judge-digest"}]}
     monkeypatch.setattr(runner.OllamaClient, "list_models", lambda _: catalog)
 
-    def calibrate(path, controls, settings, model, digest):
-        calibrated = copy.deepcopy(calibration)
-        calibrated["sample_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
-        catalog = json.loads(controls.read_text())["cases"]
-        calibrated["results"] = []
-        for identifier in calibrated["control_ids"]:
-            control = next(c for c in catalog if c["id"] == identifier)
-            statements = control["response"].split(". ")
-            verdicts = [
-                {"statement": s, "verdict": c["verdict"], "reason": "Control label"}
-                for s, c in zip(statements, control["claims"], strict=True)
-            ]
-            calibrated["results"].append(
-                {
-                    "status": "matched",
-                    "control": control,
-                    "result": {
-                        "value": control["expected_score"],
-                        "statements": statements,
-                        "verdicts": verdicts,
-                    },
-                    "judge_calls": [
-                        {"output": {"statements": statements}},
-                        {"output": {"statements": verdicts}},
-                    ],
-                }
-            )
-        return calibrated
+    calibrate = make_calibrate_stub(calibration)
 
     monkeypatch.setattr(runner, "calibrate", calibrate)
 
-    def generate(root, directory, identifier, model):
-        case = next(c for c in dataset.cases if c.id == identifier)
-        sample = _sample(case, dataset, model)
-        sample["metadata"]["model_digest"] = "judge-digest"
-        write_sample(directory / "sample.json", sample)
-        _mock_metrics(monkeypatch, case, dataset, directory / "sample.json")
-        junit = directory / "generation.xml"
-        junit.write_text(
-            f'<testsuite><testcase classname="tests.test_golden_rag" name="test_golden_policy_answer[{identifier}-{model}]"/></testsuite>'
-        )
-        return {
-            "generation_status": "passed",
-            "generation_junit_sha256": hashlib.sha256(junit.read_bytes()).hexdigest(),
-        }
+    generate = make_generate_stub(dataset, monkeypatch)
 
     monkeypatch.setattr(runner, "generate_sample", generate)
     output = tmp_path / "run"
@@ -317,12 +247,7 @@ def test_generation_teardown_error(tmp_path, monkeypatch):
     sample_path = samples / "sample.json"
     write_sample(sample_path, _sample(dataset.cases[0], dataset))
 
-    def subprocess_run(command, **kwargs):
-        junit_path = Path(command[command.index("--junitxml") + 1])
-        junit_path.write_text(
-            f'<testsuite><testcase classname="tests.test_golden_rag" name="test_golden_policy_answer[paid_leave-qwen3.5:4b]"><properties><property name="evaluation_sample" value="{sample_path}"/></properties><error message="Cleanup failed"/></testcase></testsuite>'
-        )
-        return Mock(returncode=1)
+    subprocess_run = make_subprocess_run_stub(sample_path)
 
     monkeypatch.setattr(runner.subprocess, "run", subprocess_run)
     result = runner.generate_sample(root, directory, "paid_leave", "qwen3.5:4b")
@@ -371,13 +296,7 @@ def test_two_model_summary(benchmark_data):
 @title("Offline benchmark rendering recomputes a forged passing summary without model calls")
 def test_forged_top_level_summary(tmp_path, benchmark_data):
     dataset, gates, _, definition, _ = benchmark_data
-    for name in (
-        "golden-policy.json",
-        "quality-gates.json",
-        "faithfulness-controls.json",
-        "company-policy.txt",
-    ):
-        (tmp_path / name).write_bytes((ROOT / "test_data" / name).read_bytes())
+    prepare_forged_top_level_summary_step_2(tmp_path)
     write_sample(tmp_path / "manifest.json", definition)
     saved = {
         "manifest": definition,

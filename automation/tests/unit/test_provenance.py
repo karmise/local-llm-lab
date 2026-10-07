@@ -3,6 +3,7 @@ from copy import deepcopy
 import pytest
 
 from llm_testkit.core.provenance import normalize_configuration
+from test_support.data.provenance import INVALID_CONFIGURATION_IS_NOT_COERCED_VALUE_CASES
 
 pytestmark = pytest.mark.unit
 
@@ -21,7 +22,7 @@ def test_capture_suffix_is_incidental_and_configuration_is_not_mutated():
     )
 
 
-@pytest.mark.parametrize("value", [[], None, {"openAiPrompt": 1}])
+@pytest.mark.parametrize("value", INVALID_CONFIGURATION_IS_NOT_COERCED_VALUE_CASES)
 def test_invalid_configuration_is_not_coerced(value):
     with pytest.raises(ValueError):
         normalize_configuration(value)

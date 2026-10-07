@@ -9,7 +9,18 @@ from requests import Response
 from llm_testkit import assertions
 from llm_testkit.evaluation.calibration import evaluate_controls, load_controls, select_controls
 from llm_testkit.reporting.steps import title
-from test_support.builders.calibration import _case, _result
+from test_support.builders.calibration import (
+    _case,
+    _result,
+    make_factory_stub,
+    make_fake_score_stub,
+    prepare_control_loader_rejects_wrong_context_or_bad_labels_case,
+    prepare_control_loader_rejects_wrong_context_or_bad_labels_step_5,
+)
+from test_support.data.calibration import (
+    CONTROL_LOADER_REJECTS_WRONG_CONTEXT_OR_BAD_LABELS_CHANGE_CASES,
+    RUNNER_REJECTS_EMPTY_OR_EXCESSIVE_CONTROL_RUNS_COUNT_CASES,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -26,7 +37,7 @@ def test_targeted_selection_deduplicates_controls() -> None:
     assert [case["id"] for case in selected] == ["mixed"]
 
 
-@pytest.mark.parametrize("count", [0, 4])
+@pytest.mark.parametrize("count", RUNNER_REJECTS_EMPTY_OR_EXCESSIVE_CONTROL_RUNS_COUNT_CASES)
 @title("Calibration runner rejects empty or excessive control batches [{param_id}]")
 def test_runner_rejects_empty_or_excessive_control_runs(count: int) -> None:
     factory = Mock()
@@ -61,20 +72,14 @@ def test_two_expected_claims_cannot_match_one_combined_statement() -> None:
         assertions.assert_calibration_result(result, expected_score=0.5, claims=_case()["claims"])
 
 
-@pytest.mark.parametrize("change", ["context", "score", "duplicate", "empty"])
+@pytest.mark.parametrize("change", CONTROL_LOADER_REJECTS_WRONG_CONTEXT_OR_BAD_LABELS_CHANGE_CASES)
 @title("Calibration loader rejects unrelated context and invalid control labels [{param_id}]")
 def test_control_loader_rejects_wrong_context_or_bad_labels(tmp_path: Path, change: str) -> None:
     controls = {"schema_version": 1, "required_context_fragments": ["Policy"], "cases": [_case()]}
-    if change == "score":
-        controls["cases"][0]["expected_score"] = 1.0
-    elif change == "duplicate":
-        controls["cases"].append(_case())
-    elif change == "empty":
-        controls["cases"] = []
+    prepare_control_loader_rejects_wrong_context_or_bad_labels_case(change, controls)
     path = tmp_path / "controls.json"
     path.write_text(json.dumps(controls))
-    with pytest.raises(ValueError):
-        load_controls(path, ["Other document" if change == "context" else "Policy"])
+    prepare_control_loader_rejects_wrong_context_or_bad_labels_step_5(change, path)
 
 
 @title("Calibration runner records mismatches and errors before continuing")
@@ -85,19 +90,12 @@ def test_control_runner_preserves_mismatch_and_error_then_continues(
     original = {"response": "Original application answer", "retrieved_contexts": ["Policy"]}
     observed_responses = []
 
-    async def fake_score(sample: dict, judge: object) -> dict:
-        observed_responses.append(sample["response"])
-        if len(observed_responses) == 3:
-            raise ValueError("Truncated judge response")
-        return _result() if len(observed_responses) == 1 else {**_result(), "value": 1.0}
+    fake_score = make_fake_score_stub(observed_responses)
 
     monkeypatch.setattr("llm_testkit.evaluation.calibration.score_sample", fake_score)
     judges = []
 
-    def factory() -> Mock:
-        judge = Mock(calls=[])
-        judges.append(judge)
-        return judge
+    factory = make_factory_stub(judges)
 
     results = asyncio.run(evaluate_controls(original, cases, factory))
     assert [r["status"] for r in results] == ["matched", "mismatch", "error"]

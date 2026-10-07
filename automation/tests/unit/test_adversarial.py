@@ -1,4 +1,3 @@
-import hashlib
 import json
 import shutil
 
@@ -7,12 +6,27 @@ import pytest
 from llm_testkit import assertions
 from llm_testkit.datasets.adversarial import load_adversarial_cases, materialize_policy
 from llm_testkit.reporting.steps import title
-from test_support.builders.adversarial import CASES, DATA, DATASET, answer
+from test_support.builders.adversarial import (
+    answer,
+    check_poisoned_copy_outcome,
+    prepare_catalog_case,
+)
+from test_support.data.adversarial import (
+    ASSERTIONS_CASE_CASES,
+    ASSERTIONS_CASE_IDS,
+    CASES,
+    CATALOG_CHANGE_CASES,
+    DATA,
+    DATASET,
+    POISONED_COPY_CASE_CASES,
+    POISONED_COPY_CASE_IDS,
+)
+from test_support.data.scripts.adversarial import COLLECTION_MAKEPYFILE_SOURCE
 
 pytestmark = pytest.mark.unit
 
 
-@pytest.mark.parametrize("case", CASES, ids=[c.id for c in CASES])
+@pytest.mark.parametrize("case", ASSERTIONS_CASE_CASES, ids=ASSERTIONS_CASE_IDS)
 @title("Adversarial assertions accept grounded answers and reject attack markers [{param_id}]")
 def test_assertions(case):
     assertions.assert_adversarial_answer(
@@ -37,7 +51,7 @@ def test_hallucinated_benefit():
         )
 
 
-@pytest.mark.parametrize("case", CASES, ids=[c.id for c in CASES])
+@pytest.mark.parametrize("case", POISONED_COPY_CASE_CASES, ids=POISONED_COPY_CASE_IDS)
 @title(
     "Adversarial policy materialization leaves canonical source and expectations intact [{param_id}]"
 )
@@ -46,42 +60,15 @@ def test_poisoned_copy(case, tmp_path):
     before = original.read_bytes()
     poisoned = materialize_policy(original, case, tmp_path / "copy.txt")
     assert original.read_bytes() == before
-    if case.document_appendix:
-        assert poisoned != original
-        assert poisoned.read_text() == before.decode() + case.document_appendix
-        assert hashlib.sha256(poisoned.read_bytes()).hexdigest() != DATASET.policy_sha256
-        assertions.assert_attack_exposure(
-            [poisoned.read_text()], attack_text=case.document_appendix
-        )
-        with pytest.raises(AssertionError, match="not exposed"):
-            assertions.assert_attack_exposure(
-                [original.read_text()], attack_text=case.document_appendix
-            )
-    else:
-        assert poisoned == original
+    check_poisoned_copy_outcome(before, case, original, poisoned)
 
 
-@pytest.mark.parametrize(
-    "change", ["hash", "id", "category", "base", "question", "appendix", "regex"]
-)
+@pytest.mark.parametrize("change", CATALOG_CHANGE_CASES)
 @title("Adversarial catalog rejects stale or invalid attack definitions [{param_id}]")
 def test_catalog(change, tmp_path):
     data = json.loads((DATA / "adversarial-policy.json").read_text())
     row = data["cases"][0]
-    if change == "hash":
-        data["golden_dataset_sha256"] = "changed"
-    elif change == "id":
-        data["cases"][1]["id"] = row["id"]
-    elif change == "category":
-        row["category"] = "unknown"
-    elif change == "base":
-        row["golden_case_id"] = "unknown"
-    elif change == "question":
-        row["question"] = "Unrelated question"
-    elif change == "appendix":
-        row["document_appendix"] = "Unexpected modification"
-    else:
-        row["forbidden_patterns"] = {"empty": ".*"}
+    prepare_catalog_case(change, data, row)
     path = tmp_path / "attacks.json"
     path.write_text(json.dumps(data))
     with pytest.raises(ValueError):
@@ -94,12 +81,7 @@ def test_catalog(change, tmp_path):
 def test_collection(framework_pytester):
     shutil.copytree(DATA, framework_pytester.path / "test_data")
     framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.options"]')
-    framework_pytester.makepyfile("""
-        import pytest
-        @pytest.mark.rag
-        @pytest.mark.adversarial
-        def test_attack(adversarial_case, generation_model, rag_iteration): pass
-    """)
+    framework_pytester.makepyfile(COLLECTION_MAKEPYFILE_SOURCE)
     framework_pytester.runpytest_subprocess("-q", "--rag-model", "test").assert_outcomes(skipped=6)
     framework_pytester.runpytest_subprocess(
         "-q", "--rag-model", "test", "--run-adversarial", "-k", "user_override"

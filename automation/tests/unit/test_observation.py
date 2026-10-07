@@ -2,13 +2,26 @@ import copy
 import json
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 
 from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.reporting.steps import title
-from test_support.builders.observation import CAPTURE_ID, _capture, _sample
+from test_support.builders.observation import (
+    _capture,
+    _sample,
+    check_sdk_hook_preserves_request_return_values_streams_and_errors_step_7,
+    make_fail_stub,
+    make_publish_stub,
+    prepare_sample_rejects_mismatched_or_ambiguous_observations_case,
+    prepare_sdk_hook_preserves_request_return_values_streams_and_errors_case,
+)
+from test_support.data.observation import (
+    INVALID_EVIDENCE_NEVER_LEAVES_PARTIAL_OUTPUT_VALUE_CASES,
+    SAMPLE_REJECTS_MISMATCHED_OR_AMBIGUOUS_OBSERVATIONS_CHANGE_CASES,
+)
 from test_support.paths import AUTOMATION_ROOT
 
 pytestmark = pytest.mark.unit
@@ -28,28 +41,13 @@ def test_sample_extracts_only_actual_document_context_and_preserves_request(tmp_
         write_sample(path, sample)
 
 
-@pytest.mark.parametrize(
-    "change", ["model", "question", "history", "marker", "truncated", "indices", "empty"]
-)
+@pytest.mark.parametrize("change", SAMPLE_REJECTS_MISMATCHED_OR_AMBIGUOUS_OBSERVATIONS_CHANGE_CASES)
 @title("Captured sample rejects mismatched or ambiguous observations [{param_id}]")
 def test_sample_rejects_mismatched_or_ambiguous_observations(change: str) -> None:
     capture = _capture()
     request = capture["request"]
     system = request["messages"][0]
-    if change == "model":
-        request["model"] = "other-model"
-    elif change == "question":
-        request["messages"][1]["content"] = "Other question"
-    elif change == "history":
-        request["messages"].append({"role": "assistant", "content": "History"})
-    elif change == "marker":
-        system["content"] = system["content"].replace(CAPTURE_ID, "b" * 32)
-    elif change == "truncated":
-        system["content"] = system["content"].replace("[END CONTEXT 1]", "")
-    elif change == "indices":
-        system["content"] = system["content"].replace("CONTEXT 1", "CONTEXT 2")
-    else:
-        system["content"] = system["content"].replace("23 working days", "")
+    prepare_sample_rejects_mismatched_or_ambiguous_observations_case(change, request, system)
     with pytest.raises(ValueError):
         _sample(capture)
 
@@ -57,8 +55,7 @@ def test_sample_rejects_mismatched_or_ambiguous_observations(change: str) -> Non
 @title("SDK capture hook preserves requests, return values, streams and exceptions")
 def test_sdk_hook_preserves_request_return_values_streams_and_errors(tmp_path: Path) -> None:
     node = shutil.which("node")
-    if not node:
-        pytest.skip("Node.js is required to verify the optional application preload")
+    prepare_sdk_hook_preserves_request_return_values_streams_and_errors_case(node)
     hook = AUTOMATION_ROOT / "src/llm_testkit/observation/ollama-preload.cjs"
     script = r"""
 const Module = require("node:module");
@@ -94,14 +91,13 @@ console.log(JSON.stringify({ sameRequest, sameReturn: returned === response, sam
         text=True,
     )
     actual = json.loads(result.stdout)
-    for field in ("sameRequest", "sameReturn", "sameStream", "sameError"):
-        assert actual[field] is True
+    check_sdk_hook_preserves_request_return_values_streams_and_errors_step_7(actual)
     assert actual["files"] == 1
     saved = json.loads(next(tmp_path.glob("*.json")).read_text())
     assert saved["request"] == _capture()["request"]
 
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), object()])
+@pytest.mark.parametrize("value", INVALID_EVIDENCE_NEVER_LEAVES_PARTIAL_OUTPUT_VALUE_CASES)
 def test_invalid_evidence_never_leaves_partial_output(tmp_path, value):
     path = tmp_path / "sample.json"
     with pytest.raises((ValueError, TypeError)):
@@ -110,16 +106,10 @@ def test_invalid_evidence_never_leaves_partial_output(tmp_path, value):
 
 
 def test_concurrent_evidence_writers_publish_once_without_overwrite(tmp_path):
-    from concurrent.futures import ThreadPoolExecutor
 
     path = tmp_path / "sample.json"
 
-    def publish(index):
-        try:
-            write_sample(path, {"writer": index, "payload": "content" * 1000})
-            return index
-        except FileExistsError:
-            return None
+    publish = make_publish_stub(path)
 
     with ThreadPoolExecutor(max_workers=4) as workers:
         outcomes = list(workers.map(publish, range(4)))
@@ -131,8 +121,7 @@ def test_concurrent_evidence_writers_publish_once_without_overwrite(tmp_path):
 
 
 def test_publication_failure_removes_temporary_evidence(tmp_path, monkeypatch):
-    def fail(*args):
-        raise OSError("publication unavailable")
+    fail = make_fail_stub()
 
     monkeypatch.setattr("llm_testkit.observation.evaluation_sample.os.link", fail)
     with pytest.raises(OSError, match="publication unavailable"):

@@ -2,16 +2,32 @@ import asyncio
 import copy
 import json
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from requests import Response
 
 from llm_testkit import assertions
 from llm_testkit.clients.ollama_client import OllamaClient
-from llm_testkit.evaluation.faithfulness import load_sample, score_sample
+from llm_testkit.config import Settings
+from llm_testkit.evaluation.faithfulness import (
+    evaluate_sample_report,
+    load_sample,
+    main,
+    score_sample,
+)
 from llm_testkit.reporting.steps import title
-from test_support.builders.evaluation import _judge_class, _response, _sample
+from test_support.builders.evaluation import (
+    _judge_class,
+    _response,
+    _sample,
+    make_failed_score_stub,
+    make_Statements_schema,
+)
+from test_support.data.evaluation import (
+    PIPELINE_REJECTS_MISSING_ALTERED_OR_INVALID_VERDICTS_OUTPUT_CASES,
+    QUALITY_SCORE_REJECTS_INVALID_RESULTS_VALUE_CASES,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -26,7 +42,7 @@ def test_sample_loader_rejects_context_substitution(tmp_path: Path) -> None:
         load_sample(path)
 
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), -0.1, 1.1, True, "1"])
+@pytest.mark.parametrize("value", QUALITY_SCORE_REJECTS_INVALID_RESULTS_VALUE_CASES)
 @title("Quality-score check rejects invalid values [{param_id}]")
 def test_quality_score_rejects_invalid_results(value: object) -> None:
     with pytest.raises(AssertionError):
@@ -69,11 +85,7 @@ def test_real_ragas_pipeline_computes_supported_claim_ratio_without_network() ->
 
 @pytest.mark.parametrize(
     "output",
-    [
-        {"statements": []},
-        {"statements": [{"statement": "Other claim.", "reason": "Wrong.", "verdict": 1}]},
-        {"statements": [{"statement": "Claim.", "reason": "Wrong.", "verdict": 2}]},
-    ],
+    PIPELINE_REJECTS_MISSING_ALTERED_OR_INVALID_VERDICTS_OUTPUT_CASES,
 )
 @title("Faithfulness pipeline rejects missing, altered or invalid claim verdicts [{param_id}]")
 def test_pipeline_rejects_missing_altered_or_invalid_verdicts(output: dict) -> None:
@@ -90,10 +102,8 @@ def test_pipeline_rejects_missing_altered_or_invalid_verdicts(output: dict) -> N
 @title("Local judge rejects truncated generation without retrying")
 def test_judge_rejects_truncated_generation_without_retry() -> None:
     Judge = _judge_class()
-    from pydantic import BaseModel
 
-    class Statements(BaseModel):
-        statements: list[str]
+    Statements = make_Statements_schema()
 
     client = Mock()
     client.structured_chat.return_value = _response(
@@ -125,7 +135,6 @@ def test_cli_preserves_failure_as_error_report(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _judge_class()
-    from llm_testkit.evaluation.faithfulness import main
 
     source = tmp_path / "sample.json"
     source.write_text("{}")
@@ -141,7 +150,6 @@ def test_cli_preserves_failure_as_error_report(
 def test_cli_refuses_to_overwrite_report_before_model_calls(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from llm_testkit.evaluation.faithfulness import main
 
     output = tmp_path / "report.json"
     output.write_text("existing")
@@ -158,8 +166,6 @@ def test_evaluation_service_preserves_judge_failure_and_closes_transport(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _judge_class()
-    from llm_testkit.config import Settings
-    from llm_testkit.evaluation.faithfulness import evaluate_sample_report
 
     path = tmp_path / "sample.json"
     path.write_text(json.dumps(_sample()))
@@ -178,8 +184,7 @@ def test_evaluation_service_preserves_judge_failure_and_closes_transport(
     )
     monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", Mock(return_value=judge))
 
-    async def failed_score(sample: dict, judge: object) -> dict:
-        raise ValueError("Judge generation truncated")
+    failed_score = make_failed_score_stub()
 
     monkeypatch.setattr("llm_testkit.evaluation.faithfulness.score_sample", failed_score)
     report = evaluate_sample_report(path, settings=Settings(), judge_model="test-model")
@@ -193,7 +198,6 @@ def test_live_faithfulness_rejects_score_inconsistent_with_verdicts(monkeypatch)
     collections = pytest.importorskip("ragas.metrics.collections")
 
     metric = Mock()
-    from unittest.mock import AsyncMock
 
     metric.ascore = AsyncMock(return_value=Mock(value=1.0))
     monkeypatch.setattr(collections, "Faithfulness", Mock(return_value=metric))

@@ -6,7 +6,7 @@ import json
 import pytest
 
 from llm_testkit.qualification.plan import load_plan
-from test_support.builders.qualification import SELECTOR
+from test_support.data.qualification import SELECTOR
 
 
 @pytest.fixture

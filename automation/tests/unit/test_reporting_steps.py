@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -7,68 +6,64 @@ import pytest
 from llm_testkit.reporting import steps
 from llm_testkit.reporting.live_quality import generate_captured_answer
 from llm_testkit.reporting.steps import title
+from test_support.builders.reporting_steps import (
+    check_reported_operation_outcome,
+    make_missing_allure_stub,
+    make_missing_transitive_dependency_stub,
+    make_operation_stub,
+    make_reported_step_stub,
+    prepare_reported_operation_case,
+    prepare_reported_operation_step_1,
+    prepare_reported_operation_step_12,
+)
+from test_support.data.reporting_steps import (
+    REPORTED_OPERATION_REPORTING_INSTALLED_CASES,
+)
 
 pytestmark = pytest.mark.unit
 
 
-@pytest.mark.parametrize("reporting_installed", [False, True])
+@pytest.mark.parametrize(
+    "reporting_installed",
+    REPORTED_OPERATION_REPORTING_INSTALLED_CASES,
+)
 @title("Reported operation preserves results and failures without exposing arguments [{param_id}]")
 def test_reported_operation_preserves_result_and_failure_without_exposing_arguments(
     monkeypatch: pytest.MonkeyPatch,
     reporting_installed: bool,
 ) -> None:
-    backend = Mock() if reporting_installed else None
+    backend = prepare_reported_operation_step_1(reporting_installed)
     events = []
 
-    @contextmanager
-    def reported_step(title: str):
-        events.append(title)
-        try:
-            yield
-        except RuntimeError:
-            events.append("failure recorded")
-            raise
+    reported_step = make_reported_step_stub(events)
 
-    if backend is not None:
-        backend.step.side_effect = reported_step
+    prepare_reported_operation_case(backend, reported_step)
     monkeypatch.setattr(steps, "_backend", lambda: backend)
     result = object()
     failure = RuntimeError("Operation failed")
 
-    @steps.step("API: upload document")
-    def operation(secret: str, *, fail: bool = False) -> object:
-        if fail:
-            raise failure
-        return result
+    operation = make_operation_stub(failure, result)
 
     assert operation("private-key") is result
     with pytest.raises(RuntimeError, match="Operation failed") as caught:
         operation("private-key", fail=True)
     assert caught.value is failure
-    expected = (
-        ["API: upload document", "API: upload document", "failure recorded"]
-        if reporting_installed
-        else []
-    )
+    expected = prepare_reported_operation_step_12(reporting_installed)
     assert events == expected
     assert operation.__wrapped__.__name__ == "operation"
-    if backend is not None:
-        assert backend.attach.call_count == 0
-        assert backend.dynamic.parameter.call_count == 0
+    check_reported_operation_outcome(backend)
 
 
 @title("Optional reporter tolerates missing Allure but propagates other dependency errors")
 def test_optional_reporter_handles_only_the_missing_allure_package(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def missing_allure(name: str):
-        raise ModuleNotFoundError("Allure is not installed", name="allure")
+    missing_allure = make_missing_allure_stub()
 
     monkeypatch.setattr(steps, "import_module", missing_allure)
     assert steps._backend() is None
 
-    def missing_transitive_dependency(name: str):
-        raise ModuleNotFoundError("A dependency is broken", name="other_dependency")
+    missing_transitive_dependency = make_missing_transitive_dependency_stub()
 
     monkeypatch.setattr(steps, "import_module", missing_transitive_dependency)
     with pytest.raises(ModuleNotFoundError, match="dependency is broken"):

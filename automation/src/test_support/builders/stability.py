@@ -1,5 +1,6 @@
 """Scenario data builders and deterministic test doubles."""
 
+import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -31,3 +32,98 @@ def _report(tmp_path: Path, outcomes: list[str], digests: list[str] | None = Non
     path = tmp_path / "report.xml"
     ET.ElementTree(root).write(path)
     return path
+
+
+def check_golden_summary_outcome(rows, same_case):
+    if same_case:
+        assert len(rows) == 1
+        assert rows[0]["configuration_consistent"] is False
+    else:
+        assert len(rows) == 2
+        assert all(row["runs"] == 1 for row in rows)
+        assert all(not row["mixed_pass_fail_observed"] for row in rows)
+
+
+def prepare_configuration_metadata_case(change, i, prop, props):
+    if change == "conflict" and i == 0:
+        props.insert(0, ET.Element("property", name="model_digest", value="stale"))
+    elif change == "invalid-json" and i == 0:
+        prop.set("value", "not-json")
+
+
+def prepare_conversation_summary_case(change, i, props):
+    if change != "missing-catalog":
+        ET.SubElement(
+            props,
+            "property",
+            name="conversation_catalog_sha256",
+            value=str(i) if change == "changed-catalog" else "catalog",
+        )
+
+
+def check_conversation_summary_outcome(change, rows):
+    if change == "different-cases":
+        assert len(rows) == 2
+        assert all(row["runs"] == 1 and not row["mixed_pass_fail_observed"] for row in rows)
+    else:
+        assert len(rows) == 1
+        assert rows[0]["configuration_consistent"] is False
+        assert rows[0]["metadata_complete"] is (change == "changed-catalog")
+
+
+def prepare_golden_summary_step_3(same_case, tree):
+    for index, case in enumerate(tree.getroot().findall(".//testcase")):
+        properties = case.find("properties")
+        ET.SubElement(
+            properties,
+            "property",
+            name="golden_case_id",
+            value="first" if same_case or index == 0 else "second",
+        )
+        ET.SubElement(properties, "property", name="golden_dataset_sha256", value=str(index))
+
+
+def prepare_prompt_variants_are_not_reported_as_flaky_repetitions_step_3(tree):
+    for i, row in enumerate(tree.getroot().findall(".//testcase")):
+        props = row.find("properties")
+        ET.SubElement(props, "property", name="prompt_id", value=["baseline", "grounded_v2"][i])
+        ET.SubElement(props, "property", name="prompt_sha256", value=str(i))
+
+
+def prepare_bias_groups_step_3(tree):
+    for i, row in enumerate(tree.getroot().findall(".//testcase")):
+        props = row.find("properties")
+        for name, value in {
+            "bias_pair_id": "gender",
+            "bias_variant_id": str(i + 1),
+            "bias_catalog_sha256": "catalog",
+        }.items():
+            ET.SubElement(props, "property", name=name, value=value)
+
+
+def prepare_configuration_metadata_step_3(change, tree):
+    for i, row in enumerate(tree.getroot().findall(".//testcase")):
+        props = row.find("properties")
+        prop = props.find("property[@name='workspace_configuration']")
+        prop.set(
+            "value",
+            json.dumps(
+                {
+                    "chatModel": "qwen",
+                    "openAiPrompt": "Policy\n[LLM_TESTKIT_CAPTURE:" + str(i) * 32 + "]",
+                }
+            ),
+        )
+        prepare_configuration_metadata_case(change, i, prop, props)
+
+
+def prepare_conversation_summary_step_3(change, tree):
+    for i, case in enumerate(tree.getroot().findall(".//testcase")):
+        props = case.find("properties")
+        ET.SubElement(
+            props,
+            "property",
+            name="conversation_case_id",
+            value="greeting" if i == 0 or change != "different-cases" else "mixed_request",
+        )
+        prepare_conversation_summary_case(change, i, props)

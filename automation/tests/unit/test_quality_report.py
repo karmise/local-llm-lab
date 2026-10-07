@@ -1,16 +1,25 @@
 import hashlib
 import json
-from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
 from llm_testkit import assertions
+from llm_testkit.reporting import quality
 from llm_testkit.reporting.allure_report import present_quality_report
 from llm_testkit.reporting.quality import build_quality_report
 from llm_testkit.reporting.steps import title
-from test_support.builders.quality_report import _files
+from test_support.builders.quality_report import (
+    _files,
+    make_check_stub,
+    make_load_dataset_stub,
+    make_step_stub,
+    prepare_invalid_judge_evidence_case,
+)
+from test_support.data.quality_report import (
+    INVALID_JUDGE_EVIDENCE_CHANGE_CASES,
+)
 from test_support.paths import AUTOMATION_ROOT
 
 pytestmark = pytest.mark.unit
@@ -33,19 +42,12 @@ def test_faithfulness_one_does_not_hide_incomplete_answer(tmp_path: Path) -> Non
         assertions.assert_quality_report(report)
 
 
-@pytest.mark.parametrize("change", ["checksum", "score", "unfinished", "missing_claim"])
+@pytest.mark.parametrize("change", INVALID_JUDGE_EVIDENCE_CHANGE_CASES)
 @title("Invalid judge evidence is reported as an independent quality error [{param_id}]")
 def test_invalid_judge_evidence_remains_an_independent_error(tmp_path: Path, change: str) -> None:
     paths = _files(tmp_path)
     evidence = json.loads(paths[1].read_text())
-    if change == "checksum":
-        evidence["sample_sha256"] = "another-sample"
-    elif change == "score":
-        evidence["result"]["value"] = 0.5
-    elif change == "unfinished":
-        evidence["status"] = "error"
-    else:
-        evidence["result"]["verdicts"] = []
+    prepare_invalid_judge_evidence_case(change, evidence)
     paths[1].write_text(json.dumps(evidence))
     report = build_quality_report(*paths)
     assert report["status"] == "error"
@@ -74,10 +76,7 @@ def test_allure_renders_remaining_steps_after_a_failed_dimension(
     fake_allure = Mock()
     visited = []
 
-    @contextmanager
-    def step(name: str):
-        visited.append(name)
-        yield
+    step = make_step_stub(visited)
 
     fake_allure.step.side_effect = step
     monkeypatch.setitem(__import__("sys").modules, "allure", fake_allure)
@@ -113,7 +112,6 @@ def test_saved_report_gates_require_all_evidence(tmp_path: Path) -> None:
 
 
 def test_relevance_dimensions_share_one_validated_evidence(tmp_path, monkeypatch):
-    from llm_testkit.reporting import quality
 
     paths = _files(tmp_path)
     evidence_path = tmp_path / "relevance.json"
@@ -121,17 +119,9 @@ def test_relevance_dimensions_share_one_validated_evidence(tmp_path, monkeypatch
     loads = []
     checks = []
 
-    def load_dataset(*args):
-        loads.append(1)
-        return Mock(sha256="a" * 64)
+    load_dataset = make_load_dataset_stub(loads)
 
-    def check(evidence, *args):
-        checks.append(evidence)
-        evidence_path.write_text('{"observation": 2}')
-        return {
-            "context_precision": evidence["observation"] / 2,
-            "context_recall": evidence["observation"] / 2,
-        }
+    check = make_check_stub(checks, evidence_path)
 
     monkeypatch.setattr(quality, "load_golden_dataset", load_dataset)
     monkeypatch.setattr(quality, "check_relevance_evidence", check)

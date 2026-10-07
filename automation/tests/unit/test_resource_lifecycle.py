@@ -4,20 +4,19 @@ import json
 
 import pytest
 
+from test_support.builders.resource_lifecycle import (
+    prepare_resources_are_cleaned_up_after_each_failure_case,
+)
+from test_support.data.resource_lifecycle import (
+    RESOURCES_ARE_CLEANED_UP_AFTER_EACH_FAILURE_FAILURE_FAILED_ERRORS_CLEANUP_CASES,
+)
+
 pytestmark = pytest.mark.unit
 
 
 @pytest.mark.parametrize(
     ("failure", "failed", "errors", "cleanup"),
-    [
-        ("none", 0, 0, ["folder", "workspace"]),
-        ("workspace-validation", 0, 1, ["workspace"]),
-        ("folder-validation", 0, 1, ["folder", "workspace"]),
-        ("upload", 0, 1, ["folder", "workspace"]),
-        ("indexing", 0, 1, ["folder", "workspace"]),
-        ("test", 1, 0, ["folder", "workspace"]),
-        ("cleanup", 1, 1, ["folder", "workspace"]),
-    ],
+    RESOURCES_ARE_CLEANED_UP_AFTER_EACH_FAILURE_FAILURE_FAILED_ERRORS_CLEANUP_CASES,
 )
 def test_resources_are_cleaned_up_after_each_failure(
     framework_pytester: pytest.Pytester,
@@ -108,5 +107,4 @@ def test_resources_are_cleaned_up_after_each_failure(
 
     result.assert_outcomes(passed=int(failure == "none"), failed=failed, errors=errors)
     assert json.loads((runner.path / "cleanup.json").read_text()) == cleanup
-    if failure == "cleanup":
-        result.stdout.fnmatch_lines(["*Quality check failed*", "*1 failed, 1 error*"])
+    prepare_resources_are_cleaned_up_after_each_failure_case(failure, result)

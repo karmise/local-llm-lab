@@ -1,16 +1,12 @@
 """Scenario data builders and deterministic test doubles."""
 
 import json
+from copy import deepcopy
 
 from requests import Response
 
-from llm_testkit.datasets.golden import load_golden_dataset
-from test_support.paths import AUTOMATION_ROOT
-
-DATA_ROOT = AUTOMATION_ROOT / "test_data"
-
-
-DATASET = load_golden_dataset(DATA_ROOT / "golden-policy.json", DATA_ROOT / "company-policy.txt")
+from test_support.data.golden_dataset import DATA_ROOT as DATA_ROOT
+from test_support.data.golden_dataset import DATASET as DATASET
 
 
 def _response(answer: str, *, source: str | None = None, document: str = "policy.txt") -> Response:
@@ -31,3 +27,36 @@ def _response(answer: str, *, source: str | None = None, document: str = "policy
         }
     ).encode()
     return response
+
+
+def prepare_invalid_catalog_is_rejected_case(case, data, mutation):
+    if mutation == "duplicate":
+        data["cases"].append(deepcopy(case))
+    elif mutation == "checksum":
+        data["policy_sha256"] = "0" * 64
+    elif mutation == "category":
+        case["category"] = "unknown"
+    elif mutation == "pattern":
+        case["required_patterns"] = {"bad": "["}
+    elif mutation == "vacuous":
+        case["required_patterns"] = {"bad": ".*"}
+    elif mutation == "fragment":
+        case["source_fragments"] = ["Invented source text"]
+    elif mutation == "reference":
+        case["reference"] = "No information."
+    elif mutation == "conflict":
+        case["forbidden_patterns"] = {"conflict": "23"}
+    elif mutation == "schema":
+        data["schema_version"] = True
+    elif mutation == "empty":
+        data["cases"] = []
+
+
+def prepare_missing_benefit_step_2(case_id):
+    invented = (
+        " An allowance of KGS 500 is available."
+        if case_id != "parental_leave_missing"
+        else " Employees receive 30 days."
+    )
+
+    return invented

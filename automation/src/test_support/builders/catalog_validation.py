@@ -1,28 +1,20 @@
 """Scenario data builders and deterministic test doubles."""
 
-from llm_testkit.datasets.adversarial import load_adversarial_cases
-from llm_testkit.datasets.bias import load_bias_cases
-from llm_testkit.datasets.golden import load_golden_dataset
-from llm_testkit.datasets.prompts import load_prompt_catalog
-from test_support.paths import AUTOMATION_ROOT
-
-DATA = AUTOMATION_ROOT / "test_data"
+from test_support.data.catalog_validation import DATA as DATA
+from test_support.data.catalog_validation import DATASET as DATASET
+from test_support.data.catalog_validation import LOADERS as LOADERS
 
 
-DATASET = load_golden_dataset(DATA / "golden-policy.json", DATA / "company-policy.txt")
+def prepare_malformed_catalog_case(change, data, rows_key):
+    if change == "root":
+        data = []
+    elif change == "row":
+        data[rows_key][0] = None
+    else:
+        data[rows_key][0]["forbidden_patterns"] = {"invalid": "["}
+
+    return data
 
 
-LOADERS = {
-    "golden": (
-        "golden-policy.json",
-        "cases",
-        lambda p: load_golden_dataset(p, DATA / "company-policy.txt"),
-    ),
-    "adversarial": (
-        "adversarial-policy.json",
-        "cases",
-        lambda p: load_adversarial_cases(p, DATASET),
-    ),
-    "bias": ("bias-policy.json", "pairs", lambda p: load_bias_cases(p, DATASET)),
-    "prompts": ("prompt-variants.json", "variants", load_prompt_catalog),
-}
+def prepare_nonstring_lookup_step_3(data, field, rows_key):
+    (data if field == "baseline" else data[rows_key][0])[field] = []

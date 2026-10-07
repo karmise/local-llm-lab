@@ -8,6 +8,7 @@ from llm_testkit.reporting.steps import title
 if TYPE_CHECKING:
     from llm_testkit.pages.workspace_page import WorkspacePage
 
+
 pytestmark = pytest.mark.ui
 
 

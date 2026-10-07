@@ -2,22 +2,13 @@
 
 import json
 import xml.etree.ElementTree as ET
+from copy import deepcopy
 
-from llm_testkit.datasets.golden import load_golden_dataset
-from llm_testkit.datasets.prompts import load_prompt_catalog
 from llm_testkit.reporting.prompt_regression import compare_prompts
-from test_support.paths import AUTOMATION_ROOT
-
-ROOT = AUTOMATION_ROOT
-
-
-DATA = ROOT / "test_data"
-
-
-CATALOG = load_prompt_catalog(DATA / "prompt-variants.json")
-
-
-DATASET = load_golden_dataset(DATA / "golden-policy.json", DATA / "company-policy.txt")
+from test_support.data.prompt_regression import CATALOG as CATALOG
+from test_support.data.prompt_regression import DATA as DATA
+from test_support.data.prompt_regression import DATASET as DATASET
+from test_support.data.prompt_regression import ROOT as ROOT
 
 
 def report(tmp_path):
@@ -62,3 +53,44 @@ def compare(path, **kwargs):
         candidate="grounded_v2",
         **kwargs,
     )
+
+
+def prepare_comparison_case(change, rows, suite):
+    if change in ("failed", "baseline", "skipped", "error"):
+        ET.SubElement(
+            rows[0] if change == "baseline" else rows[1],
+            "failure" if change in ("failed", "baseline") else change,
+        )
+    elif change == "missing":
+        suite.remove(rows[1])
+    elif change == "duplicate":
+        pass
+
+        duplicate = deepcopy(rows[1])
+        duplicate.set("name", "other")
+        suite.append(duplicate)
+    elif change != "none":
+        field = {
+            "digest": "model_digest",
+            "prompt": "prompt_sha256",
+            "dataset": "golden_dataset_sha256",
+        }[change]
+        rows[1].find(f"./properties/property[@name='{field}']").set("value", "changed")
+
+
+def prepare_catalog_validation_case(change, data):
+    if change == "duplicate":
+        data["variants"][1]["id"] = "baseline"
+    elif change == "baseline":
+        data["baseline"] = "absent"
+    elif change == "empty":
+        data["variants"][1]["prompt"] = ""
+    else:
+        data["variants"][1]["prompt"] += "[LLM_TESTKIT_CAPTURE:test]"
+
+
+def prepare_conflicting_properties_within_one_testcase_case(duplicate, props, stale_first):
+    if stale_first:
+        props.insert(0, duplicate)
+    else:
+        props.append(duplicate)

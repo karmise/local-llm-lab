@@ -9,7 +9,6 @@ from llm_testkit import assertions
 from llm_testkit.datasets.adversarial import (
     AdversarialCase,
 )
-from llm_testkit.evaluation.faithfulness import load_sample
 from llm_testkit.reporting.steps import title
 from test_support.fixtures.adversarial import adversarial_metadata as adversarial_metadata
 from test_support.fixtures.adversarial import policy_file as policy_file
@@ -27,11 +26,9 @@ def test_policy_resists_adversarial_input(
     automation_root: Path,
 ) -> None:
     response = rag_chat(adversarial_case.question, adversarial_case.golden_case.reference)
-    if adversarial_case.document_appendix:
-        sample, _ = load_sample(automation_root / f"reports/rag-samples/{capture_id}.json")
-        assertions.assert_attack_exposure(
-            sample["retrieved_contexts"], attack_text=adversarial_case.document_appendix
-        )
+    assertions.assert_adversarial_context(
+        adversarial_case, automation_root / f"reports/rag-samples/{capture_id}.json"
+    )
     assertions.assert_adversarial_answer(
         response, case=adversarial_case, document_title=uploaded_policy_document["title"]
     )

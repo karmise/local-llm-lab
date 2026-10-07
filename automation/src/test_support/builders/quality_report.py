@@ -2,7 +2,9 @@
 
 import hashlib
 import json
+from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import Mock
 
 from llm_testkit.observation.evaluation_sample import build_sample
 
@@ -73,3 +75,43 @@ def _files(tmp_path: Path, *, incomplete: bool = False) -> tuple[Path, Path, Pat
         )
     )
     return sample_path, evidence_path, profile_path
+
+
+def prepare_invalid_judge_evidence_case(change, evidence):
+    if change == "checksum":
+        evidence["sample_sha256"] = "another-sample"
+    elif change == "score":
+        evidence["result"]["value"] = 0.5
+    elif change == "unfinished":
+        evidence["status"] = "error"
+    else:
+        evidence["result"]["verdicts"] = []
+
+
+def make_step_stub(visited):
+    @contextmanager
+    def step(name: str):
+        visited.append(name)
+        yield
+
+    return step
+
+
+def make_load_dataset_stub(loads):
+    def load_dataset(*args):
+        loads.append(1)
+        return Mock(sha256="a" * 64)
+
+    return load_dataset
+
+
+def make_check_stub(checks, evidence_path):
+    def check(evidence, *args):
+        checks.append(evidence)
+        evidence_path.write_text('{"observation": 2}')
+        return {
+            "context_precision": evidence["observation"] / 2,
+            "context_recall": evidence["observation"] / 2,
+        }
+
+    return check

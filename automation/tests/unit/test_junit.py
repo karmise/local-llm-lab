@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 
 from llm_testkit.reporting.junit import read_junit
+from test_support.builders.junit import make_read_once_stub
+from test_support.data.junit import MALFORMED_JUNIT_HAS_ACTIONABLE_ERROR_BODY_CASES
 
 pytestmark = pytest.mark.unit
 
@@ -32,10 +34,7 @@ def test_phase_entries_retain_all_outcomes_and_original_details(tmp_path):
 
 @pytest.mark.parametrize(
     "body",
-    [
-        "<testcase/>",
-        '<testcase name="test"><properties><property value="v"/></properties></testcase>',
-    ],
+    MALFORMED_JUNIT_HAS_ACTIONABLE_ERROR_BODY_CASES,
 )
 def test_malformed_junit_has_actionable_error(tmp_path, body):
     path = tmp_path / "invalid.xml"
@@ -49,10 +48,7 @@ def test_reader_hashes_exactly_the_bytes_it_parses(tmp_path, monkeypatch):
     raw = b'<testsuite><testcase name="original"/></testsuite>'
     reads = []
 
-    def read_once(self):
-        assert self == path
-        reads.append(1)
-        return raw if len(reads) == 1 else b'<testsuite><testcase name="changed"/></testsuite>'
+    read_once = make_read_once_stub(path, raw, reads)
 
     monkeypatch.setattr(Path, "read_bytes", read_once)
     report = read_junit(path)

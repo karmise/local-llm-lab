@@ -1,20 +1,16 @@
 """Scenario data builders and deterministic test doubles."""
 
 import hashlib
+import json
 from copy import deepcopy
 
-from llm_testkit.datasets.golden import load_golden_dataset
-from llm_testkit.evaluation.correctness import METRIC_CONFIGURATION
+from requests import Response
+
+from llm_testkit.evaluation.correctness import METRIC_CONFIGURATION, validate_control
 from llm_testkit.observation.evaluation_sample import build_sample
-from test_support.paths import AUTOMATION_ROOT
-
-ROOT = AUTOMATION_ROOT / "test_data"
-
-
-DATASET = load_golden_dataset(ROOT / "golden-policy.json", ROOT / "company-policy.txt")
-
-
-CASE = next(case for case in DATASET.cases if case.id == "paid_leave")
+from test_support.data.correctness import CASE as CASE
+from test_support.data.correctness import DATASET as DATASET
+from test_support.data.correctness import ROOT as ROOT
 
 
 def _verdicts(claims, values):
@@ -98,3 +94,48 @@ def _evidence(sample, checksum="sample"):
         "judge_model": "test-model",
         "judge_model_digest": "digest",
     }
+
+
+def prepare_invalid_claim_evidence_is_rejected_case(change, result):
+    if change == "missing":
+        result["reference_verdicts"].pop()
+    elif change == "duplicate":
+        result["response_claims"][1] = result["response_claims"][0]
+    elif change == "invalid-verdict":
+        result["response_verdicts"][0]["verdict"] = True
+    elif change == "score":
+        result["value"] = 0.5
+    elif change == "counts":
+        result["counts"] = {"tp": 9, "fp": 0, "fn": 0}
+    elif change == "empty":
+        result["response_claims"] = []
+    else:
+        result["reference_verdicts"][0]["reason"] = ""
+
+
+def make_failed_score_stub():
+    async def failed_score(sample, judge):
+        raise ValueError("Truncated judge response")
+
+    return failed_score
+
+
+def prepare_real_ragas_correctness_with_mocked_judge_step_6(outputs, responses):
+    for output in outputs:
+        response = Response()
+        response.status_code = 200
+        response._content = json.dumps(
+            {
+                "model": "test-model",
+                "done": True,
+                "done_reason": "stop",
+                "message": {"content": json.dumps(output)},
+            }
+        ).encode()
+        responses.append(response)
+
+
+def check_control_catalog_has_valid_expectations_step_3(cases):
+    for control in cases:
+        validate_control(control)
+        assert control["case_id"] == CASE.id

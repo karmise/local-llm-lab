@@ -1,5 +1,6 @@
 from pathlib import Path
 from unittest.mock import Mock
+from urllib.parse import quote
 
 import pytest
 import requests
@@ -7,6 +8,14 @@ import requests
 from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.reporting.steps import title
+from test_support.builders.http_clients import (
+    check_upload_closes_document_even_when_request_fails_outcome,
+    make_upload_stub,
+)
+from test_support.data.http_clients import (
+    UPLOAD_CLOSES_DOCUMENT_EVEN_WHEN_REQUEST_FAILS_FAIL_CASES,
+    WORKSPACE_SLUGS_ARE_ENCODED_AS_ONE_PATH_SEGMENT_SLUG_CASES,
+)
 from test_support.fixtures.unit_http_clients import session as session
 
 pytestmark = pytest.mark.unit
@@ -50,9 +59,8 @@ def test_shared_transport_does_not_leak_authentication_between_clients(session: 
     assert session.request.call_args_list[1].kwargs["headers"] == {}
 
 
-@pytest.mark.parametrize("slug", ["a/b", "a b", "x?query#fragment", "non-ascii-\N{SNOWMAN}"])
+@pytest.mark.parametrize("slug", WORKSPACE_SLUGS_ARE_ENCODED_AS_ONE_PATH_SEGMENT_SLUG_CASES)
 def test_workspace_slugs_are_encoded_as_one_path_segment(session: Mock, slug: str) -> None:
-    from urllib.parse import quote
 
     with HttpClient("http://localhost", 5) as http:
         AnythingLLMClient(http).get_workspace(slug)
@@ -92,7 +100,7 @@ def test_workspace_update_uses_authenticated_route_and_preserves_settings(sessio
     assert configuration == {"chatMode": "chat", "openAiPrompt": "Reviewed prompt"}
 
 
-@pytest.mark.parametrize("fail", [False, True])
+@pytest.mark.parametrize("fail", UPLOAD_CLOSES_DOCUMENT_EVEN_WHEN_REQUEST_FAILS_FAIL_CASES)
 def test_upload_closes_document_even_when_request_fails(
     session: Mock, tmp_path: Path, fail: bool
 ) -> None:
@@ -100,24 +108,11 @@ def test_upload_closes_document_even_when_request_fails(
     path.write_text("Fictional policy", encoding="utf-8")
     documents = []
 
-    def upload(**kwargs):
-        filename, document, content_type = kwargs["files"]["file"]
-        documents.append(document)
-        assert filename == "unique-policy.txt"
-        assert document.read() == b"Fictional policy"
-        assert content_type == "text/plain"
-        assert kwargs["timeout"] == 42
-        if fail:
-            raise requests.Timeout("Upload timed out")
-        return requests.Response()
+    upload = make_upload_stub(documents, fail)
 
     session.request.side_effect = upload
     with HttpClient("http://localhost", 5) as http:
         api = AnythingLLMClient(http)
-        if fail:
-            with pytest.raises(requests.Timeout):
-                api.upload_document(path, "folder", filename="unique-policy.txt", timeout=42)
-        else:
-            api.upload_document(path, "folder", filename="unique-policy.txt", timeout=42)
+        check_upload_closes_document_even_when_request_fails_outcome(api, fail, path)
     assert len(documents) == 1
     assert documents[0].closed

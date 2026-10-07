@@ -6,25 +6,38 @@ from unittest.mock import Mock
 import pytest
 from requests import Response
 
+from llm_testkit.config import Settings
 from llm_testkit.evaluation.correctness import (
     bind_case,
     check_control,
     check_correctness_evidence,
+    evaluate_correctness_report,
+    main,
     score_correctness,
-    validate_control,
     validate_result,
 )
 from llm_testkit.reporting.quality import build_quality_report
 from llm_testkit.reporting.steps import title
 from test_support.builders.correctness import (
-    CASE,
-    DATASET,
-    ROOT,
     _calls,
     _evidence,
     _result,
     _sample,
     _verdicts,
+    check_control_catalog_has_valid_expectations_step_3,
+    make_failed_score_stub,
+    prepare_invalid_claim_evidence_is_rejected_case,
+    prepare_real_ragas_correctness_with_mocked_judge_step_6,
+)
+from test_support.builders.optional import load_ollama_judge
+from test_support.data.correctness import (
+    CASE,
+    DATASET,
+    INVALID_CLAIM_EVIDENCE_IS_REJECTED_CHANGE_CASES,
+    REAL_RAGAS_CORRECTNESS_WITH_MOCKED_JUDGE_RV_GV_EXPECTED_CASES,
+    REAL_RAGAS_CORRECTNESS_WITH_MOCKED_JUDGE_RV_GV_EXPECTED_IDS,
+    ROOT,
+    UNRELATED_OR_SYNTHETIC_EVIDENCE_IS_REJECTED_CHANGE_CASES,
 )
 
 pytestmark = pytest.mark.unit
@@ -32,15 +45,15 @@ pytestmark = pytest.mark.unit
 
 @pytest.mark.parametrize(
     ("rv", "gv", "expected"),
-    [((1, 1), (1, 1), 1.0), ((1,), (1, 0), 0.67), ((0, 0), (0, 0), 0.0), ((1, 1, 0), (1, 1), 0.8)],
-    ids=["correct", "incomplete", "contradicted", "extra-claim"],
+    REAL_RAGAS_CORRECTNESS_WITH_MOCKED_JUDGE_RV_GV_EXPECTED_CASES,
+    ids=REAL_RAGAS_CORRECTNESS_WITH_MOCKED_JUDGE_RV_GV_EXPECTED_IDS,
 )
 @title(
     "Real RAGAS factual F1 distinguishes correct, incomplete and incorrect evidence [{param_id}]"
 )
 def test_real_ragas_correctness_with_mocked_judge(rv, gv, expected):
     pytest.importorskip("ragas")
-    from llm_testkit.evaluation.ollama_judge import OllamaJudge
+    OllamaJudge = load_ollama_judge()
 
     result = _result(rv, gv, expected)
     outputs = [
@@ -50,18 +63,7 @@ def test_real_ragas_correctness_with_mocked_judge(rv, gv, expected):
         {"statements": result["reference_verdicts"]},
     ]
     responses = []
-    for output in outputs:
-        response = Response()
-        response.status_code = 200
-        response._content = json.dumps(
-            {
-                "model": "test-model",
-                "done": True,
-                "done_reason": "stop",
-                "message": {"content": json.dumps(output)},
-            }
-        ).encode()
-        responses.append(response)
+    prepare_real_ragas_correctness_with_mocked_judge_step_6(outputs, responses)
     client = Mock()
     client.structured_chat.side_effect = responses
     judge = OllamaJudge(client, "test-model", max_calls=4)
@@ -72,33 +74,16 @@ def test_real_ragas_correctness_with_mocked_judge(rv, gv, expected):
         judge.generate("extra", Mock())
 
 
-@pytest.mark.parametrize(
-    "change", ["missing", "duplicate", "invalid-verdict", "score", "counts", "empty", "reason"]
-)
+@pytest.mark.parametrize("change", INVALID_CLAIM_EVIDENCE_IS_REJECTED_CHANGE_CASES)
 @title("Correctness rejects incomplete, duplicated or inconsistent judge evidence [{param_id}]")
 def test_invalid_claim_evidence_is_rejected(change):
     result = _result()
-    if change == "missing":
-        result["reference_verdicts"].pop()
-    elif change == "duplicate":
-        result["response_claims"][1] = result["response_claims"][0]
-    elif change == "invalid-verdict":
-        result["response_verdicts"][0]["verdict"] = True
-    elif change == "score":
-        result["value"] = 0.5
-    elif change == "counts":
-        result["counts"] = {"tp": 9, "fp": 0, "fn": 0}
-    elif change == "empty":
-        result["response_claims"] = []
-    else:
-        result["reference_verdicts"][0]["reason"] = ""
+    prepare_invalid_claim_evidence_is_rejected_case(change, result)
     with pytest.raises(ValueError):
         validate_result(result)
 
 
-@pytest.mark.parametrize(
-    "change", ["sample", "dataset", "reference", "response", "config", "control", "unfinished"]
-)
+@pytest.mark.parametrize("change", UNRELATED_OR_SYNTHETIC_EVIDENCE_IS_REJECTED_CHANGE_CASES)
 @title(
     "Correctness evidence remains bound to application sample and golden expectations [{param_id}]"
 )
@@ -177,7 +162,6 @@ def test_quality_report_adds_independent_correctness_measurement(tmp_path):
 
 @title("Correctness CLI refuses overwriting evidence before model calls")
 def test_correctness_cli_refuses_overwrite(tmp_path, monkeypatch):
-    from llm_testkit.evaluation.correctness import main
 
     output = tmp_path / "existing.json"
     output.write_text("existing")
@@ -215,9 +199,7 @@ def test_incomplete_control_checks_semantics_instead_of_fixed_claim_count():
 def test_control_catalog_has_valid_expectations():
     cases = json.loads((ROOT / "correctness-controls.json").read_text())["cases"]
     assert len({c["id"] for c in cases}) == len(cases) == 4
-    for control in cases:
-        validate_control(control)
-        assert control["case_id"] == CASE.id
+    check_control_catalog_has_valid_expectations_step_3(cases)
 
 
 @title("Correctness report rejects summaries that differ from raw judge evidence")
@@ -232,8 +214,6 @@ def test_raw_calls_must_match_summary():
 @title("Correctness service preserves failure evidence and closes its transport")
 def test_correctness_service_closes_transport_on_judge_error(tmp_path, monkeypatch):
     pytest.importorskip("ragas")
-    from llm_testkit.config import Settings
-    from llm_testkit.evaluation.correctness import evaluate_correctness_report
 
     path = tmp_path / "sample.json"
     path.write_text(json.dumps(_sample()))
@@ -252,8 +232,7 @@ def test_correctness_service_closes_transport_on_judge_error(tmp_path, monkeypat
     )
     monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", Mock(return_value=judge))
 
-    async def failed_score(sample, judge):
-        raise ValueError("Truncated judge response")
+    failed_score = make_failed_score_stub()
 
     monkeypatch.setattr("llm_testkit.evaluation.correctness.score_correctness", failed_score)
     report = evaluate_correctness_report(

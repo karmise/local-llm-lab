@@ -1,14 +1,18 @@
 """Scenario data builders and deterministic test doubles."""
 
+import copy
 import hashlib
+import json
+from pathlib import Path
 from unittest.mock import Mock
 
-from llm_testkit.evaluation import benchmark as evaluation
-from llm_testkit.observation.evaluation_sample import build_sample
-from llm_testkit.reporting.gates import METRICS
-from test_support.paths import AUTOMATION_ROOT
+import pytest
 
-ROOT = AUTOMATION_ROOT
+from llm_testkit.evaluation import benchmark as evaluation
+from llm_testkit.observation.evaluation_sample import build_sample, write_sample
+from llm_testkit.reporting.benchmark import summarize
+from llm_testkit.reporting.gates import METRICS
+from test_support.data.benchmark import ROOT as ROOT
 
 
 def _sample(case, dataset, model="qwen3.5:4b"):
@@ -151,3 +155,110 @@ def _mock_metrics(monkeypatch, case, dataset, sample_path):
         ("evaluate_relevance_report", relevance),
     ):
         monkeypatch.setattr(evaluation, function, Mock(return_value=result))
+
+
+def prepare_invalid_summary_case(change, row, rows):
+    if change == "duplicate":
+        rows.append(copy.deepcopy(row))
+    elif change == "unknown":
+        row["case_id"] = "unknown"
+    elif change == "category":
+        row["category"] = "boundary"
+    elif change == "missing_metric":
+        row["dimensions"].pop()
+    elif change == "nan":
+        row["dimensions"][2]["value"] = float("nan")
+    elif change == "minimum":
+        row["dimensions"][2]["minimum"] = 0.2
+    elif change == "false_pass":
+        row["dimensions"][2]["value"] = 0.1
+    else:
+        row["dimensions"][2]["status"] = "not_applicable"
+
+
+def prepare_different_configurations_rejected_case(change, row):
+    if change == "prompt":
+        row["workspace_configuration"]["openAiPrompt"] = "Changed prompt"
+    else:
+        row["model_digest"] = "changed"
+
+
+def make_calibrate_stub(calibration):
+    def calibrate(path, controls, settings, model, digest):
+        calibrated = copy.deepcopy(calibration)
+        calibrated["sample_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        catalog = json.loads(controls.read_text())["cases"]
+        calibrated["results"] = []
+        for identifier in calibrated["control_ids"]:
+            control = next(c for c in catalog if c["id"] == identifier)
+            statements = control["response"].split(". ")
+            verdicts = [
+                {"statement": s, "verdict": c["verdict"], "reason": "Control label"}
+                for s, c in zip(statements, control["claims"], strict=True)
+            ]
+            calibrated["results"].append(
+                {
+                    "status": "matched",
+                    "control": control,
+                    "result": {
+                        "value": control["expected_score"],
+                        "statements": statements,
+                        "verdicts": verdicts,
+                    },
+                    "judge_calls": [
+                        {"output": {"statements": statements}},
+                        {"output": {"statements": verdicts}},
+                    ],
+                }
+            )
+        return calibrated
+
+    return calibrate
+
+
+def make_generate_stub(dataset, monkeypatch):
+    def generate(root, directory, identifier, model):
+        case = next(c for c in dataset.cases if c.id == identifier)
+        sample = _sample(case, dataset, model)
+        sample["metadata"]["model_digest"] = "judge-digest"
+        write_sample(directory / "sample.json", sample)
+        _mock_metrics(monkeypatch, case, dataset, directory / "sample.json")
+        junit = directory / "generation.xml"
+        junit.write_text(
+            f'<testsuite><testcase classname="tests.test_golden_rag" name="test_golden_policy_answer[{identifier}-{model}]"/></testsuite>'
+        )
+        return {
+            "generation_status": "passed",
+            "generation_junit_sha256": hashlib.sha256(junit.read_bytes()).hexdigest(),
+        }
+
+    return generate
+
+
+def make_subprocess_run_stub(sample_path):
+    def subprocess_run(command, **kwargs):
+        junit_path = Path(command[command.index("--junitxml") + 1])
+        junit_path.write_text(
+            f'<testsuite><testcase classname="tests.test_golden_rag" name="test_golden_policy_answer[paid_leave-qwen3.5:4b]"><properties><property name="evaluation_sample" value="{sample_path}"/></properties><error message="Cleanup failed"/></testcase></testsuite>'
+        )
+        return Mock(returncode=1)
+
+    return subprocess_run
+
+
+def prepare_different_configurations_rejected_step_2(calibration, definition):
+    for change in ("prompt", "digest"):
+        row = _row("gym_missing", "missing_information")
+        prepare_different_configurations_rejected_case(change, row)
+        with pytest.raises(ValueError, match="changed"):
+            summarize(definition, [_row(), row], calibration)
+
+
+def prepare_forged_top_level_summary_step_2(tmp_path):
+    for name in (
+        "golden-policy.json",
+        "quality-gates.json",
+        "faithfulness-controls.json",
+        "company-policy.txt",
+    ):
+        (tmp_path / name).write_bytes((ROOT / "test_data" / name).read_bytes())

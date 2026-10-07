@@ -4,6 +4,7 @@ import json
 import math
 import re
 from collections.abc import Mapping, Sequence, Sized
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from requests import Response
@@ -273,6 +274,16 @@ def assert_golden_answer(response: Response, *, case: "GoldenCase", document_tit
     attach_text(answer, name=f"Golden answer: {case.id}")
     assert_golden_text(answer, case=case)
     assert_document_sources(payload, document_title=document_title, fragments=case.source_fragments)
+
+
+def assert_adversarial_context(case: "AdversarialCase", sample_path: Path) -> None:
+    """Document attacks must be observed in actual model input; user attacks need no appendix."""
+    if not case.document_appendix:
+        return
+    from llm_testkit.evaluation.faithfulness import load_sample
+
+    sample, _ = load_sample(sample_path)
+    assert_attack_exposure(sample["retrieved_contexts"], attack_text=case.document_appendix)
 
 
 def assert_golden_text(answer: str, *, case: "GoldenCase") -> None:

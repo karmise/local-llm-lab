@@ -3,7 +3,7 @@
 import pytest
 
 from llm_testkit.datasets.conversation import ConversationCatalog, load_conversation_catalog
-from test_support.builders.conversation import DATA
+from test_support.data.conversation import DATA
 
 
 @pytest.fixture

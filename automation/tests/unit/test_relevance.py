@@ -1,17 +1,34 @@
 import asyncio
-from copy import deepcopy
+import json
 from unittest.mock import Mock
 
 import pytest
-from pydantic import BaseModel
+from requests import Response
 
+from llm_testkit.config import Settings
 from llm_testkit.evaluation.relevance import (
     check_relevance_evidence,
+    evaluate_relevance_report,
     score_relevance,
     validate_relevance,
 )
+from llm_testkit.observation.evaluation_sample import build_sample
 from llm_testkit.reporting.steps import title
-from test_support.builders.relevance import CASE, DATASET, ROOT, result
+from test_support.builders.relevance import (
+    make_failed_score_stub,
+    make_Judge_schema,
+    make_relevance_evidence,
+    prepare_evidence_binding_case,
+    prepare_invalid_relevance_case,
+    result,
+)
+from test_support.data.relevance import (
+    CASE,
+    DATASET,
+    EVIDENCE_BINDING_CHANGE_CASES,
+    INVALID_RELEVANCE_CHANGE_CASES,
+    ROOT,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -19,20 +36,8 @@ pytestmark = pytest.mark.unit
 @title("Real RAGAS context metrics preserve retrieval order and detect missing reference facts")
 def test_real_ragas_metrics_with_mocked_judge():
     pytest.importorskip("ragas")
-    from ragas.llms.base import InstructorBaseRagasLLM
 
-    class Judge(InstructorBaseRagasLLM):
-        def __init__(self, outputs):
-            self.outputs = iter(outputs)
-            self.calls = []
-
-        def generate(self, prompt: str, response_model: type[BaseModel]):
-            parsed = response_model.model_validate(next(self.outputs), strict=True)
-            self.calls.append({"output": parsed.model_dump()})
-            return parsed
-
-        async def agenerate(self, prompt, response_model):
-            return self.generate(prompt, response_model)
+    Judge = make_Judge_schema()
 
     expected = result()
     precision = Judge(expected["precision_verdicts"])
@@ -48,67 +53,20 @@ def test_real_ragas_metrics_with_mocked_judge():
     assert expected["context_precision"] == pytest.approx(5 / 6)
 
 
-@pytest.mark.parametrize(
-    "change", ["binary", "reason", "score", "duplicate", "missing_fact", "count", "empty"]
-)
+@pytest.mark.parametrize("change", INVALID_RELEVANCE_CHANGE_CASES)
 @title("Context metrics reject invalid verdicts and incomplete reference coverage [{param_id}]")
 def test_invalid_relevance(change):
     data = result()
-    if change == "binary":
-        data["precision_verdicts"][0]["verdict"] = True
-    elif change == "reason":
-        data["recall_classifications"][0]["reason"] = ""
-    elif change == "score":
-        data["context_recall"] = 1.0
-    elif change == "duplicate":
-        data["recall_classifications"][1] = deepcopy(data["recall_classifications"][0])
-    elif change == "missing_fact":
-        data["recall_classifications"][1]["statement"] = "Some deadline."
-    elif change == "count":
-        data["precision_verdicts"].pop()
-    else:
-        data["recall_classifications"] = []
+    prepare_invalid_relevance_case(change, data)
     with pytest.raises(ValueError):
         validate_relevance(data, CASE, 3)
 
 
-@pytest.mark.parametrize(
-    "change", ["none", "checksum", "dataset", "question", "raw_calls", "unfinished"]
-)
+@pytest.mark.parametrize("change", EVIDENCE_BINDING_CHANGE_CASES)
 @title("Context evidence is bound to the sample, golden dataset and raw calls [{param_id}]")
 def test_evidence_binding(change):
-    sample = {
-        "user_input": CASE.question,
-        "reference": CASE.reference,
-        "retrieved_contexts": ["A", "B", "C"],
-    }
-    data = result()
-    evidence = {
-        "schema_version": 1,
-        "metric": "context_relevance",
-        "status": "completed",
-        "sample_sha256": "sample",
-        "golden_dataset_sha256": DATASET.sha256,
-        "golden_case_id": CASE.id,
-        "question": CASE.question,
-        "reference": CASE.reference,
-        "result": data,
-        "precision_calls": [{"output": deepcopy(v)} for v in data["precision_verdicts"]],
-        "recall_calls": [{"output": {"classifications": deepcopy(data["recall_classifications"])}}],
-    }
-    if change == "none":
-        assert check_relevance_evidence(evidence, "sample", sample, DATASET) == data
-        return
-    if change == "raw_calls":
-        evidence["precision_calls"][0]["output"]["verdict"] = 0
-    else:
-        field = {
-            "checksum": "sample_sha256",
-            "dataset": "golden_dataset_sha256",
-            "question": "question",
-            "unfinished": "status",
-        }[change]
-        evidence[field] = "changed"
+    sample, evidence, _ = make_relevance_evidence()
+    prepare_evidence_binding_case(change, evidence)
     with pytest.raises(ValueError):
         check_relevance_evidence(evidence, "sample", sample, DATASET)
 
@@ -124,13 +82,6 @@ def test_context_budget():
 
 @title("Context evaluator retains raw failed calls and closes its transport")
 def test_service_error_evidence(tmp_path, monkeypatch):
-    import json
-
-    from requests import Response
-
-    from llm_testkit.config import Settings
-    from llm_testkit.evaluation.relevance import evaluate_relevance_report
-    from llm_testkit.observation.evaluation_sample import build_sample
 
     pytest.importorskip("ragas")
     identifier = "a" * 32
@@ -172,8 +123,7 @@ def test_service_error_evidence(tmp_path, monkeypatch):
         "llm_testkit.evaluation.ollama_judge.OllamaJudge", Mock(side_effect=[precision, recall])
     )
 
-    async def failed_score(*args):
-        raise ValueError("Truncated response")
+    failed_score = make_failed_score_stub()
 
     monkeypatch.setattr("llm_testkit.evaluation.relevance.score_relevance", failed_score)
     report = evaluate_relevance_report(
@@ -189,3 +139,9 @@ def test_service_error_evidence(tmp_path, monkeypatch):
     assert report["recall_calls"] == []
     assert transport.close.call_count == 1
     assert report["judge_configuration"]["maximum_calls"] == 2
+
+
+@title("Completed relevance evidence retains validated original metric values")
+def test_valid_evidence_binding():
+    sample, evidence, expected = make_relevance_evidence()
+    assert check_relevance_evidence(evidence, "sample", sample, DATASET) == expected

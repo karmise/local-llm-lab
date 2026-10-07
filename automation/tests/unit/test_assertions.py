@@ -5,6 +5,11 @@ import pytest
 from llm_testkit import assertions
 from llm_testkit.reporting.steps import title
 from test_support.builders.assertions import _gym_response, _response
+from test_support.data.assertions import (
+    MISSING_INFORMATION_REJECTS_HALLUCINATED_OR_IRRELEVANT_ANSWERS_ANSWER_MESSAGE_CASES,
+    RAG_REJECTS_UNSUBSTANTIATED_FINAL_ANSWERS_ANSWER_SOURCE_TITLE_SOURCE_TEXT_MESSAGE_CASES,
+    SEARCH_REJECTS_INCOMPLETE_OR_UNRELATED_RESULTS_BODY_MESSAGE_CASES,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -37,19 +42,7 @@ def test_workspace_list_rejects_non_object_entries() -> None:
 
 @pytest.mark.parametrize(
     ("body", "message"),
-    [
-        pytest.param(b'{"results": []}', "vector search returned no results", id="empty-index"),
-        pytest.param(
-            b'{"results": [{"text": "23 working days and 12 calendar days", "metadata": {"title": "other.txt"}}]}',
-            "Search did not return the uploaded document",
-            id="wrong-document",
-        ),
-        pytest.param(
-            b'{"results": [{"text": "23 working days", "metadata": {"title": "policy.txt"}}]}',
-            "12 calendar days",
-            id="missing-fact",
-        ),
-    ],
+    SEARCH_REJECTS_INCOMPLETE_OR_UNRELATED_RESULTS_BODY_MESSAGE_CASES,
 )
 @title("Vector-search check rejects incomplete or unrelated results [{param_id}]")
 def test_search_rejects_incomplete_or_unrelated_results(body: bytes, message: str) -> None:
@@ -63,43 +56,7 @@ def test_search_rejects_incomplete_or_unrelated_results(body: bytes, message: st
 
 @pytest.mark.parametrize(
     ("answer", "source_title", "source_text", "message"),
-    [
-        pytest.param(
-            "<think>23 working days</think>No policy information is available.",
-            "policy.txt",
-            "23 working days",
-            "missing expected fact",
-            id="reasoning-only-fact",
-        ),
-        pytest.param(
-            "Employees get 25 working days.",
-            "policy.txt",
-            "23 working days",
-            "missing expected fact",
-            id="incorrect-amount",
-        ),
-        pytest.param(
-            "Employees get 23 working days.",
-            "other.txt",
-            "23 working days",
-            "did not cite the uploaded document",
-            id="wrong-source",
-        ),
-        pytest.param(
-            "Employees get 23 working days.",
-            "policy.txt",
-            "No leave details are provided.",
-            "source_text",
-            id="unsupported-fact",
-        ),
-        pytest.param(
-            "<think>Employees get 23 working days.",
-            "policy.txt",
-            "23 working days",
-            "incomplete thinking tags",
-            id="unclosed-thinking",
-        ),
-    ],
+    RAG_REJECTS_UNSUBSTANTIATED_FINAL_ANSWERS_ANSWER_SOURCE_TITLE_SOURCE_TEXT_MESSAGE_CASES,
 )
 @title("RAG check rejects unsupported or incomplete final answers [{param_id}]")
 def test_rag_rejects_unsubstantiated_final_answers(
@@ -123,33 +80,7 @@ def test_rag_rejects_unsubstantiated_final_answers(
 
 @pytest.mark.parametrize(
     ("answer", "message"),
-    [
-        pytest.param(
-            "Gym details are not provided, but reimbursement is KGS 500.",
-            "must not propose a reimbursement amount",
-            id="disclaimer-with-amount",
-        ),
-        pytest.param(
-            "Gym policy is not specified; employees can claim 500 per month.",
-            "must not propose a reimbursement amount",
-            id="amount-without-currency",
-        ),
-        pytest.param(
-            "Gym policy is not specified; reimbursement is five hundred som.",
-            "must not propose a reimbursement amount",
-            id="written-amount",
-        ),
-        pytest.param(
-            "<think>Gym policy is not covered.</think>The company pays for gym membership.",
-            "Expected an explicit statement",
-            id="reasoning-only-abstention",
-        ),
-        pytest.param(
-            "Travel rules are not provided in the document.",
-            "address gym reimbursement",
-            id="wrong-topic",
-        ),
-    ],
+    MISSING_INFORMATION_REJECTS_HALLUCINATED_OR_IRRELEVANT_ANSWERS_ANSWER_MESSAGE_CASES,
 )
 @title("Missing-policy check rejects invented amounts and irrelevant answers [{param_id}]")
 def test_missing_information_rejects_hallucinated_or_irrelevant_answers(

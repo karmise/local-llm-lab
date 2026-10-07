@@ -2,36 +2,36 @@ import json
 
 import pytest
 
-from test_support.builders.catalog_validation import DATA, LOADERS
+from test_support.builders.catalog_validation import (
+    prepare_malformed_catalog_case,
+    prepare_nonstring_lookup_step_3,
+)
+from test_support.data.catalog_validation import (
+    DATA,
+    DUPLICATE_JSON_FIELDS_CATALOG_CASES,
+    LOADERS,
+    MALFORMED_CATALOG_CATALOG_CHANGE_CASES,
+    NONSTRING_LOOKUP_CATALOG_FIELD_CASES,
+)
 
 pytestmark = pytest.mark.unit
 
 
 @pytest.mark.parametrize(
     "catalog,change",
-    [
-        (name, change)
-        for name in LOADERS
-        for change in ("root", "row", "regex")
-        if (name, change) != ("prompts", "regex")
-    ],
+    MALFORMED_CATALOG_CATALOG_CHANGE_CASES,
 )
 def test_malformed_catalogs_raise_actionable_validation_errors(tmp_path, catalog, change):
     filename, rows_key, load = LOADERS[catalog]
     data = json.loads((DATA / filename).read_text())
-    if change == "root":
-        data = []
-    elif change == "row":
-        data[rows_key][0] = None
-    else:
-        data[rows_key][0]["forbidden_patterns"] = {"invalid": "["}
+    data = prepare_malformed_catalog_case(change, data, rows_key)
     path = tmp_path / "invalid.json"
     path.write_text(json.dumps(data))
     with pytest.raises(ValueError):
         load(path)
 
 
-@pytest.mark.parametrize("catalog", LOADERS)
+@pytest.mark.parametrize("catalog", DUPLICATE_JSON_FIELDS_CATALOG_CASES)
 def test_duplicate_json_fields_are_not_silently_overwritten(tmp_path, catalog):
     filename, _, load = LOADERS[catalog]
     raw = (DATA / filename).read_text()
@@ -43,17 +43,12 @@ def test_duplicate_json_fields_are_not_silently_overwritten(tmp_path, catalog):
 
 @pytest.mark.parametrize(
     "catalog,field",
-    [
-        ("bias", "golden_case_id"),
-        ("adversarial", "category"),
-        ("adversarial", "golden_case_id"),
-        ("prompts", "baseline"),
-    ],
+    NONSTRING_LOOKUP_CATALOG_FIELD_CASES,
 )
 def test_nonstring_lookup_fields_raise_validation_errors(tmp_path, catalog, field):
     filename, rows_key, load = LOADERS[catalog]
     data = json.loads((DATA / filename).read_text())
-    (data if field == "baseline" else data[rows_key][0])[field] = []
+    prepare_nonstring_lookup_step_3(data, field, rows_key)
     path = tmp_path / "invalid.json"
     path.write_text(json.dumps(data))
     with pytest.raises(ValueError):

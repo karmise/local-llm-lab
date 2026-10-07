@@ -1,15 +1,41 @@
-import hashlib
 import json
+import shutil
 import sys
 import xml.etree.ElementTree as ET
-from copy import deepcopy
 
 import pytest
 
 from llm_testkit.qualification import package
 from llm_testkit.qualification.plan import expected_cells, load_plan, matching_requirements
 from llm_testkit.reporting.steps import title
-from test_support.builders.qualification import ROOT, SELECTOR, write_junit
+from test_support.builders.qualification import (
+    check_trace_outcomes_outcome,
+    make_change_after_parsing_stub,
+    prepare_conflicting_inline_provenance_cannot_pass_case,
+    prepare_invalid_manifest_case,
+    prepare_invalid_package_inputs_case,
+    prepare_invalid_plan_case,
+    prepare_package_verification_binds_outcomes_to_inputs_case,
+    prepare_plan_rejects_ambiguous_paths_and_phase_types_case,
+    prepare_teardown_entries_step_2,
+    prepare_trace_outcomes_case,
+    write_junit,
+)
+from test_support.data.qualification import (
+    CHANGED_INPUTS_CHANGE_CASES,
+    CONFLICTING_INLINE_PROVENANCE_CANNOT_PASS_STALE_FIRST_CASES,
+    INVALID_MANIFEST_CHANGE_CASES,
+    INVALID_PACKAGE_INPUTS_CHANGE_CASES,
+    INVALID_PLAN_CHANGE_CASES,
+    PACKAGE_VERIFICATION_BINDS_OUTCOMES_TO_INPUTS_CHANGE_CASES,
+    PHASE_SCOPE_PHASES_CASES,
+    PLAN_REJECTS_AMBIGUOUS_PATHS_AND_PHASE_TYPES_CHANGE_CASES,
+    ROOT,
+    SELECTOR,
+    TEARDOWN_ENTRIES_CHANGE_CASES,
+    TRACE_OUTCOMES_STATUS_CASES,
+    UNBOUND_RESULTS_METADATA_CASES,
+)
 from test_support.fixtures.unit_qualification import evidence_lab as evidence_lab
 
 pytestmark = pytest.mark.unit
@@ -37,82 +63,25 @@ def test_matching_requirements(evidence_lab):
 
 @pytest.mark.parametrize(
     "change",
-    [
-        "schema",
-        "education",
-        "version",
-        "requirements",
-        "row",
-        "id",
-        "duplicate",
-        "phase",
-        "risk",
-        "acceptance",
-        "tests",
-        "selector",
-        "unknown",
-        "escape",
-        "axes",
-        "axis-values",
-        "axis-duplicate",
-        "data",
-        "data-checksum",
-        "data-escape",
-    ],
+    INVALID_PLAN_CHANGE_CASES,
 )
 @title("Qualification plans reject malformed, stale or unsafe mappings [{param_id}]")
 def test_invalid_plan(evidence_lab, change):
     root, path, _ = evidence_lab
     plan = json.loads(path.read_text())
     row = plan["requirements"][0]
-    if change == "schema":
-        plan["schema_version"] = True
-    elif change == "education":
-        plan["educational_only"] = False
-    elif change == "version":
-        plan["version"] = ""
-    elif change == "requirements":
-        plan["requirements"] = []
-    elif change == "row":
-        plan["requirements"] = [1]
-    elif change == "id":
-        row["id"] = "bad id"
-    elif change == "duplicate":
-        plan["requirements"].append(deepcopy(row))
-    elif change in ("phase", "risk", "acceptance"):
-        row[change] = ""
-    elif change == "tests":
-        row["tests"] = [1]
-    elif change == "selector":
-        row["tests"] = ["outside.py::test_example"]
-    elif change == "unknown":
-        row["tests"] = ["tests/test_example.py::test_unknown"]
-    elif change == "escape":
-        row["tests"] = ["tests/../../test_example.py::test_example"]
-    elif change == "axes":
-        row["axes"] = []
-    elif change == "axis-values":
-        row["axes"] = {"golden_case_id": []}
-    elif change == "axis-duplicate":
-        row["axes"] = {"golden_case_id": ["first", "first"]}
-    elif change == "data":
-        plan["data_sha256"] = []
-    elif change == "data-checksum":
-        plan["data_sha256"]["policy.txt"] = "0" * 64
-    else:
-        plan["data_sha256"] = {"../outside.txt": "0" * 64}
+    prepare_invalid_plan_case(change, plan, row)
     path.write_text(json.dumps(plan))
     with pytest.raises(ValueError):
         load_plan(path, root)
 
 
-@pytest.mark.parametrize("status", ["passed", "failed", "skipped", "error", "missing"])
+@pytest.mark.parametrize("status", TRACE_OUTCOMES_STATUS_CASES)
 @title("Qualification outcomes retain failures and incomplete matrix cells [{param_id}]")
 def test_trace_outcomes(evidence_lab, status):
     root, _, plan = evidence_lab
     rows = [("first", "passed", {})]
-    if status != "missing":
-        rows.append(("second", status, {}))
+    prepare_trace_outcomes_case(rows, status)
     trace = package.trace_results(plan, [write_junit(root, plan, rows)], ["OQ"])
     assert trace["status"] == {"passed": "passed", "failed": "failed"}.get(status, "incomplete")
     assert trace["review_status"] == "pending human review"
@@ -121,20 +90,12 @@ def test_trace_outcomes(evidence_lab, status):
         "error": "incomplete",
         "skipped": "incomplete",
     }.get(status, status)
-    if status not in ("passed", "missing"):
-        assert trace["deviations"][0]["details"][0]["text"] == "original detail"
+    check_trace_outcomes_outcome(status, trace)
 
 
 @pytest.mark.parametrize(
     "metadata",
-    [
-        {"qualification_plan_sha256": "stale"},
-        {"test_source_sha256": "stale"},
-        {"framework_source_sha256": "stale"},
-        {"requirement_ids": "not-json"},
-        {"requirement_ids": "null"},
-        {"requirement_ids": '"REQ-EXAMPLE"'},
-    ],
+    UNBOUND_RESULTS_METADATA_CASES,
 )
 @title("Qualification evidence cannot pass with stale or malformed provenance [{param_id}]")
 def test_unbound_results(evidence_lab, metadata):
@@ -153,28 +114,20 @@ def test_later_pass_preserves_failure(evidence_lab):
     assert package.trace_results(plan, [earlier, later], ["OQ"])["status"] == "failed"
 
 
-@pytest.mark.parametrize("change", ["error", "metadata"])
+@pytest.mark.parametrize("change", TEARDOWN_ENTRIES_CHANGE_CASES)
 @title(
     "Duplicate JUnit testcase entries preserve cleanup errors and conflicting metadata [{param_id}]"
 )
 def test_teardown_entries(evidence_lab, change):
     root, _, plan = evidence_lab
-    duplicate = (
-        ("first", "error", {})
-        if change == "error"
-        else (
-            "first",
-            "passed",
-            {"requirement_ids": "[]"},
-        )
-    )
+    duplicate = prepare_teardown_entries_step_2(change)
     junit = write_junit(root, plan, [("first", "passed", {}), duplicate, ("second", "passed", {})])
     trace = package.trace_results(plan, [junit], ["OQ"])
     assert trace["status"] == "incomplete"
     assert trace["deviations"]
 
 
-@pytest.mark.parametrize("phases", [[], ["unknown"], ["OQ", "OQ"], ["PQ"]])
+@pytest.mark.parametrize("phases", PHASE_SCOPE_PHASES_CASES)
 @title("Qualification packaging requires an explicit populated protocol scope [{param_id}]")
 def test_phase_scope(evidence_lab, phases):
     _, _, plan = evidence_lab
@@ -215,18 +168,13 @@ def test_package_integrity(evidence_lab):
         package.verify_package(output)
 
 
-@pytest.mark.parametrize("change", ["empty", "duplicate", "outside-attachment"])
+@pytest.mark.parametrize("change", INVALID_PACKAGE_INPUTS_CHANGE_CASES)
 @title("Evidence packaging rejects invalid inputs and removes partial output [{param_id}]")
 def test_invalid_package_inputs(evidence_lab, change):
     root, path, plan = evidence_lab
     junit = write_junit(root, plan, [])
     args = dict(root=root, plan_path=path, junit_files=[junit], phases=["OQ"])
-    if change == "empty":
-        args["junit_files"] = []
-    elif change == "duplicate":
-        args["junit_files"] = [junit, junit]
-    else:
-        args["attachments"] = [path]
+    prepare_invalid_package_inputs_case(args, change, junit, path)
     output = root / "reports/package"
     with pytest.raises(ValueError):
         package.build_package(output, **args)
@@ -234,7 +182,7 @@ def test_invalid_package_inputs(evidence_lab, change):
     assert not list(output.parent.glob("qualification-*"))
 
 
-@pytest.mark.parametrize("change", ["escape", "duplicate", "missing", "schema"])
+@pytest.mark.parametrize("change", INVALID_MANIFEST_CHANGE_CASES)
 @title(
     "Evidence verification rejects unsafe paths, duplicate entries and absent definitions [{param_id}]"
 )
@@ -246,14 +194,7 @@ def test_invalid_manifest(evidence_lab, change):
     )
     manifest_path = output / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
-    if change == "escape":
-        manifest["files"][0]["path"] = "../outside.json"
-    elif change == "duplicate":
-        manifest["files"].append(manifest["files"][0])
-    elif change == "missing":
-        manifest["files"] = [r for r in manifest["files"] if r["path"] != "traceability.json"]
-    else:
-        manifest["schema_version"] = 2
+    prepare_invalid_manifest_case(change, manifest)
     manifest_path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError):
         package.verify_package(output)
@@ -286,24 +227,14 @@ def test_cli_incomplete(evidence_lab, monkeypatch, capsys):
     package.verify_package(output)
 
 
-@pytest.mark.parametrize("change", ["plan", "junit", "framework", "test", "data"])
+@pytest.mark.parametrize("change", CHANGED_INPUTS_CHANGE_CASES)
 @title("Evidence publication refuses input or definition changes during packaging [{param_id}]")
 def test_changed_inputs(evidence_lab, monkeypatch, change):
     root, path, plan = evidence_lab
     junit = write_junit(root, plan, [("first", "passed", {}), ("second", "passed", {})])
     original_trace = package.trace_results
 
-    def change_after_parsing(*args, **kwargs):
-        trace = original_trace(*args, **kwargs)
-        target = {
-            "plan": path,
-            "junit": junit,
-            "framework": root / "src/runtime.py",
-            "test": root / "tests/test_example.py",
-            "data": root / "test_data/policy.txt",
-        }[change]
-        target.write_bytes(target.read_bytes() + b"\nchanged\n")
-        return trace
+    change_after_parsing = make_change_after_parsing_stub(change, junit, original_trace, path, root)
 
     monkeypatch.setattr(package, "trace_results", change_after_parsing)
     output = root / "reports/package"
@@ -347,22 +278,19 @@ def test_pytest_traceability(framework_pytester, evidence_lab):
     assert framework_pytester.runpytest_subprocess("-q").ret == pytest.ExitCode.USAGE_ERROR
 
 
-@pytest.mark.parametrize("stale_first", [True, False])
+@pytest.mark.parametrize("stale_first", CONFLICTING_INLINE_PROVENANCE_CANNOT_PASS_STALE_FIRST_CASES)
 def test_conflicting_inline_provenance_cannot_pass(evidence_lab, stale_first):
     root, _, plan = evidence_lab
     junit = write_junit(root, plan, [("first", "passed", {}), ("second", "passed", {})])
     tree = ET.parse(junit)
     props = tree.getroot().find(".//properties")
     duplicate = ET.Element("property", name="qualification_plan_sha256", value="stale")
-    if stale_first:
-        props.insert(0, duplicate)
-    else:
-        props.append(duplicate)
+    prepare_conflicting_inline_provenance_cannot_pass_case(duplicate, props, stale_first)
     tree.write(junit)
     assert package.trace_results(plan, [junit], ["OQ"])["status"] == "incomplete"
 
 
-@pytest.mark.parametrize("change", ["status", "plan", "resealed-trace", "trace-schema", "unlisted"])
+@pytest.mark.parametrize("change", PACKAGE_VERIFICATION_BINDS_OUTCOMES_TO_INPUTS_CHANGE_CASES)
 def test_package_verification_binds_outcomes_to_inputs(evidence_lab, change):
     root, path, plan = evidence_lab
     output = root / "reports/package"
@@ -371,32 +299,7 @@ def test_package_verification_binds_outcomes_to_inputs(evidence_lab, change):
     )
     manifest_path = output / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
-    if change == "unlisted":
-        (output / "extra.json").write_text("{}")
-    elif change == "trace-schema":
-        trace_path = output / "traceability.json"
-        trace = json.loads(trace_path.read_text())
-        trace["schema_version"] = True
-        trace_path.write_text(json.dumps(trace))
-        row = next(r for r in manifest["files"] if r["path"] == "traceability.json")
-        row.update(
-            sha256=hashlib.sha256(trace_path.read_bytes()).hexdigest(),
-            size=trace_path.stat().st_size,
-        )
-    elif change == "plan":
-        manifest["plan_sha256"] = "0" * 64
-    else:
-        manifest["status"] = "passed"
-        if change == "resealed-trace":
-            trace_path = output / "traceability.json"
-            trace = json.loads(trace_path.read_text())
-            trace["status"] = "passed"
-            trace_path.write_text(json.dumps(trace))
-            row = next(r for r in manifest["files"] if r["path"] == "traceability.json")
-            row.update(
-                sha256=hashlib.sha256(trace_path.read_bytes()).hexdigest(),
-                size=trace_path.stat().st_size,
-            )
+    prepare_package_verification_binds_outcomes_to_inputs_case(change, manifest, output)
     manifest_path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError):
         package.verify_package(output)
@@ -410,24 +313,17 @@ def test_nested_fixture_changes_invalidate_framework_provenance(evidence_lab):
     assert changed["framework_source_sha256"] != original["framework_source_sha256"]
 
 
-@pytest.mark.parametrize("change", ["selector-alias", "data-alias", "phase-type"])
+@pytest.mark.parametrize("change", PLAN_REJECTS_AMBIGUOUS_PATHS_AND_PHASE_TYPES_CHANGE_CASES)
 def test_plan_rejects_ambiguous_paths_and_phase_types(evidence_lab, change):
     root, path, _ = evidence_lab
     data = json.loads(path.read_text())
-    if change == "selector-alias":
-        data["requirements"][0]["tests"] = ["tests/../tests/test_example.py::test_example"]
-    elif change == "data-alias":
-        checksum = data["data_sha256"].pop("policy.txt")
-        data["data_sha256"]["./policy.txt"] = checksum
-    else:
-        data["requirements"][0]["phase"] = []
+    prepare_plan_rejects_ambiguous_paths_and_phase_types_case(change, data)
     path.write_text(json.dumps(data))
     with pytest.raises(ValueError):
         load_plan(path, root)
 
 
 def test_package_verification_is_independent_of_original_directory(evidence_lab):
-    import shutil
 
     root, path, plan = evidence_lab
     output = root / "reports/package"
