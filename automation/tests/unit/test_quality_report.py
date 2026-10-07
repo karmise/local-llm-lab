@@ -1,7 +1,6 @@
 import hashlib
 import json
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
 
@@ -79,10 +78,10 @@ def test_expected_source_is_derived_from_context_not_citations(tmp_path: Path) -
 
 @title("Allure renders all quality dimensions even when one check fails")
 def test_allure_renders_remaining_steps_after_a_failed_dimension(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_factory
 ) -> None:
     report = build_quality_report(*_files(tmp_path, incomplete=True))
-    fake_allure = Mock()
+    fake_allure = mock_factory()
     visited = []
 
     step = make_step_stub(visited)

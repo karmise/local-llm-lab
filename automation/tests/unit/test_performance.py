@@ -1,6 +1,5 @@
 import json
 from copy import deepcopy
-from threading import Lock
 
 import pytest
 
@@ -39,8 +38,8 @@ pytestmark = pytest.mark.unit
 
 
 @title("Concurrent batches execute the exact request budget and retain errors without retries")
-def test_bounded_batch():
-    lock = Lock()
+def test_bounded_batch(operation_lock):
+    lock = operation_lock
     calls = []
 
     operation = make_bounded_failure_workload(calls, lock)

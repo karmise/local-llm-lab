@@ -1,5 +1,4 @@
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
 
@@ -76,10 +75,10 @@ def test_optional_reporter_handles_only_the_missing_allure_package(
 
 
 def test_live_capture_uses_the_shared_profile_reference(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mock_factory
 ) -> None:
     monkeypatch.setattr(steps, "_backend", lambda: None)
-    chat = Mock()
+    chat = mock_factory()
     profile = {"question": "A different policy question?", "reference": "Its expected answer."}
 
     generate_captured_answer(chat, profile, tmp_path / "sample.json")

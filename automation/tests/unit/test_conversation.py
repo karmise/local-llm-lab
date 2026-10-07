@@ -2,12 +2,10 @@ import json
 import shutil
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
 
 from llm_testkit import assertions
-from llm_testkit.config import Settings
 from llm_testkit.datasets.conversation import ConversationCatalog, load_conversation_catalog
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
@@ -172,11 +170,13 @@ def test_invalid_catalogs_fail_before_any_generation(
 
 
 @title("Conversation fixture sends an explicit Chat-mode request")
-def test_chat_request_explicitly_uses_chat_mode_without_changing_query_client_default() -> None:
+def test_chat_request_explicitly_uses_chat_mode_without_changing_query_client_default(
+    mock_factory, unit_settings
+) -> None:
 
-    api = Mock()
+    api = mock_factory()
     chat = conversation_chat.__wrapped__(
-        None, {"chatMode": "chat"}, api, {"slug": "temporary"}, Settings()
+        None, {"chatMode": "chat"}, api, {"slug": "temporary"}, unit_settings
     )
     result = chat("Hello!")
     value_checks.identical(result, api.chat.return_value)
@@ -184,11 +184,11 @@ def test_chat_request_explicitly_uses_chat_mode_without_changing_query_client_de
 
 
 @title("Conversation fixture rejects a document-only Query profile")
-def test_conversation_fixture_rejects_a_query_profile() -> None:
+def test_conversation_fixture_rejects_a_query_profile(mock_factory, unit_settings) -> None:
 
     errors.rejects(
         lambda: conversation_chat.__wrapped__(
-            None, {"chatMode": "query"}, Mock(), {"slug": "temporary"}, Settings()
+            None, {"chatMode": "query"}, mock_factory(), {"slug": "temporary"}, unit_settings
         ),
         expected=AssertionError,
         match="chatMode",

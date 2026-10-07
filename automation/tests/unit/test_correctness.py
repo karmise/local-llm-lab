@@ -1,24 +1,19 @@
-import asyncio
 import hashlib
 import json
-from unittest.mock import Mock
 
 import pytest
-from requests import Response
 
-from llm_testkit.config import Settings
 from llm_testkit.evaluation.correctness import (
     bind_case,
     check_control,
     check_correctness_evidence,
-    evaluate_correctness_report,
     main,
-    score_correctness,
     validate_result,
 )
 from llm_testkit.reporting.quality import build_quality_report
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
+from test_support.assertions import judges as judge_checks
 from test_support.assertions import values as value_checks
 from test_support.assertions.correctness import check_control_expectations
 from test_support.builders.correctness import (
@@ -27,11 +22,8 @@ from test_support.builders.correctness import (
     _result,
     _sample,
     _verdicts,
-    append_judge_responses,
-    make_failed_score_stub,
     prepare_invalid_claim_evidence_is_rejected_case,
 )
-from test_support.builders.optional import load_ollama_judge
 from test_support.data.correctness import (
     CASE,
     DATASET,
@@ -40,6 +32,10 @@ from test_support.data.correctness import (
     REAL_RAGAS_CORRECTNESS_WITH_MOCKED_JUDGE_RV_GV_EXPECTED_IDS,
     ROOT,
     UNRELATED_OR_SYNTHETIC_EVIDENCE_IS_REJECTED_CHANGE_CASES,
+)
+from test_support.fixtures.unit_correctness import correctness_judge as correctness_judge
+from test_support.fixtures.unit_correctness import (
+    failed_correctness_service as failed_correctness_service,
 )
 
 pytestmark = pytest.mark.unit
@@ -53,26 +49,10 @@ pytestmark = pytest.mark.unit
 @title(
     "Real RAGAS factual F1 distinguishes correct, incomplete and incorrect evidence [{param_id}]"
 )
-def test_real_ragas_correctness_with_mocked_judge(rv, gv, expected):
-    pytest.importorskip("ragas")
-    OllamaJudge = load_ollama_judge()
-
-    result = _result(rv, gv, expected)
-    outputs = [
-        {"claims": result["response_claims"]},
-        {"statements": result["response_verdicts"]},
-        {"claims": result["reference_claims"]},
-        {"statements": result["reference_verdicts"]},
-    ]
-    responses = []
-    append_judge_responses(outputs, responses)
-    client = Mock()
-    client.structured_chat.side_effect = responses
-    judge = OllamaJudge(client, "test-model", max_calls=4)
-    scored = asyncio.run(score_correctness(_sample(), judge))
-    value_checks.equal(scored["value"], expected)
-    value_checks.equal(client.structured_chat.call_count, 4)
-    errors.rejects(lambda: judge.generate("extra", Mock()), expected=ValueError, match="budget")
+def test_real_ragas_correctness_with_mocked_judge(rv, gv, expected, correctness_judge):
+    scored = correctness_judge.evaluate()
+    judge_checks.score_matches(correctness_judge, scored)
+    judge_checks.budget_is_exhausted(correctness_judge)
 
 
 @pytest.mark.parametrize("change", INVALID_CLAIM_EVIDENCE_IS_REJECTED_CHANGE_CASES)
@@ -214,37 +194,6 @@ def test_raw_calls_must_match_summary():
 
 
 @title("Correctness service preserves failure evidence and closes its transport")
-def test_correctness_service_closes_transport_on_judge_error(tmp_path, monkeypatch):
-    pytest.importorskip("ragas")
-
-    path = tmp_path / "sample.json"
-    path.write_text(json.dumps(_sample()))
-    transport = Mock()
-    client = Mock()
-    catalog = Response()
-    catalog.status_code = 200
-    catalog._content = json.dumps({"models": [{"name": "test-model", "digest": "digest"}]}).encode()
-    client.list_models.return_value = catalog
-    judge = Mock(calls=[{"error": "truncated"}], options={})
-    monkeypatch.setattr(
-        "llm_testkit.evaluation.correctness.HttpClient", Mock(return_value=transport)
-    )
-    monkeypatch.setattr(
-        "llm_testkit.evaluation.correctness.OllamaClient", Mock(return_value=client)
-    )
-    monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", Mock(return_value=judge))
-
-    failed_score = make_failed_score_stub()
-
-    monkeypatch.setattr("llm_testkit.evaluation.correctness.score_correctness", failed_score)
-    report = evaluate_correctness_report(
-        path,
-        dataset_path=ROOT / "golden-policy.json",
-        policy_file=ROOT / "company-policy.txt",
-        case_id=CASE.id,
-        settings=Settings(),
-        judge_model="test-model",
-    )
-    value_checks.equal(report["status"], "error")
-    value_checks.equal(report["judge_calls"], judge.calls)
-    value_checks.equal(transport.close.call_count, 1)
+def test_correctness_service_closes_transport_on_judge_error(failed_correctness_service):
+    report = failed_correctness_service.evaluate()
+    judge_checks.failure_evidence_is_retained(failed_correctness_service, report)

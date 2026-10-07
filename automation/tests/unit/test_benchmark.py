@@ -1,12 +1,10 @@
 import hashlib
 import json
 import shutil
-from unittest.mock import Mock
 
 import pytest
 
 from llm_testkit import assertions
-from llm_testkit.config import Settings
 from llm_testkit.datasets.benchmark import make_plan, manifest
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.evaluation import benchmark as evaluation
@@ -128,7 +126,7 @@ def test_control_mismatch(benchmark_data):
 
 
 @title("All four benchmark metrics validate original evidence and preserve independent failures")
-def test_case_pipeline(tmp_path, benchmark_data, monkeypatch):
+def test_case_pipeline(tmp_path, benchmark_data, monkeypatch, unit_settings):
     dataset, gates, _, _, _ = benchmark_data
     case = dataset.cases[0]
     sample_path = tmp_path / "sample.json"
@@ -143,7 +141,7 @@ def test_case_pipeline(tmp_path, benchmark_data, monkeypatch):
         model="qwen3.5:4b",
         judge_model="qwen3.5:4b",
         judge_digest="judge-digest",
-        settings=Settings(),
+        settings=unit_settings,
         minima=gates["minimum_scores"],
     )
     row = evaluation.evaluate_case(sample_path, **kwargs)
@@ -166,12 +164,12 @@ def test_case_pipeline(tmp_path, benchmark_data, monkeypatch):
 
 
 @title("Refusal cases run reviewed checks without invoking a semantic judge")
-def test_refusal_case_no_judge(tmp_path, benchmark_data, monkeypatch):
+def test_refusal_case_no_judge(tmp_path, benchmark_data, monkeypatch, mock_factory, unit_settings):
     dataset, gates, _, _, _ = benchmark_data
     case = next(c for c in dataset.cases if c.id == "gym_missing")
     path = tmp_path / "sample.json"
     write_sample(path, _sample(case, dataset))
-    judge = Mock(side_effect=AssertionError("Unexpected judge call"))
+    judge = mock_factory(side_effect=AssertionError("Unexpected judge call"))
     monkeypatch.setattr(evaluation, "evaluate_sample_report", judge)
     row = evaluation.evaluate_case(
         path,
@@ -183,7 +181,7 @@ def test_refusal_case_no_judge(tmp_path, benchmark_data, monkeypatch):
         model="qwen3.5:4b",
         judge_model="qwen3.5:4b",
         judge_digest="judge-digest",
-        settings=Settings(),
+        settings=unit_settings,
         minima=gates["minimum_scores"],
     )
     value_checks.equal(row["judge_calls"], 0)
@@ -192,11 +190,11 @@ def test_refusal_case_no_judge(tmp_path, benchmark_data, monkeypatch):
 
 
 @title("Benchmark runner preserves its full matrix, snapshots and human review worksheet")
-def test_runner_pipeline(tmp_path, benchmark_data, monkeypatch):
+def test_runner_pipeline(tmp_path, benchmark_data, monkeypatch, mock_factory):
     dataset, gates, plan, _, calibration = benchmark_data
     root = tmp_path / "automation"
     shutil.copytree(ROOT / "test_data", root / "test_data")
-    catalog = Mock(status_code=200)
+    catalog = mock_factory(status_code=200)
     catalog.json.return_value = {"models": [{"name": "qwen3.5:4b", "digest": "judge-digest"}]}
     monkeypatch.setattr(runner.OllamaClient, "list_models", lambda _: catalog)
 
@@ -233,12 +231,14 @@ def test_runner_pipeline(tmp_path, benchmark_data, monkeypatch):
 
 
 @title("Benchmark dry run performs no model or application operations")
-def test_dry_run(monkeypatch, tmp_path, capsys):
+def test_dry_run(monkeypatch, tmp_path, capsys, mock_factory):
     monkeypatch.setattr(
         "sys.argv",
         ["benchmark", "--root", str(ROOT), "--output", str(tmp_path / "new"), "--dry-run"],
     )
-    monkeypatch.setattr(runner, "run", Mock(side_effect=AssertionError("Unexpected execution")))
+    monkeypatch.setattr(
+        runner, "run", mock_factory(side_effect=AssertionError("Unexpected execution"))
+    )
     value_checks.equal(runner.main(), 0)
     value_checks.equal(json.loads(capsys.readouterr().out)["maximum_model_calls"], 43)
     value_checks.falsy((tmp_path / "new").exists())
@@ -267,14 +267,14 @@ def test_generation_teardown_error(tmp_path, monkeypatch):
 
 
 @title("Preflight failures retain every planned result as an error without generation")
-def test_preflight_failure(tmp_path, benchmark_data, monkeypatch):
+def test_preflight_failure(tmp_path, benchmark_data, monkeypatch, mock_factory):
     dataset, gates, plan, _, _ = benchmark_data
     root = tmp_path / "automation"
     shutil.copytree(ROOT / "test_data", root / "test_data")
     monkeypatch.setattr(
-        runner.OllamaClient, "list_models", Mock(side_effect=RuntimeError("Offline"))
+        runner.OllamaClient, "list_models", mock_factory(side_effect=RuntimeError("Offline"))
     )
-    generate = Mock(side_effect=AssertionError("Unexpected generation"))
+    generate = mock_factory(side_effect=AssertionError("Unexpected generation"))
     monkeypatch.setattr(runner, "generate_sample", generate)
     report = runner.run(
         root, tmp_path / "offline", plan, dataset, gates, notify=lambda *a, **k: None

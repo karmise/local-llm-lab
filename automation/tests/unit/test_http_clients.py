@@ -5,8 +5,6 @@ from urllib.parse import quote
 import pytest
 import requests
 
-from llm_testkit.clients.anythingllm_client import AnythingLLMClient
-from llm_testkit.core.http_client import HttpClient
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
 from test_support.assertions import mocks as mock_checks
@@ -24,8 +22,10 @@ from test_support.fixtures.unit_http_clients import session as session
 pytestmark = pytest.mark.unit
 
 
-def test_transport_preserves_response_timeouts_and_redirect_contract(session: Mock) -> None:
-    with HttpClient("https://example.test/root/", 5) as http:
+def test_transport_preserves_response_timeouts_and_redirect_contract(
+    session: Mock, http_factory
+) -> None:
+    with http_factory("https://example.test/root/", 5) as http:
         response = http.request("GET", "/api/ping")
         value_checks.identical(response, session.request.return_value)
         mock_checks.called_once_with(
@@ -41,12 +41,12 @@ def test_transport_preserves_response_timeouts_and_redirect_contract(session: Mo
     mock_checks.called_once_with(session.close)
 
 
-def test_transport_closes_and_does_not_retry_failed_generation(session: Mock) -> None:
+def test_transport_closes_and_does_not_retry_failed_generation(session: Mock, http_factory) -> None:
     failure = requests.Timeout("Model response timed out")
     session.request.side_effect = failure
     with (
         errors.expected_error(requests.Timeout) as caught,
-        HttpClient("http://localhost", 5) as http,
+        http_factory("http://localhost", 5) as http,
     ):
         http.request("POST", "/chat")
     value_checks.identical(caught.value, failure)
@@ -54,10 +54,12 @@ def test_transport_closes_and_does_not_retry_failed_generation(session: Mock) ->
     mock_checks.called_once_with(session.close)
 
 
-def test_shared_transport_does_not_leak_authentication_between_clients(session: Mock) -> None:
-    with HttpClient("http://localhost", 5) as http:
-        authenticated = AnythingLLMClient(http, api_key="test-key")
-        anonymous = AnythingLLMClient(http)
+def test_shared_transport_does_not_leak_authentication_between_clients(
+    session: Mock, api_factory, http_factory
+) -> None:
+    with http_factory("http://localhost", 5) as http:
+        authenticated = api_factory(http, api_key="test-key")
+        anonymous = api_factory(http)
         authenticated.verify_authentication()
         anonymous.verify_authentication()
     value_checks.equal(
@@ -67,20 +69,24 @@ def test_shared_transport_does_not_leak_authentication_between_clients(session: 
 
 
 @pytest.mark.parametrize("slug", WORKSPACE_SLUGS_ARE_ENCODED_AS_ONE_PATH_SEGMENT_SLUG_CASES)
-def test_workspace_slugs_are_encoded_as_one_path_segment(session: Mock, slug: str) -> None:
+def test_workspace_slugs_are_encoded_as_one_path_segment(
+    session: Mock, slug: str, api_factory, http_factory
+) -> None:
 
-    with HttpClient("http://localhost", 5) as http:
-        AnythingLLMClient(http).get_workspace(slug)
+    with http_factory("http://localhost", 5) as http:
+        api_factory(http).get_workspace(slug)
     value_checks.equal(
         session.request.call_args.kwargs["url"],
         f"http://localhost/api/v1/workspace/{quote(slug, safe='')}",
     )
 
 
-def test_workspace_creation_does_not_mutate_configuration(session: Mock) -> None:
+def test_workspace_creation_does_not_mutate_configuration(
+    session: Mock, api_factory, http_factory
+) -> None:
     configuration = {"name": "template", "chatModel": "test-model"}
-    with HttpClient("http://localhost", 5) as http:
-        AnythingLLMClient(http).create_workspace("temporary", configuration)
+    with http_factory("http://localhost", 5) as http:
+        api_factory(http).create_workspace("temporary", configuration)
     value_checks.equal(configuration["name"], "template")
     value_checks.equal(
         session.request.call_args.kwargs["json"], {"name": "temporary", "chatModel": "test-model"}
@@ -88,10 +94,12 @@ def test_workspace_creation_does_not_mutate_configuration(session: Mock) -> None
 
 
 @title("Workspace settings update uses the authenticated API and preserves its input")
-def test_workspace_update_uses_authenticated_route_and_preserves_settings(session: Mock) -> None:
+def test_workspace_update_uses_authenticated_route_and_preserves_settings(
+    session: Mock, api_factory, http_factory
+) -> None:
     configuration = {"chatMode": "chat", "openAiPrompt": "Reviewed prompt"}
-    with HttpClient("http://localhost", 5) as http:
-        response = AnythingLLMClient(http, api_key="test-key").update_workspace(
+    with http_factory("http://localhost", 5) as http:
+        response = api_factory(http, api_key="test-key").update_workspace(
             "policy/lab", configuration
         )
     value_checks.identical(response, session.request.return_value)
@@ -109,7 +117,7 @@ def test_workspace_update_uses_authenticated_route_and_preserves_settings(sessio
 
 @pytest.mark.parametrize("fail", UPLOAD_CLOSES_DOCUMENT_EVEN_WHEN_REQUEST_FAILS_FAIL_CASES)
 def test_upload_closes_document_even_when_request_fails(
-    session: Mock, tmp_path: Path, fail: bool
+    session: Mock, tmp_path: Path, fail: bool, api_factory, http_factory
 ) -> None:
     path = tmp_path / "policy.txt"
     path.write_text("Fictional policy", encoding="utf-8")
@@ -118,8 +126,8 @@ def test_upload_closes_document_even_when_request_fails(
     upload = make_upload_stub(documents, fail)
 
     session.request.side_effect = upload
-    with HttpClient("http://localhost", 5) as http:
-        api = AnythingLLMClient(http)
+    with http_factory("http://localhost", 5) as http:
+        api = api_factory(http)
         check_upload_closes_document_even_when_request_fails_outcome(api, fail, path)
     value_checks.length(documents, 1)
     value_checks.truthy(documents[0].closed)

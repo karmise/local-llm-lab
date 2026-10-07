@@ -1,10 +1,8 @@
 import asyncio
 import json
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
-from requests import Response
 
 from llm_testkit import assertions
 from llm_testkit.evaluation.calibration import evaluate_controls, load_controls, select_controls
@@ -42,8 +40,8 @@ def test_targeted_selection_deduplicates_controls() -> None:
 
 @pytest.mark.parametrize("count", RUNNER_REJECTS_EMPTY_OR_EXCESSIVE_CONTROL_RUNS_COUNT_CASES)
 @title("Calibration runner rejects empty or excessive control batches [{param_id}]")
-def test_runner_rejects_empty_or_excessive_control_runs(count: int) -> None:
-    factory = Mock()
+def test_runner_rejects_empty_or_excessive_control_runs(count: int, mock_factory) -> None:
+    factory = mock_factory()
     errors.rejects(
         lambda: asyncio.run(evaluate_controls({}, [_case()] * count, factory)),
         expected=ValueError,
@@ -154,8 +152,8 @@ def test_explicit_oversized_batch_is_rejected_before_model_calls() -> None:
 
 
 @title("Faithful but incomplete answer fails the required-fact check")
-def test_faithful_incomplete_answer_still_fails_required_fact_check() -> None:
-    response = Response()
+def test_faithful_incomplete_answer_still_fails_required_fact_check(response_factory) -> None:
+    response = response_factory()
     response.status_code = 200
     response._content = json.dumps(
         {

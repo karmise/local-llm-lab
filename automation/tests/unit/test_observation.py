@@ -2,7 +2,6 @@ import copy
 import json
 import shutil
 import subprocess
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -104,14 +103,13 @@ def test_invalid_evidence_never_leaves_partial_output(tmp_path, value):
     value_checks.falsy(list(tmp_path.iterdir()))
 
 
-def test_concurrent_evidence_writers_publish_once_without_overwrite(tmp_path):
+def test_concurrent_evidence_writers_publish_once_without_overwrite(tmp_path, evidence_workers):
 
     path = tmp_path / "sample.json"
 
     publish = make_publish_stub(path)
 
-    with ThreadPoolExecutor(max_workers=4) as workers:
-        outcomes = list(workers.map(publish, range(4)))
+    outcomes = list(evidence_workers.map(publish, range(4)))
     winners = [i for i in outcomes if i is not None]
     value_checks.length(winners, 1)
     value_checks.equal(json.loads(path.read_text())["writer"], winners[0])

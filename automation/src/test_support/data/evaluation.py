@@ -14,3 +14,15 @@ PIPELINE_REJECTS_MISSING_ALTERED_OR_INVALID_VERDICTS_OUTPUT_CASES = [
     {"statements": [{"statement": "Other claim.", "reason": "Wrong.", "verdict": 1}]},
     {"statements": [{"statement": "Claim.", "reason": "Wrong.", "verdict": 2}]},
 ]
+
+
+SUPPORTED_CLAIM_OUTPUTS = [
+    {"statements": ["Supported claim.", "Unsupported claim."]},
+    {
+        "statements": [
+            {"statement": "Supported claim.", "reason": "Found in context.", "verdict": 1},
+            {"statement": "Unsupported claim.", "reason": "Absent from context.", "verdict": 0},
+        ]
+    },
+]
+CLAIM_EXTRACTION = {"statements": ["Claim."]}

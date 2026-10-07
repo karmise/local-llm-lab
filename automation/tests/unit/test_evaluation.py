@@ -1,35 +1,36 @@
 import asyncio
-import copy
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock
 
 import pytest
-from requests import Response
 
 from llm_testkit import assertions
-from llm_testkit.clients.ollama_client import OllamaClient
-from llm_testkit.config import Settings
 from llm_testkit.evaluation.faithfulness import (
-    evaluate_sample_report,
     load_sample,
     main,
     score_sample,
 )
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
+from test_support.assertions import judges as judge_checks
+from test_support.assertions import mocks as mock_checks
 from test_support.assertions import values as value_checks
 from test_support.builders.evaluation import (
     _judge_class,
-    _response,
     _sample,
-    make_failed_score_stub,
-    make_Statements_schema,
 )
 from test_support.data.evaluation import (
     PIPELINE_REJECTS_MISSING_ALTERED_OR_INVALID_VERDICTS_OUTPUT_CASES,
     QUALITY_SCORE_REJECTS_INVALID_RESULTS_VALUE_CASES,
 )
+from test_support.fixtures.unit_evaluation import (
+    failed_evaluation_service as failed_evaluation_service,
+)
+from test_support.fixtures.unit_evaluation import faithfulness_judge as faithfulness_judge
+from test_support.fixtures.unit_evaluation import (
+    invalid_faithfulness_judge as invalid_faithfulness_judge,
+)
+from test_support.fixtures.unit_evaluation import truncated_judge as truncated_judge
 
 pytestmark = pytest.mark.unit
 
@@ -59,32 +60,10 @@ def test_quality_threshold_rejects_low_score() -> None:
 
 
 @title("RAGAS computes supported-claim ratio from mocked judge responses")
-def test_real_ragas_pipeline_computes_supported_claim_ratio_without_network() -> None:
-    Judge = _judge_class()
-    client = Mock()
-    client.structured_chat.side_effect = [
-        _response({"statements": ["Supported claim.", "Unsupported claim."]}),
-        _response(
-            {
-                "statements": [
-                    {"statement": "Supported claim.", "reason": "Found in context.", "verdict": 1},
-                    {
-                        "statement": "Unsupported claim.",
-                        "reason": "Absent from context.",
-                        "verdict": 0,
-                    },
-                ]
-            }
-        ),
-    ]
-    judge = Judge(client, "test-model")
-    result = asyncio.run(score_sample(_sample(), judge))
-    value_checks.equal(result["value"], 0.5)
-    value_checks.equal(client.structured_chat.call_count, 2)
-    value_checks.equal(client.structured_chat.call_args.kwargs["options"], judge.options)
-    errors.rejects(
-        lambda: judge.generate("extra request", type(Mock())), expected=ValueError, match="budget"
-    )
+def test_real_ragas_pipeline_computes_supported_claim_ratio_without_network(faithfulness_judge):
+    result = faithfulness_judge.evaluate()
+    judge_checks.score_matches(faithfulness_judge, result)
+    judge_checks.budget_is_exhausted(faithfulness_judge)
 
 
 @pytest.mark.parametrize(
@@ -92,42 +71,23 @@ def test_real_ragas_pipeline_computes_supported_claim_ratio_without_network() ->
     PIPELINE_REJECTS_MISSING_ALTERED_OR_INVALID_VERDICTS_OUTPUT_CASES,
 )
 @title("Faithfulness pipeline rejects missing, altered or invalid claim verdicts [{param_id}]")
-def test_pipeline_rejects_missing_altered_or_invalid_verdicts(output: dict) -> None:
-    Judge = _judge_class()
-    client = Mock()
-    client.structured_chat.side_effect = [
-        _response({"statements": ["Claim."]}),
-        _response(copy.deepcopy(output)),
-    ]
-    errors.rejects(
-        lambda: asyncio.run(score_sample(_sample(), Judge(client, "test-model"))),
-        expected=(ValueError, AssertionError),
-    )
+def test_pipeline_rejects_missing_altered_or_invalid_verdicts(output, invalid_faithfulness_judge):
+    errors.rejects(invalid_faithfulness_judge.evaluate, expected=(ValueError, AssertionError))
 
 
 @title("Local judge rejects truncated generation without retrying")
-def test_judge_rejects_truncated_generation_without_retry() -> None:
-    Judge = _judge_class()
-
-    Statements = make_Statements_schema()
-
-    client = Mock()
-    client.structured_chat.return_value = _response(
-        {"statements": ["Claim."]}, done_reason="length"
-    )
-    errors.rejects(
-        lambda: Judge(client, "test-model").generate("prompt", Statements),
-        expected=ValueError,
-        match="truncated",
-    )
-    value_checks.equal(client.structured_chat.call_count, 1)
+def test_judge_rejects_truncated_generation_without_retry(truncated_judge):
+    errors.rejects(truncated_judge.evaluate, expected=ValueError, match="truncated")
+    mock_checks.called_once(truncated_judge.client.structured_chat)
 
 
 @title("Native judge request disables thinking and includes the response schema")
-def test_native_judge_request_disables_thinking_and_passes_schema() -> None:
-    http = Mock()
+def test_native_judge_request_disables_thinking_and_passes_schema(
+    mock_factory, ollama_factory
+) -> None:
+    http = mock_factory()
     schema = {"type": "object"}
-    OllamaClient(http).structured_chat(
+    ollama_factory(http).structured_chat(
         model="test-model",
         prompt="Judge this",
         schema=schema,
@@ -169,47 +129,22 @@ def test_cli_refuses_to_overwrite_report_before_model_calls(
 
 
 @title("Evaluation service preserves judge failure and closes its HTTP transport")
-def test_evaluation_service_preserves_judge_failure_and_closes_transport(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    _judge_class()
-
-    path = tmp_path / "sample.json"
-    path.write_text(json.dumps(_sample()))
-    transport = Mock()
-    client = Mock()
-    catalog = Response()
-    catalog.status_code = 200
-    catalog._content = json.dumps({"models": [{"name": "test-model", "digest": "digest"}]}).encode()
-    client.list_models.return_value = catalog
-    judge = Mock(calls=[{"error_evidence": "incomplete generation"}], options={})
-    monkeypatch.setattr(
-        "llm_testkit.evaluation.faithfulness.HttpClient", Mock(return_value=transport)
-    )
-    monkeypatch.setattr(
-        "llm_testkit.evaluation.faithfulness.OllamaClient", Mock(return_value=client)
-    )
-    monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", Mock(return_value=judge))
-
-    failed_score = make_failed_score_stub()
-
-    monkeypatch.setattr("llm_testkit.evaluation.faithfulness.score_sample", failed_score)
-    report = evaluate_sample_report(path, settings=Settings(), judge_model="test-model")
-    value_checks.equal(report["status"], "error")
+def test_evaluation_service_preserves_judge_failure_and_closes_transport(failed_evaluation_service):
+    report = failed_evaluation_service.evaluate()
+    judge_checks.failure_evidence_is_retained(failed_evaluation_service, report)
     value_checks.equal(report["error"]["type"], "ValueError")
-    value_checks.equal(report["judge_calls"], judge.calls)
-    value_checks.equal(transport.close.call_count, 1)
 
 
-def test_live_faithfulness_rejects_score_inconsistent_with_verdicts(monkeypatch):
+def test_live_faithfulness_rejects_score_inconsistent_with_verdicts(
+    monkeypatch, async_mock_factory, mock_factory
+):
     collections = pytest.importorskip("ragas.metrics.collections")
 
-    metric = Mock()
+    metric = mock_factory()
 
-    metric.ascore = AsyncMock(return_value=Mock(value=1.0))
-    monkeypatch.setattr(collections, "Faithfulness", Mock(return_value=metric))
-    judge = Mock(
+    metric.ascore = async_mock_factory(return_value=mock_factory(value=1.0))
+    monkeypatch.setattr(collections, "Faithfulness", mock_factory(return_value=metric))
+    judge = mock_factory(
         calls=[
             {"output": {"statements": ["Claim."]}},
             {"output": {"statements": [{"statement": "Claim.", "verdict": 0}]}},

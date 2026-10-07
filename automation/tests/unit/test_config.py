@@ -15,8 +15,8 @@ pytestmark = pytest.mark.unit
 
 
 @title("Default configuration works without application credentials")
-def test_defaults_work_without_credentials() -> None:
-    value_checks.equal(Settings.from_env(), Settings())
+def test_defaults_work_without_credentials(unit_settings) -> None:
+    value_checks.equal(Settings.from_env(), unit_settings)
 
 
 @title("Environment API key takes priority and is omitted from settings representation")
