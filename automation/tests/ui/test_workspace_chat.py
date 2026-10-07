@@ -14,10 +14,8 @@ pytestmark = pytest.mark.ui
 
 @title("UI displays the paid-leave answer and its document source")
 def test_paid_leave_answer_and_source_are_visible(
-    workspace_page: "WorkspacePage",
-    uploaded_policy_document: dict[str, Any],
-    paid_leave_profile: dict[str, Any],
-) -> None:
+        workspace_page: "WorkspacePage", uploaded_policy_document: dict[str, Any],
+        paid_leave_profile: dict[str, Any]) -> None:  # fmt: skip
     workspace_page.send_question(paid_leave_profile["question"])
     assertions.assert_ui_question_visible(workspace_page, paid_leave_profile["question"])
     assertions.assert_ui_policy_answer(
@@ -29,9 +27,8 @@ def test_paid_leave_answer_and_source_are_visible(
 
 @title("UI answer acknowledges missing gym policy without inventing reimbursement")
 def test_missing_policy_does_not_display_invented_reimbursement(
-    workspace_page: "WorkspacePage",
-    missing_policy_profile: dict[str, Any],
-) -> None:
+        workspace_page: "WorkspacePage",
+        missing_policy_profile: dict[str, Any]) -> None:  # fmt: skip
     question = missing_policy_profile["question"]
     workspace_page.send_question(question)
     assertions.assert_ui_question_visible(workspace_page, question)
@@ -41,10 +38,8 @@ def test_missing_policy_does_not_display_invented_reimbursement(
 
 @title("UI source details display the supporting policy passages")
 def test_source_details_display_supporting_policy_passages(
-    workspace_page: "WorkspacePage",
-    uploaded_policy_document: dict[str, Any],
-    paid_leave_profile: dict[str, Any],
-) -> None:
+        workspace_page: "WorkspacePage", uploaded_policy_document: dict[str, Any],
+        paid_leave_profile: dict[str, Any]) -> None:  # fmt: skip
     workspace_page.send_question(paid_leave_profile["question"])
     assertions.assert_ui_completed_answer(workspace_page)
     title = uploaded_policy_document["title"]
@@ -59,10 +54,8 @@ def test_source_details_display_supporting_policy_passages(
 
 
 @title("UI conversation keeps its question and answer after reload")
-def test_chat_history_survives_page_reload(
-    workspace_page: "WorkspacePage",
-    paid_leave_profile: dict[str, Any],
-) -> None:
+def test_chat_history_survives_page_reload(workspace_page: "WorkspacePage",
+                                           paid_leave_profile: dict[str, Any]) -> None:  # fmt: skip
     question = paid_leave_profile["question"]
     workspace_page.send_question(question)
     assertions.assert_ui_question_visible(workspace_page, question)

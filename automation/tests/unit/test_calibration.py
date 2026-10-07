@@ -114,8 +114,7 @@ def test_control_loader_rejects_wrong_context_or_bad_labels(tmp_path: Path, chan
 
 @title("Calibration runner records mismatches and errors before continuing")
 def test_control_runner_preserves_mismatch_and_error_then_continues(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+        monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
     cases = [_case(), make_mismatched_control(), make_error_control()]
     original = case_data.fresh(ORIGINAL_INPUT)
     observed_responses = []

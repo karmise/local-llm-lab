@@ -82,9 +82,8 @@ def test_search_rejects_incomplete_or_unrelated_results(body: bytes, message: st
     RAG_REJECTS_UNSUBSTANTIATED_FINAL_ANSWERS_ANSWER_SOURCE_TITLE_SOURCE_TEXT_MESSAGE_CASES,
 )
 @title("RAG check rejects unsupported or incomplete final answers [{param_id}]")
-def test_rag_rejects_unsubstantiated_final_answers(
-    answer: str, source_title: str, source_text: str, message: str
-) -> None:
+def test_rag_rejects_unsubstantiated_final_answers(answer: str, source_title: str, source_text: str,
+                                                   message: str) -> None:  # fmt: skip
     payload = make_answer_payload(answer, source_title, source_text)
     errors.rejects(
         lambda: assertions.assert_rag_answer(
@@ -104,8 +103,7 @@ def test_rag_rejects_unsubstantiated_final_answers(
 )
 @title("Missing-policy check rejects invented amounts and irrelevant answers [{param_id}]")
 def test_missing_information_rejects_hallucinated_or_irrelevant_answers(
-    answer: str, message: str
-) -> None:
+        answer: str, message: str) -> None:  # fmt: skip
     errors.rejects(
         lambda: assertions.assert_missing_policy_information(
             _gym_response(answer),

@@ -165,9 +165,8 @@ def test_case_pipeline(tmp_path, benchmark_data, monkeypatch, unit_settings):
 
 
 @title("Refusal cases run reviewed checks without invoking a semantic judge")
-def test_refusal_case_no_judge(
-    tmp_path, benchmark_data, monkeypatch, mock_factory, unit_settings, failure_factory
-):
+def test_refusal_case_no_judge(tmp_path, benchmark_data, monkeypatch, mock_factory, unit_settings,
+                               failure_factory):  # fmt: skip
     dataset, gates, _, _, _ = benchmark_data
     case = next(c for c in dataset.cases if c.id == "gym_missing")
     path = tmp_path / case_data.SAMPLE_FILE_NAME

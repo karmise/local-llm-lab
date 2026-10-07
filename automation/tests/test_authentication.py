@@ -7,9 +7,7 @@ from llm_testkit.reporting.steps import title
 
 @pytest.mark.api
 @title("Developer API accepts a valid API key")
-def test_valid_api_key_is_accepted(
-    authenticated_anythingllm_api: AnythingLLMClient,
-) -> None:
+def test_valid_api_key_is_accepted(authenticated_anythingllm_api: AnythingLLMClient) -> None:
     response = authenticated_anythingllm_api.verify_authentication()
 
     assertions.assert_api_key_accepted(response)

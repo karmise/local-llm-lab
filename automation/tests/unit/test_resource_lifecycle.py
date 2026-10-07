@@ -24,13 +24,9 @@ pytestmark = pytest.mark.unit
     ("failure", "failed", "errors", "cleanup"),
     RESOURCES_ARE_CLEANED_UP_AFTER_EACH_FAILURE_FAILURE_FAILED_ERRORS_CLEANUP_CASES,
 )
-def test_resources_are_cleaned_up_after_each_failure(
-    framework_pytester: pytest.Pytester,
-    failure: str,
-    failed: int,
-    errors: int,
-    cleanup: list[str],
-) -> None:
+def test_resources_are_cleaned_up_after_each_failure(framework_pytester: pytest.Pytester,
+                                                     failure: str, failed: int, errors: int,
+                                                     cleanup: list[str]) -> None:  # fmt: skip
     runner = framework_pytester
     runner.makeconftest(render_resource_conftest(failure))
     runner.makepyfile(render_resource_test_source(failure))

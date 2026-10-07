@@ -11,12 +11,9 @@ from llm_testkit.reporting.steps import title
 @pytest.mark.api
 @title("Uploaded policy is indexed and retrieved by vector search")
 def test_policy_document_is_indexed_and_searchable(
-    authenticated_anythingllm_api: AnythingLLMClient,
-    indexed_workspace: dict[str, Any],
-    uploaded_policy_document: dict[str, Any],
-    paid_leave_profile: dict[str, Any],
-    settings: Settings,
-) -> None:
+        authenticated_anythingllm_api: AnythingLLMClient, indexed_workspace: dict[str, Any],
+        uploaded_policy_document: dict[str, Any], paid_leave_profile: dict[str, Any],
+        settings: Settings) -> None:  # fmt: skip
     slug = indexed_workspace["slug"]
     workspace_response = authenticated_anythingllm_api.get_workspace(slug)
     assertions.assert_workspace_document_attached(

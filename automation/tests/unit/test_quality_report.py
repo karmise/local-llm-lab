@@ -82,8 +82,7 @@ def test_expected_source_is_derived_from_context_not_citations(tmp_path: Path) -
 
 @title("Allure renders all quality dimensions even when one check fails")
 def test_allure_renders_remaining_steps_after_a_failed_dimension(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_factory
-) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_factory) -> None:  # fmt: skip
     report = build_quality_report(*_files(tmp_path, incomplete=True))
     fake_allure = mock_factory()
     visited = []

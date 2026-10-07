@@ -33,8 +33,8 @@ pytestmark = pytest.mark.unit
 )
 @title("Reported operation preserves results and failures without exposing arguments [{param_id}]")
 def test_reported_operation_preserves_result_and_failure_without_exposing_arguments(
-    monkeypatch: pytest.MonkeyPatch, reporting_installed: bool, failure_factory
-) -> None:
+        monkeypatch: pytest.MonkeyPatch, reporting_installed: bool,
+        failure_factory) -> None:  # fmt: skip
     backend = make_reporting_backend(reporting_installed)
     events = []
 
@@ -60,8 +60,7 @@ def test_reported_operation_preserves_result_and_failure_without_exposing_argume
 
 @title("Optional reporter tolerates missing Allure but propagates other dependency errors")
 def test_optional_reporter_handles_only_the_missing_allure_package(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+        monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
     missing_allure = make_missing_allure_stub()
 
     monkeypatch.setattr(steps, "import_module", missing_allure)
@@ -76,8 +75,7 @@ def test_optional_reporter_handles_only_the_missing_allure_package(
 
 
 def test_live_capture_uses_the_shared_profile_reference(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mock_factory
-) -> None:
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mock_factory) -> None:  # fmt: skip
     monkeypatch.setattr(steps, "_backend", lambda: None)
     chat = mock_factory()
     profile = case_data.fresh(ALTERNATIVE_QUESTION_PROFILE)

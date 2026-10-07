@@ -10,9 +10,8 @@ from llm_testkit.reporting.steps import title
 
 @pytest.mark.api
 @title("Configured workspace is available with expected settings")
-def test_configured_workspace_is_available(
-    authenticated_anythingllm_api: AnythingLLMClient, settings: Settings
-) -> None:
+def test_configured_workspace_is_available(authenticated_anythingllm_api: AnythingLLMClient,
+                                           settings: Settings) -> None:  # fmt: skip
     response = authenticated_anythingllm_api.get_workspace(settings.workspace_slug)
 
     assertions.assert_workspace_matches(response, slug=settings.workspace_slug)
@@ -21,10 +20,8 @@ def test_configured_workspace_is_available(
 @pytest.mark.api
 @title("Temporary workspace is created and removed successfully")
 def test_temporary_workspace_lifecycle(
-    authenticated_anythingllm_api: AnythingLLMClient,
-    temporary_workspace: dict[str, Any],
-    workspace_configuration: dict[str, Any],
-) -> None:
+        authenticated_anythingllm_api: AnythingLLMClient, temporary_workspace: dict[str, Any],
+        workspace_configuration: dict[str, Any]) -> None:  # fmt: skip
     response = authenticated_anythingllm_api.get_workspace(temporary_workspace["slug"])
 
     assertions.assert_workspace_matches(

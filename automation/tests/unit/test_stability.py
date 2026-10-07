@@ -63,8 +63,7 @@ def test_setup_error_without_metadata_is_not_a_model_failure(tmp_path: Path) -> 
 
 @title("Stability summary counts call and teardown entries as one run")
 def test_duplicate_call_and_teardown_entries_count_as_one_run(
-    tmp_path: Path, xml_property_factory
-) -> None:
+        tmp_path: Path, xml_property_factory) -> None:  # fmt: skip
     path = _report(tmp_path, ["failure"])
     tree = ET.parse(path)
     suite = tree.getroot().find("testsuite")
@@ -87,9 +86,8 @@ def test_duplicate_call_and_teardown_entries_count_as_one_run(
     ids=GOLDEN_SUMMARY_SAME_CASE_IDS,
 )
 @title("Golden stability preserves scenario identity and expectation fingerprints [{param_id}]")
-def test_golden_summary_preserves_case_and_dataset_identity(
-    tmp_path: Path, same_case: bool
-) -> None:
+def test_golden_summary_preserves_case_and_dataset_identity(tmp_path: Path,
+                                                            same_case: bool) -> None:  # fmt: skip
     path = _report(tmp_path, ["passed", "failure"])
     tree = ET.parse(path)
     add_golden_case_metadata(same_case, tree)

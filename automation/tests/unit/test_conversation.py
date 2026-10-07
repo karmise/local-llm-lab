@@ -46,8 +46,7 @@ pytestmark = pytest.mark.unit
 )
 @title("Reviewed conversation reference satisfies its acceptance rules [{param_id}]")
 def test_reviewed_references_satisfy_their_independent_acceptance_rules(
-    catalog: ConversationCatalog, case_id: str
-) -> None:
+        catalog: ConversationCatalog, case_id: str) -> None:  # fmt: skip
     case = next(case for case in catalog.cases if case.id == case_id)
     assertions.assert_conversation_answer(
         response(case.reference), case=case, document_title=case_data.POLICY_DOCUMENT_TITLE
@@ -60,8 +59,7 @@ def test_reviewed_references_satisfy_their_independent_acceptance_rules(
 )
 @title("Conversation checks reject irrelevant, invented or incomplete answers [{param_id}]")
 def test_conversation_checks_reject_policy_dumps_hallucinations_and_missing_intents(
-    catalog: ConversationCatalog, case_id: str, change: str, message: str
-) -> None:
+        catalog: ConversationCatalog, case_id: str, change: str, message: str) -> None:  # fmt: skip
     case = next(case for case in catalog.cases if case.id == case_id)
     changes = make_invalid_conversation_answers(case)
     errors.rejects(
@@ -83,8 +81,7 @@ def test_conversation_checks_reject_policy_dumps_hallucinations_and_missing_inte
 )
 @title("Conversational policy facts require the expected supporting source [{param_id}]")
 def test_policy_parts_require_the_expected_document_and_supporting_passage(
-    catalog: ConversationCatalog, case_id: str, defect: str
-) -> None:
+        catalog: ConversationCatalog, case_id: str, defect: str) -> None:  # fmt: skip
     case = next(case for case in catalog.cases if case.id == case_id)
     reply = make_defective_policy_source(case, defect)
     errors.rejects(
@@ -98,8 +95,7 @@ def test_policy_parts_require_the_expected_document_and_supporting_passage(
 
 @title("A concise greeting does not imply that retrieval was skipped")
 def test_small_talk_sources_are_not_misrepresented_as_evidence_of_skipped_retrieval(
-    catalog: ConversationCatalog,
-) -> None:
+        catalog: ConversationCatalog) -> None:  # fmt: skip
     case = catalog.cases[0]
     assertions.assert_conversation_answer(
         response(case.reference), case=case, document_title=case_data.POLICY_DOCUMENT_TITLE
@@ -111,8 +107,7 @@ def test_small_talk_sources_are_not_misrepresented_as_evidence_of_skipped_retrie
 )
 @title("A walking suggestion may use natural paraphrases [{param_id}]")
 def test_walking_intent_accepts_fresh_air_without_requiring_literal_walk(
-    catalog: ConversationCatalog, case_id: str
-) -> None:
+        catalog: ConversationCatalog, case_id: str) -> None:  # fmt: skip
     case = next(case for case in catalog.cases if case.id == case_id)
     suggestion = "That sounds like a lovely idea; enjoy the fresh air and nature!"
     answer = make_walking_response(case, case_id, suggestion)
@@ -123,8 +118,7 @@ def test_walking_intent_accepts_fresh_air_without_requiring_literal_walk(
 
 @title("Company scope remains valid when an inline source filename precedes its facts")
 def test_inline_filename_does_not_break_own_company_fact_scope(
-    catalog: ConversationCatalog,
-) -> None:
+        catalog: ConversationCatalog) -> None:  # fmt: skip
     case = next(case for case in catalog.cases if case.id == "mixed_request")
     answer = (
         "Hi! Enjoy the fresh air. At Northern Lighthouse, according to company-policy.txt, "
@@ -138,8 +132,7 @@ def test_inline_filename_does_not_break_own_company_fact_scope(
 
 @title("Another company's entitlement cannot satisfy the Northern Lighthouse allowance")
 def test_own_company_scope_cannot_consume_another_company_fact(
-    catalog: ConversationCatalog,
-) -> None:
+        catalog: ConversationCatalog) -> None:  # fmt: skip
     case = next(case for case in catalog.cases if case.id == "mixed_request")
     answer = (
         "Hi! Enjoy your walk. Northern Lighthouse: see company-policy.txt; "
@@ -159,9 +152,8 @@ def test_own_company_scope_cannot_consume_another_company_fact(
     INVALID_CATALOGS_FAIL_BEFORE_ANY_GENERATION_DEFECT_MESSAGE_CASES,
 )
 @title("Invalid conversation acceptance catalog fails before generation [{param_id}]")
-def test_invalid_catalogs_fail_before_any_generation(
-    tmp_path: Path, defect: str, message: str
-) -> None:
+def test_invalid_catalogs_fail_before_any_generation(tmp_path: Path, defect: str,
+                                                     message: str) -> None:  # fmt: skip
     data = json.loads((DATA / "conversation-policy.json").read_text())
     row = data["cases"][0]
     prepare_invalid_catalogs_fail_before_any_generation_case(data, defect, row)
@@ -176,9 +168,7 @@ def test_invalid_catalogs_fail_before_any_generation(
 
 @title("Conversation fixture sends an explicit Chat-mode request")
 def test_chat_request_explicitly_uses_chat_mode_without_changing_query_client_default(
-    mock_factory, unit_settings
-) -> None:
-
+        mock_factory, unit_settings) -> None:  # fmt: skip
     api = mock_factory()
     chat = conversation_chat.__wrapped__(
         None,
@@ -210,8 +200,7 @@ def test_conversation_fixture_rejects_a_query_profile(mock_factory, unit_setting
 
 @title("Conversation selection honors opt-in, model budget and independent repetitions")
 def test_conversation_collection_defaults_to_one_model_and_accepts_explicit_matrix(
-    framework_pytester: pytest.Pytester,
-) -> None:
+        framework_pytester: pytest.Pytester) -> None:  # fmt: skip
     runner = framework_pytester
     shutil.copytree(DATA, runner.path / "test_data")
     runner.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.options"]')
@@ -246,9 +235,7 @@ def test_conversation_collection_defaults_to_one_model_and_accepts_explicit_matr
 
 @title("Conversation fixture rejects expectations changed after collection")
 def test_catalog_change_after_collection_is_not_accepted_as_the_original_case(
-    catalog: ConversationCatalog,
-) -> None:
-
+        catalog: ConversationCatalog) -> None:  # fmt: skip
     changed_case = replace(catalog.cases[0], question="Different question")
     errors.rejects(
         lambda: conversation_metadata.__wrapped__(

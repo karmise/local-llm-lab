@@ -9,6 +9,11 @@ Use Python 3.12 from this directory. The project separates HTTP transport, API
 operations, browser actions, assertions, pytest fixtures and reporting. Test
 functions describe a scenario; setup and cleanup belong to fixtures.
 
+Test signatures use one line when they fit within 100 characters. Longer signatures
+group parameters on continuation lines, with the closing parenthesis on the last
+parameter line. A local `# fmt: skip` preserves these compact headers while Ruff
+continues formatting test bodies and the rest of the framework.
+
 ## Install
 
 ```bash

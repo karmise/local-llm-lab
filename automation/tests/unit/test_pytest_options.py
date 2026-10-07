@@ -66,8 +66,7 @@ def test_golden_collection_forms_case_model_repeat_matrix(runner: pytest.Pyteste
     "selector", DESELECTED_LIVE_TESTS_DO_NOT_VALIDATE_LIVE_OPTIONS_SELECTOR_CASES
 )
 def test_deselected_live_tests_do_not_validate_live_options(
-    runner: pytest.Pytester, selector: tuple[str, str]
-) -> None:
+        runner: pytest.Pytester, selector: tuple[str, str]) -> None:  # fmt: skip
     runner.makepyfile(DESELECTED_LIVE_TESTS_DO_NOT_VALIDATE_LIVE_OPTIONS_MAKEPYFILE_SOURCE)
     pytest_runs.outcomes(
         runner.runpytest_subprocess("-q", *selector, "--run-ui", "--run-live-quality"),
@@ -77,8 +76,7 @@ def test_deselected_live_tests_do_not_validate_live_options(
 
 
 def test_model_matrix_deduplicates_names_and_retains_independent_repetitions(
-    runner: pytest.Pytester,
-) -> None:
+        runner: pytest.Pytester) -> None:  # fmt: skip
     runner.makepyfile(
         MODEL_MATRIX_DEDUPLICATES_NAMES_AND_RETAINS_INDEPENDENT_REPETITIONS_MAKEPYFILE_SOURCE
     )
@@ -100,9 +98,8 @@ def test_model_matrix_deduplicates_names_and_retains_independent_repetitions(
     "arguments",
     INVALID_MATRIX_OPTIONS_ARE_USAGE_ERRORS_ARGUMENTS_CASES,
 )
-def test_invalid_matrix_options_are_usage_errors(
-    runner: pytest.Pytester, arguments: tuple[str, str]
-) -> None:
+def test_invalid_matrix_options_are_usage_errors(runner: pytest.Pytester,
+                                                 arguments: tuple[str, str]) -> None:  # fmt: skip
     runner.makepyfile("def test_noop(): pass")
     result = runner.runpytest_subprocess(*arguments)
     value_checks.equal(result.ret, pytest.ExitCode.USAGE_ERROR)

@@ -31,8 +31,7 @@ pytestmark = pytest.mark.unit
 
 
 def test_transport_preserves_response_timeouts_and_redirect_contract(
-    session: Mock, http_factory
-) -> None:
+        session: Mock, http_factory) -> None:  # fmt: skip
     with http_factory("https://example.test/root/", 5) as http:
         response = http.request("GET", "/api/ping")
         value_checks.identical(response, session.request.return_value)
@@ -56,8 +55,7 @@ def test_transport_preserves_response_timeouts_and_redirect_contract(
 
 
 def test_transport_closes_and_does_not_retry_failed_generation(
-    session: Mock, http_factory, failure_factory
-) -> None:
+        session: Mock, http_factory, failure_factory) -> None:  # fmt: skip
     failure = failure_factory(requests.Timeout, "Model response timed out")
     session.request.side_effect = failure
     with (
@@ -71,8 +69,7 @@ def test_transport_closes_and_does_not_retry_failed_generation(
 
 
 def test_shared_transport_does_not_leak_authentication_between_clients(
-    session: Mock, api_factory, http_factory
-) -> None:
+        session: Mock, api_factory, http_factory) -> None:  # fmt: skip
     with http_factory("http://localhost", 5) as http:
         authenticated = api_factory(http, api_key="test-key")
         anonymous = api_factory(http)
@@ -87,10 +84,8 @@ def test_shared_transport_does_not_leak_authentication_between_clients(
 
 
 @pytest.mark.parametrize("slug", WORKSPACE_SLUGS_ARE_ENCODED_AS_ONE_PATH_SEGMENT_SLUG_CASES)
-def test_workspace_slugs_are_encoded_as_one_path_segment(
-    session: Mock, slug: str, api_factory, http_factory
-) -> None:
-
+def test_workspace_slugs_are_encoded_as_one_path_segment(session: Mock, slug: str, api_factory,
+                                                         http_factory) -> None:  # fmt: skip
     with http_factory("http://localhost", 5) as http:
         api_factory(http).get_workspace(slug)
     value_checks.equal(
@@ -99,9 +94,8 @@ def test_workspace_slugs_are_encoded_as_one_path_segment(
     )
 
 
-def test_workspace_creation_does_not_mutate_configuration(
-    session: Mock, api_factory, http_factory
-) -> None:
+def test_workspace_creation_does_not_mutate_configuration(session: Mock, api_factory,
+                                                          http_factory) -> None:  # fmt: skip
     configuration = make_workspace_template()
     with http_factory("http://localhost", 5) as http:
         api_factory(http).create_workspace("temporary", configuration)
@@ -114,8 +108,7 @@ def test_workspace_creation_does_not_mutate_configuration(
 
 @title("Workspace settings update uses the authenticated API and preserves its input")
 def test_workspace_update_uses_authenticated_route_and_preserves_settings(
-    session: Mock, api_factory, http_factory
-) -> None:
+        session: Mock, api_factory, http_factory) -> None:  # fmt: skip
     configuration = case_data.fresh(REVIEWED_CHAT_CONFIGURATION)
     with http_factory("http://localhost", 5) as http:
         response = api_factory(http, api_key="test-key").update_workspace(
@@ -136,8 +129,7 @@ def test_workspace_update_uses_authenticated_route_and_preserves_settings(
 
 @pytest.mark.parametrize("fail", UPLOAD_CLOSES_DOCUMENT_EVEN_WHEN_REQUEST_FAILS_FAIL_CASES)
 def test_upload_closes_document_even_when_request_fails(
-    session: Mock, tmp_path: Path, fail: bool, api_factory, http_factory
-) -> None:
+        session: Mock, tmp_path: Path, fail: bool, api_factory, http_factory) -> None:  # fmt: skip
     path = tmp_path / case_data.POLICY_DOCUMENT_TITLE
     path.write_text("Fictional policy", encoding="utf-8")
     documents = []

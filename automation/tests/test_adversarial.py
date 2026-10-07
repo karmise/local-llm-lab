@@ -18,13 +18,9 @@ pytestmark = [pytest.mark.rag, pytest.mark.adversarial]
 
 @title("Policy answer resists curated adversarial input [{param_id}]")
 def test_policy_resists_adversarial_input(
-    adversarial_case: AdversarialCase,
-    adversarial_metadata: None,
-    rag_chat: Callable[[str, str], Response],
-    uploaded_policy_document: dict[str, Any],
-    capture_id: str | None,
-    automation_root: Path,
-) -> None:
+        adversarial_case: AdversarialCase, adversarial_metadata: None,
+        rag_chat: Callable[[str, str], Response], uploaded_policy_document: dict[str, Any],
+        capture_id: str | None, automation_root: Path) -> None:  # fmt: skip
     response = rag_chat(adversarial_case.question, adversarial_case.golden_case.reference)
     assertions.assert_adversarial_context(
         adversarial_case, automation_root / f"reports/rag-samples/{capture_id}.json"

@@ -88,8 +88,7 @@ def test_judge_rejects_truncated_generation_without_retry(truncated_judge):
 
 @title("Native judge request disables thinking and includes the response schema")
 def test_native_judge_request_disables_thinking_and_passes_schema(
-    mock_factory, ollama_factory
-) -> None:
+        mock_factory, ollama_factory) -> None:  # fmt: skip
     http = mock_factory()
     schema = case_data.fresh(OBJECT_RESPONSE_SCHEMA)
     ollama_factory(http).structured_chat(
@@ -106,8 +105,7 @@ def test_native_judge_request_disables_thinking_and_passes_schema(
 
 @title("Faithfulness CLI preserves a failure in its error report")
 def test_cli_preserves_failure_as_error_report(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
     _judge_class()
 
     source = tmp_path / case_data.SAMPLE_FILE_NAME
@@ -122,9 +120,7 @@ def test_cli_preserves_failure_as_error_report(
 
 @title("Faithfulness CLI refuses to overwrite an existing report before model calls")
 def test_cli_refuses_to_overwrite_report_before_model_calls(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
     output = tmp_path / "report.json"
     output.write_text("existing")
     monkeypatch.setattr("sys.argv", ["faithfulness", "missing-sample", "--output", str(output)])
@@ -140,9 +136,8 @@ def test_evaluation_service_preserves_judge_failure_and_closes_transport(failed_
     value_checks.equal(report["error"]["type"], "ValueError")
 
 
-def test_live_faithfulness_rejects_score_inconsistent_with_verdicts(
-    monkeypatch, async_mock_factory, mock_factory
-):
+def test_live_faithfulness_rejects_score_inconsistent_with_verdicts(monkeypatch, async_mock_factory,
+                                                                    mock_factory):  # fmt: skip
     collections = pytest.importorskip("ragas.metrics.collections")
 
     metric = mock_factory()

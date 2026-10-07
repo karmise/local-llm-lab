@@ -12,10 +12,8 @@ pytestmark = pytest.mark.rag
 
 @title("RAG answer contains paid-leave facts and supporting sources [{param_id}]")
 def test_paid_leave_answer_is_grounded_in_policy(
-    rag_chat: Callable[[str, str], Response],
-    uploaded_policy_document: dict[str, Any],
-    paid_leave_profile: dict[str, Any],
-) -> None:
+        rag_chat: Callable[[str, str], Response], uploaded_policy_document: dict[str, Any],
+        paid_leave_profile: dict[str, Any]) -> None:  # fmt: skip
     response = rag_chat(paid_leave_profile["question"], paid_leave_profile["reference"])
 
     assertions.assert_rag_answer(
@@ -28,10 +26,8 @@ def test_paid_leave_answer_is_grounded_in_policy(
 
 @title("RAG answer acknowledges missing gym policy without inventing reimbursement [{param_id}]")
 def test_missing_gym_policy_does_not_invent_reimbursement(
-    rag_chat: Callable[[str, str], Response],
-    uploaded_policy_document: dict[str, Any],
-    missing_policy_profile: dict[str, Any],
-) -> None:
+        rag_chat: Callable[[str, str], Response], uploaded_policy_document: dict[str, Any],
+        missing_policy_profile: dict[str, Any]) -> None:  # fmt: skip
     response = rag_chat(missing_policy_profile["question"], missing_policy_profile["reference"])
 
     assertions.assert_missing_policy_information(
