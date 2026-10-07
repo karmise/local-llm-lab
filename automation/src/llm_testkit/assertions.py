@@ -271,12 +271,35 @@ def assert_required_facts(final_answer: str, *, fact_patterns: Mapping[str, str]
 def assert_golden_answer(response: Response, *, case: "GoldenCase", document_title: str) -> None:
     payload, answer = assert_completed_answer(response)
     attach_text(answer, name=f"Golden answer: {case.id}")
+    assert_golden_text(answer, case=case)
+    assert_document_sources(payload, document_title=document_title, fragments=case.source_fragments)
+
+
+def assert_golden_text(answer: str, *, case: "GoldenCase") -> None:
+    """Reuse reviewed required and forbidden rules for captured final answers."""
     assert_required_facts(answer, fact_patterns=dict(case.required_patterns))
     for label, pattern in case.forbidden_patterns:
         assert not re.search(pattern, answer, flags=re.IGNORECASE), (
             f"Golden case {case.id}: forbidden content: {label}. Answer: {answer[:500]}"
         )
-    assert_document_sources(payload, document_title=document_title, fragments=case.source_fragments)
+
+
+def assert_benchmark_report(report: Mapping[str, Any]) -> None:
+    assert report.get("schema_version") == 1, "Unsupported benchmark schema"
+    assert report.get("status") == "checks_passed", (
+        f"Benchmark did not pass: {report.get('status')}; "
+        f"summary={report.get('summary')}; error={report.get('error')}"
+    )
+
+
+def assert_benchmark_case(row: Mapping[str, Any]) -> None:
+    assert not row.get("error"), f"Benchmark case failed: {row.get('error')}"
+    assert row.get("generation_status") == "passed", (
+        f"Generation/setup/teardown did not pass: {row.get('generation_status')}"
+    )
+    for dimension in row["dimensions"]:
+        if dimension["status"] != "not_applicable":
+            assert_quality_dimension(dimension)
 
 
 def assert_document_sources(

@@ -35,6 +35,9 @@ def _model_name(value: str) -> str:
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
+        "--benchmark-report", type=Path, help="Saved dataset benchmark for offline Allure reporting"
+    )
+    parser.addoption(
         "--run-conversation",
         action="store_true",
         help="Enable Chat-mode conversational acceptance checks (one generation per case).",

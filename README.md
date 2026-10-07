@@ -218,6 +218,8 @@ requires re-indexing: vectors from different models are not interchangeable.
 
 ## Monitoring and qualification
 
+- [Dataset quality benchmark](docs/step-33-dataset-benchmark.md): bounded live
+  experiments, all four RAG metrics, per-model/category diagnostics and human review.
 - [Metric history and explicit baselines](docs/step-28-metric-history.md)
 - [Bounded performance checks](docs/step-29-performance.md)
 - [Counterfactual bias regression](docs/step-30-bias.md)

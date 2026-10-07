@@ -25,6 +25,12 @@ criteria, an IQ/OQ/PQ phase, actual pytest selectors and any required matrix axe
 The mapping is validated against test definitions before execution. Changes to
 policy/catalog/gate files require reviewing the baseline checksums in that plan.
 
+The [dataset benchmark](step-33-dataset-benchmark.md) is a supplemental bounded
+experiment, not an expansion of the declared requirement matrix. It evaluates
+all four semantic metrics for selected positive golden cases, reports refusal
+acceptance separately and preserves failed/missing cases in its planned denominator.
+Its gate thresholds remain experimental and its human review remains pending.
+
 | Risk | Check | Acceptance and limitation |
 | --- | --- | --- |
 | Unavailable or incompatible runtime | IQ: runtime, health, model inventory | Python 3.12, pinned base libraries, valid health response, both model names with digests; deployment qualification is outside this protocol |
