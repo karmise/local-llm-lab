@@ -5,58 +5,16 @@ import pytest
 
 from llm_testkit.reporting.drift import (
     compare_snapshots,
-    digest,
     record_snapshot,
     seal_snapshot,
     validate_snapshot,
 )
 from llm_testkit.reporting.gates import METRICS
 from llm_testkit.reporting.steps import title
+from test_support.builders.drift import snapshot
+from test_support.paths import AUTOMATION_ROOT
 
 pytestmark = pytest.mark.unit
-
-
-def snapshot(sample="a", **changes):
-    payload = {
-        "schema_version": 1,
-        "kind": "quality_snapshot",
-        "run_id": sample,
-        "recorded_at": "2026-10-06T00:00:00+00:00",
-        "case_id": "paid_leave",
-        "sample_sha256": sample * 64,
-        "model": "model",
-        "model_digest": "b" * 64,
-        "policy_sha256": "c" * 64,
-        "dataset_sha256": "d" * 64,
-        "configuration": {"chatModel": "model", "openAiPrompt": "Policy", "topN": 4},
-        "judges": {
-            name: {
-                "judge_model": "judge",
-                "judge_model_digest": "f" * 64,
-                "judge_configuration": {"think": False},
-                "ragas_version": "test",
-            }
-            for name in ("faithfulness", "correctness", "relevance")
-        },
-        "evidence_sha256": dict.fromkeys(("faithfulness", "correctness", "relevance"), "0" * 64),
-        "thinking_mode": "default",
-        "context_parser": "test",
-        "metrics": dict.fromkeys(METRICS, 1.0),
-        "acceptance": {"facts": "passed", "sources": "passed"},
-        **changes,
-    }
-    payload["configuration"] = {
-        "chatModel": "model",
-        "openAiPrompt": "Policy",
-        "topN": 4,
-        **payload["configuration"],
-    }
-    payload["prompt_sha256"] = changes.get(
-        "prompt_sha256",
-        hashlib.sha256(payload["configuration"]["openAiPrompt"].encode()).hexdigest(),
-    )
-    payload["judge_sha256"] = changes.get("judge_sha256", digest(payload["judges"]))
-    return seal_snapshot(payload)
 
 
 @pytest.mark.parametrize(
@@ -156,13 +114,12 @@ def test_drop_boundary():
 )
 def test_snapshot_assembly(tmp_path, monkeypatch, change):
     import json
-    from pathlib import Path
 
     from llm_testkit.datasets.golden import load_golden_dataset
     from llm_testkit.observation.evaluation_sample import build_sample
     from llm_testkit.reporting.drift import make_snapshot
 
-    root = Path(__file__).resolve().parents[2] / "test_data"
+    root = AUTOMATION_ROOT / "test_data"
     dataset = load_golden_dataset(root / "golden-policy.json", root / "company-policy.txt")
     case = next(c for c in dataset.cases if c.id == "paid_leave")
     identifier = "a" * 32

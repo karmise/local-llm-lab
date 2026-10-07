@@ -1,19 +1,12 @@
 import json
 
 import pytest
-from requests import Response
 
 from llm_testkit import assertions
 from llm_testkit.reporting.steps import title
+from test_support.builders.assertions import _gym_response, _response
 
 pytestmark = pytest.mark.unit
-
-
-def _response(body: bytes) -> Response:
-    response = Response()
-    response.status_code = 200
-    response._content = body
-    return response
 
 
 @title("Online-status check rejects an integer in place of a boolean")
@@ -126,19 +119,6 @@ def test_rag_rejects_unsubstantiated_final_answers(
             document_title="policy.txt",
             source_fragments=("23 working days",),
         )
-
-
-def _gym_response(answer: str) -> Response:
-    payload = {
-        "type": "textResponse",
-        "error": None,
-        "close": True,
-        "textResponse": answer,
-        "sources": [
-            {"title": "policy.txt", "text": "gym membership reimbursement policies are not covered"}
-        ],
-    }
-    return _response(json.dumps(payload).encode())
 
 
 @pytest.mark.parametrize(

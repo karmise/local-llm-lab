@@ -4,36 +4,14 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from requests import Response
 
 from llm_testkit import assertions
 from llm_testkit.datasets.conversation import ConversationCatalog, load_conversation_catalog
 from llm_testkit.reporting.steps import title
+from test_support.builders.conversation import DATA, response
+from test_support.fixtures.unit_conversation import catalog as catalog
 
 pytestmark = pytest.mark.unit
-DATA = Path(__file__).resolve().parents[2] / "test_data"
-
-
-@pytest.fixture
-def catalog() -> ConversationCatalog:
-    return load_conversation_catalog(DATA / "conversation-policy.json", DATA / "company-policy.txt")
-
-
-def response(answer: str, *, title: str = "policy.txt", source: str | None = None) -> Response:
-    result = Response()
-    result.status_code = 200
-    result._content = json.dumps(
-        {
-            "type": "textResponse",
-            "error": None,
-            "close": True,
-            "textResponse": answer,
-            "sources": [
-                {"title": title, "text": source or (DATA / "company-policy.txt").read_text()}
-            ],
-        }
-    ).encode()
-    return result
 
 
 @pytest.mark.parametrize(
@@ -196,7 +174,7 @@ def test_chat_request_explicitly_uses_chat_mode_without_changing_query_client_de
     from unittest.mock import Mock
 
     from llm_testkit.config import Settings
-    from llm_testkit.pytest_support.conversation import conversation_chat
+    from test_support.fixtures.conversation import conversation_chat
 
     api = Mock()
     chat = conversation_chat.__wrapped__(
@@ -212,7 +190,7 @@ def test_conversation_fixture_rejects_a_query_profile() -> None:
     from unittest.mock import Mock
 
     from llm_testkit.config import Settings
-    from llm_testkit.pytest_support.conversation import conversation_chat
+    from test_support.fixtures.conversation import conversation_chat
 
     with pytest.raises(AssertionError, match="chatMode"):
         conversation_chat.__wrapped__(
@@ -260,7 +238,7 @@ def test_conversation_collection_defaults_to_one_model_and_accepts_explicit_matr
 def test_catalog_change_after_collection_is_not_accepted_as_the_original_case(
     catalog: ConversationCatalog,
 ) -> None:
-    from llm_testkit.pytest_support.conversation import conversation_metadata
+    from test_support.fixtures.conversation import conversation_metadata
 
     changed_case = replace(catalog.cases[0], question="Different question")
     with pytest.raises(pytest.fail.Exception, match="changed after collection"):

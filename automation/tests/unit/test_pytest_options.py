@@ -1,14 +1,10 @@
 import pytest
 
 from llm_testkit.reporting.steps import title
+from test_support.fixtures.unit_pytest_options import runner as runner
+from test_support.paths import AUTOMATION_ROOT
 
 pytestmark = pytest.mark.unit
-
-
-@pytest.fixture
-def runner(framework_pytester: pytest.Pytester) -> pytest.Pytester:
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.options"]')
-    return framework_pytester
 
 
 def test_opt_in_scenarios_skip_before_resolving_external_fixtures(runner: pytest.Pytester) -> None:
@@ -41,9 +37,8 @@ def test_explicit_golden_flag_enables_selected_cases(runner: pytest.Pytester) ->
 @title("Golden collection combines case, model and independent repetition selection")
 def test_golden_collection_forms_case_model_repeat_matrix(runner: pytest.Pytester) -> None:
     import shutil
-    from pathlib import Path
 
-    source = Path(__file__).resolve().parents[2] / "test_data"
+    source = AUTOMATION_ROOT / "test_data"
     shutil.copytree(source, runner.path / "test_data")
     runner.makepyfile("""
         import pytest

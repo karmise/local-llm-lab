@@ -4,35 +4,13 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
-from requests import Response
 
 from llm_testkit import assertions
 from llm_testkit.datasets.golden import CATEGORIES, load_golden_dataset
 from llm_testkit.reporting.steps import title
+from test_support.builders.golden_dataset import DATA_ROOT, DATASET, _response
 
 pytestmark = pytest.mark.unit
-DATA_ROOT = Path(__file__).resolve().parents[2] / "test_data"
-DATASET = load_golden_dataset(DATA_ROOT / "golden-policy.json", DATA_ROOT / "company-policy.txt")
-
-
-def _response(answer: str, *, source: str | None = None, document: str = "policy.txt") -> Response:
-    response = Response()
-    response.status_code = 200
-    response._content = json.dumps(
-        {
-            "type": "textResponse",
-            "error": None,
-            "close": True,
-            "textResponse": answer,
-            "sources": [
-                {
-                    "title": document,
-                    "text": source or (DATA_ROOT / "company-policy.txt").read_text(),
-                }
-            ],
-        }
-    ).encode()
-    return response
 
 
 @title("Golden catalog covers every policy section and acceptance category")

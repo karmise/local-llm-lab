@@ -36,7 +36,7 @@ def test_resources_are_cleaned_up_after_each_failure(
         from requests import Response
         from llm_testkit.config import Settings
 
-        pytest_plugins = ["llm_testkit.pytest_support.resources"]
+        pytest_plugins = ["test_support.fixtures.resources"]
         FAILURE = FAILURE_VALUE
         actions = []
 

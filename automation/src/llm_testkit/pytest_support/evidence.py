@@ -6,7 +6,6 @@ from typing import Any
 import pytest
 
 from llm_testkit.qualification.plan import load_plan, matching_requirements
-from llm_testkit.reporting.steps import traceability_labels
 
 PLAN = pytest.StashKey[dict[str, Any]]()
 
@@ -33,13 +32,3 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
                     ("framework_source_sha256", plan["framework_source_sha256"]),
                 ]
             )
-
-
-@pytest.fixture(autouse=True)
-def report_requirement_labels(request: pytest.FixtureRequest) -> None:
-    properties = dict(request.node.user_properties)
-    if properties.get("requirement_ids"):
-        traceability_labels(
-            json.loads(properties["requirement_ids"]),
-            json.loads(properties["qualification_phases"]),
-        )

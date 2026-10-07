@@ -6,44 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from llm_testkit.observation.evaluation_sample import build_sample, write_sample
+from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.reporting.steps import title
+from test_support.builders.observation import CAPTURE_ID, _capture, _sample
+from test_support.paths import AUTOMATION_ROOT
 
 pytestmark = pytest.mark.unit
-CAPTURE_ID = "a" * 32
-
-
-def _capture() -> dict:
-    return {
-        "schema_version": 1,
-        "boundary": "ollama-sdk-chat",
-        "request": {
-            "model": "qwen3.5:4b",
-            "stream": False,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        f"Instructions\n[LLM_TESTKIT_CAPTURE:{CAPTURE_ID}]\nContext:\n"
-                        "[CONTEXT 0]:\n23 working days\n[END CONTEXT 0]\n\n"
-                        "[CONTEXT 1]:\n12 calendar days\n[END CONTEXT 1]\n\n"
-                    ),
-                },
-                {"role": "user", "content": "Leave?"},
-            ],
-        },
-    }
-
-
-def _sample(capture: dict) -> dict:
-    return build_sample(
-        capture,
-        question="Leave?",
-        answer="23 working days",
-        reference="Expected answer",
-        expected_model="qwen3.5:4b",
-        capture_id=CAPTURE_ID,
-    )
 
 
 @title("Captured sample extracts document context and preserves the original request")
@@ -91,7 +59,7 @@ def test_sdk_hook_preserves_request_return_values_streams_and_errors(tmp_path: P
     node = shutil.which("node")
     if not node:
         pytest.skip("Node.js is required to verify the optional application preload")
-    hook = Path(__file__).resolve().parents[2] / "src/llm_testkit/observation/ollama-preload.cjs"
+    hook = AUTOMATION_ROOT / "src/llm_testkit/observation/ollama-preload.cjs"
     script = r"""
 const Module = require("node:module");
 const fs = require("node:fs");

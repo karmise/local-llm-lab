@@ -1,18 +1,13 @@
-import os
 from pathlib import Path
 
 import pytest
 
 from llm_testkit.config import Settings
+from test_support.fixtures.unit_config import (
+    clean_settings_environment as clean_settings_environment,
+)
 
 pytestmark = pytest.mark.unit
-
-
-@pytest.fixture(autouse=True)
-def clean_settings_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    for key in os.environ:
-        if key.startswith(("ANYTHINGLLM_", "OLLAMA_")):
-            monkeypatch.delenv(key)
 
 
 def test_defaults_work_without_credentials() -> None:

@@ -5,37 +5,9 @@ import pytest
 
 from llm_testkit.reporting.stability import summarize_report
 from llm_testkit.reporting.steps import title
+from test_support.builders.stability import _report
 
 pytestmark = pytest.mark.unit
-
-
-def _report(tmp_path: Path, outcomes: list[str], digests: list[str] | None = None) -> Path:
-    root = ET.Element("testsuites")
-    suite = ET.SubElement(root, "testsuite")
-    for iteration, outcome in enumerate(outcomes, 1):
-        case = ET.SubElement(
-            suite,
-            "testcase",
-            {
-                "classname": "tests.test_rag",
-                "name": f"test_example[qwen-run-{iteration}]",
-            },
-        )
-        properties = ET.SubElement(case, "properties")
-        values = {
-            "generation_model": "qwen",
-            "model_digest": digests[iteration - 1] if digests else "digest",
-            "policy_sha256": "policy",
-            "workspace_configuration": '{"chatModel": "qwen"}',
-            "thinking_mode": "default",
-        }
-        for name, value in values.items():
-            ET.SubElement(properties, "property", name=name, value=value)
-        if outcome != "passed":
-            ET.SubElement(case, outcome)
-    path = tmp_path / "report.xml"
-    ET.ElementTree(root).write(path)
-    return path
 
 
 @title("Stability summary preserves mixed passed and failed runs")

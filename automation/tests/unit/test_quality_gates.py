@@ -1,35 +1,14 @@
 import json
 from copy import deepcopy
-from pathlib import Path
 
 import pytest
 
 from llm_testkit import assertions
 from llm_testkit.reporting.gates import METRICS, apply_quality_gates, load_quality_gates
 from llm_testkit.reporting.steps import title
+from test_support.builders.quality_gates import GATES, measured_report
 
 pytestmark = pytest.mark.unit
-GATES = Path(__file__).resolve().parents[2] / "test_data/quality-gates.json"
-
-
-def measured_report():
-    return {
-        "schema_version": 1,
-        "status": "checks_passed",
-        "dimensions": [
-            {"name": "Facts", "status": "passed"},
-            {"name": "Sources", "status": "passed"},
-            *[
-                {
-                    "name": metric,
-                    "metric": metric,
-                    "status": "measured",
-                    "details": {"value": 1.0, "threshold": None},
-                }
-                for metric in sorted(METRICS)
-            ],
-        ],
-    }
 
 
 @title(

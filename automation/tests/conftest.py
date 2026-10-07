@@ -5,11 +5,13 @@ import pytest
 pytest.register_assert_rewrite("llm_testkit.assertions")
 
 pytest_plugins = (
-    "llm_testkit.pytest_support.conversation",
+    "test_support.fixtures.conversation",
     "pytester",
     "llm_testkit.pytest_support.options",
     "llm_testkit.pytest_support.evidence",
-    "llm_testkit.pytest_support.environment",
-    "llm_testkit.pytest_support.resources",
-    "llm_testkit.pytest_support.rag",
+    "test_support.fixtures.evidence",
+    "test_support.fixtures.quality",
+    "test_support.fixtures.environment",
+    "test_support.fixtures.resources",
+    "test_support.fixtures.rag",
 )

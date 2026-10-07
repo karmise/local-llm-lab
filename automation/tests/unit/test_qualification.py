@@ -3,76 +3,16 @@ import json
 import sys
 import xml.etree.ElementTree as ET
 from copy import deepcopy
-from pathlib import Path
 
 import pytest
 
 from llm_testkit.qualification import package
 from llm_testkit.qualification.plan import expected_cells, load_plan, matching_requirements
 from llm_testkit.reporting.steps import title
+from test_support.builders.qualification import ROOT, SELECTOR, write_junit
+from test_support.fixtures.unit_qualification import evidence_lab as evidence_lab
 
 pytestmark = pytest.mark.unit
-ROOT = Path(__file__).resolve().parents[2]
-SELECTOR = "tests/test_example.py::test_example"
-
-
-@pytest.fixture
-def evidence_lab(tmp_path):
-    root = tmp_path / "automation"
-    (root / "tests").mkdir(parents=True)
-    (root / "tests/test_example.py").write_text("def test_example():\n    assert True\n")
-    (root / "src").mkdir()
-    (root / "src/runtime.py").write_text("VERSION = 1\n")
-    (root / "test_data").mkdir()
-    (root / "test_data/policy.txt").write_text("Six days\n")
-    plan = {
-        "schema_version": 1,
-        "version": "example-v1",
-        "educational_only": True,
-        "data_sha256": {"policy.txt": hashlib.sha256(b"Six days\n").hexdigest()},
-        "requirements": [
-            {
-                "id": "REQ-EXAMPLE",
-                "phase": "OQ",
-                "risk": "high",
-                "description": "Example policy",
-                "acceptance": "Both cases pass",
-                "rationale": "A partial sample cannot demonstrate both requirements",
-                "tests": [SELECTOR],
-                "axes": {"golden_case_id": ["first", "second"]},
-            }
-        ],
-    }
-    path = root / "test_data/qualification-plan.json"
-    path.write_text(json.dumps(plan))
-    return root, path, load_plan(path, root)
-
-
-def write_junit(root, plan, rows, name="results.xml"):
-    suite = ET.Element("testsuite")
-    for axis, status, changes in rows:
-        node = SELECTOR + f"[{axis}]"
-        row = ET.SubElement(suite, "testcase", name=node)
-        props = ET.SubElement(row, "properties")
-        metadata = {
-            "test_node_id": node,
-            "golden_case_id": axis,
-            "requirement_ids": json.dumps(["REQ-EXAMPLE"]),
-            "qualification_plan_sha256": plan["sha256"],
-            "test_source_sha256": plan["test_source_sha256"][SELECTOR],
-            "framework_source_sha256": plan["framework_source_sha256"],
-            **changes,
-        }
-        for key, value in metadata.items():
-            ET.SubElement(props, "property", name=key, value=value)
-        if status != "passed":
-            ET.SubElement(
-                row, {"failed": "failure"}.get(status, status), message="deviation"
-            ).text = "original detail"
-    path = root / "reports" / name
-    path.parent.mkdir(exist_ok=True)
-    ET.ElementTree(suite).write(path, encoding="utf-8")
-    return path
 
 
 @title("Qualification mapping resolves actual tests and requires all model and prompt cells")

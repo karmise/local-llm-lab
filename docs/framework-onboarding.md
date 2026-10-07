@@ -116,9 +116,9 @@ answer is correct.
 | [clients/anythingllm_client.py](../automation/src/llm_testkit/clients/anythingllm_client.py) | Endpoint paths, URL encoding, payloads and file uploads. | Tests speak in operations such as `create_workspace`, not repeated request construction. Clients return raw responses and do not impose test acceptance criteria. |
 | [pages/workspace_page.py](../automation/src/llm_testkit/pages/workspace_page.py) | UI locators, navigation, sending and source-opening actions. | An upstream label or DOM change can be fixed in one place without rewriting scenarios. |
 | [assertions.py](../automation/src/llm_testkit/assertions.py) | Reusable application, answer, source and UI acceptance checks. | API and UI scenarios reuse the same policy rules and diagnostic messages. |
-| [pytest_support/environment.py](../automation/src/llm_testkit/pytest_support/environment.py) | Paths, settings, API clients and shared scenario profiles. | Tests do not need to find local credentials or duplicate file-loading logic. |
-| [pytest_support/resources.py](../automation/src/llm_testkit/pytest_support/resources.py) | Workspace/folder creation, upload, indexing and cleanup. | Resource ownership must remain reliable when a scenario or setup check fails. |
-| [pytest_support/rag.py](../automation/src/llm_testkit/pytest_support/rag.py) | Model selection, metadata, generation and optional capture. | Comparisons need a record of the model/configuration that produced each answer. |
+| [test_support/fixtures/environment.py](../automation/src/test_support/fixtures/environment.py) | Paths, settings, API clients and shared scenario profiles. | Tests do not need to find local credentials or duplicate file-loading logic. |
+| [test_support/fixtures/resources.py](../automation/src/test_support/fixtures/resources.py) | Workspace/folder creation, upload, indexing and cleanup. | Resource ownership must remain reliable when a scenario or setup check fails. |
+| [test_support/fixtures/rag.py](../automation/src/test_support/fixtures/rag.py) | Model selection, metadata, generation and optional capture. | Comparisons need a record of the model/configuration that produced each answer. |
 | [pytest_support/options.py](../automation/src/llm_testkit/pytest_support/options.py) | CLI flags, model/repetition matrix and opt-in validation. | Selection rules belong in one place and apply after `-k`/`-m` filtering. |
 | `evaluation/` | RAGAS adapter, faithful-claim measurement and judge controls. | Evaluation mechanics can be investigated separately from app scenarios. |
 | `reporting/` | Allure integration, combined quality evidence and stability summaries. | A reporter presents evidence; it must not silently retry or relax checks. |
@@ -415,7 +415,7 @@ lifecycle; it does not require a new transport class or another base-test class.
 1. Define the question, reference and expected facts/source fragments in a new
    English profile under `test_data/`. Derive its expected amounts from the policy,
    not from a generated answer.
-2. Add a profile-loading fixture to `pytest_support/environment.py` if the profile
+2. Add a profile-loading fixture to `test_support/fixtures/environment.py` if the profile
    is consumed by tests. Keep shared scenario data out of individual test bodies.
 3. Add a test alongside `tests/test_rag.py`, using `rag_chat`, the uploaded document
    and the profile. Give it a descriptive `@title` and the appropriate marker.

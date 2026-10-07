@@ -10,38 +10,10 @@ from requests import Response
 from llm_testkit import assertions
 from llm_testkit.clients.ollama_client import OllamaClient
 from llm_testkit.evaluation.faithfulness import load_sample, score_sample
-from llm_testkit.observation.evaluation_sample import build_sample
 from llm_testkit.reporting.steps import title
+from test_support.builders.evaluation import _judge_class, _response, _sample
 
 pytestmark = pytest.mark.unit
-
-
-def _sample() -> dict:
-    capture_id = "a" * 32
-    capture = {
-        "schema_version": 1,
-        "boundary": "ollama-sdk-chat",
-        "request": {
-            "model": "test-model",
-            "stream": False,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": f"[LLM_TESTKIT_CAPTURE:{capture_id}]\n"
-                    "[CONTEXT 0]:\nEmployees receive 23 working days.\n[END CONTEXT 0]",
-                },
-                {"role": "user", "content": "How much leave?"},
-            ],
-        },
-    }
-    return build_sample(
-        capture,
-        question="How much leave?",
-        answer="Employees receive 23 working days.",
-        reference="23 working days.",
-        expected_model="test-model",
-        capture_id=capture_id,
-    )
 
 
 @title("Evaluation sample loader rejects substituted model context")
@@ -65,27 +37,6 @@ def test_quality_score_rejects_invalid_results(value: object) -> None:
 def test_quality_threshold_rejects_low_score() -> None:
     with pytest.raises(AssertionError, match="below"):
         assertions.assert_quality_score(0.5, minimum=0.8)
-
-
-def _judge_class():
-    pytest.importorskip("ragas", reason="Install the evaluation extra for RAGAS adapter checks")
-    from llm_testkit.evaluation.ollama_judge import OllamaJudge
-
-    return OllamaJudge
-
-
-def _response(output: dict, *, done_reason: str = "stop") -> Response:
-    response = Response()
-    response.status_code = 200
-    response._content = json.dumps(
-        {
-            "model": "test-model",
-            "done": True,
-            "done_reason": done_reason,
-            "message": {"content": json.dumps(output)},
-        }
-    ).encode()
-    return response
 
 
 @title("RAGAS computes supported-claim ratio from mocked judge responses")

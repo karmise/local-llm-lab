@@ -37,7 +37,7 @@ source fragments aligned with the existing paid-leave profile.
   scenario consuming existing resource/model fixtures and Assertions.
 - `pytest_support/options.py`: catalog collection, model/repetition matrix and
   explicit enabling.
-- `pytest_support/environment.py`: dataset provenance recorded as JUnit properties.
+- `test_support/fixtures/environment.py`: dataset provenance recorded as JUnit properties.
 - `assertions.assert_golden_answer`: completed final answer, required/forbidden
   content and sources; a static Allure step and explicit answer attachment.
 - `reporting/stability.py`: preserves golden case identity and dataset fingerprint.

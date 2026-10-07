@@ -9,6 +9,7 @@ from requests import Response
 from llm_testkit import assertions
 from llm_testkit.evaluation.calibration import evaluate_controls, load_controls, select_controls
 from llm_testkit.reporting.steps import title
+from test_support.builders.calibration import _case, _result
 
 pytestmark = pytest.mark.unit
 
@@ -32,25 +33,6 @@ def test_runner_rejects_empty_or_excessive_control_runs(count: int) -> None:
     with pytest.raises(ValueError, match="between one and three"):
         asyncio.run(evaluate_controls({}, [_case()] * count, factory))
     assert factory.call_count == 0
-
-
-def _case() -> dict:
-    return {
-        "id": "mixed",
-        "response": "Leave is 23 days. Gym reimbursement is 5000.",
-        "expected_score": 0.5,
-        "claims": [{"pattern": "23", "verdict": 1}, {"pattern": "5000", "verdict": 0}],
-    }
-
-
-def _result() -> dict:
-    return {
-        "value": 0.5,
-        "verdicts": [
-            {"statement": "Leave is 23 days.", "verdict": 1},
-            {"statement": "Gym reimbursement is 5000.", "verdict": 0},
-        ],
-    }
 
 
 @title("Calibration rejects reversed claim verdicts even when the score matches")

@@ -118,9 +118,9 @@ flowchart LR
 | [clients/anythingllm_client.py](../automation/src/llm_testkit/clients/anythingllm_client.py) | Пути endpoint, кодирование URL, тела запросов и загрузка файлов. | Тест вызывает операцию вроде `create_workspace`, а не собирает запрос заново. Клиент возвращает исходный ответ и не задаёт критерии успеха теста. |
 | [pages/workspace_page.py](../automation/src/llm_testkit/pages/workspace_page.py) | Локаторы, навигация, отправка вопроса и открытие источников. | Изменение интерфейса приложения можно исправить в одном месте. |
 | [assertions.py](../automation/src/llm_testkit/assertions.py) | Повторно используемые проверки приложения, ответов, источников и UI. | API- и UI-сценарии используют общие правила и понятные сообщения об ошибках. |
-| [pytest_support/environment.py](../automation/src/llm_testkit/pytest_support/environment.py) | Пути, настройки, API-клиенты и общие профили сценариев. | Тестам не нужно самостоятельно искать ключи и дублировать чтение файлов. |
-| [pytest_support/resources.py](../automation/src/llm_testkit/pytest_support/resources.py) | Создание workspace и папок, загрузка документов, индексация и очистка. | Очистка должна работать и при падении теста, и при ошибке подготовки. |
-| [pytest_support/rag.py](../automation/src/llm_testkit/pytest_support/rag.py) | Выбор модели, метаданные, генерация и необязательный перехват запроса. | Для сравнения ответов нужно знать, какая модель и конфигурация их произвели. |
+| [test_support/fixtures/environment.py](../automation/src/test_support/fixtures/environment.py) | Пути, настройки, API-клиенты и общие профили сценариев. | Тестам не нужно самостоятельно искать ключи и дублировать чтение файлов. |
+| [test_support/fixtures/resources.py](../automation/src/test_support/fixtures/resources.py) | Создание workspace и папок, загрузка документов, индексация и очистка. | Очистка должна работать и при падении теста, и при ошибке подготовки. |
+| [test_support/fixtures/rag.py](../automation/src/test_support/fixtures/rag.py) | Выбор модели, метаданные, генерация и необязательный перехват запроса. | Для сравнения ответов нужно знать, какая модель и конфигурация их произвели. |
 | [pytest_support/options.py](../automation/src/llm_testkit/pytest_support/options.py) | Параметры запуска, набор моделей и повторений, проверка явно включаемых режимов. | Правила выбора тестов находятся в одном месте и применяются после фильтрации через `-k` и `-m`. |
 | `evaluation/` | Адаптер RAGAS, оценка подтверждённости утверждений и контрольные примеры для судьи. | Механизм оценки можно исследовать отдельно от сценариев приложения. |
 | `reporting/` | Allure, объединённые результаты качества и сводки стабильности. | Отчёт должен показывать результаты, сохраняя исходный смысл проверок. |
@@ -425,7 +425,7 @@ npm --prefix tools/allure exec -- allure generate reports/onboarding/allure-resu
 1. Создайте английский профиль в `test_data/`: вопрос, эталон, обязательные факты
    и фрагменты источников. Ожидания берите из документа, а не из ответа модели.
 2. При необходимости добавьте фикстуру чтения профиля в
-   `pytest_support/environment.py`. Общие данные не дублируйте в телах тестов.
+   `test_support/fixtures/environment.py`. Общие данные не дублируйте в телах тестов.
 3. Добавьте тест рядом с `tests/test_rag.py`, используя `rag_chat`, загруженный
    документ и профиль. Задайте понятный `@title` и соответствующий маркер.
 4. Используйте `assert_rag_answer` для позитивной проверки фактов и источников.

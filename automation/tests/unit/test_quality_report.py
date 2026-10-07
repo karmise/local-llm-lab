@@ -7,80 +7,13 @@ from unittest.mock import Mock
 import pytest
 
 from llm_testkit import assertions
-from llm_testkit.observation.evaluation_sample import build_sample
 from llm_testkit.reporting.allure_report import present_quality_report
 from llm_testkit.reporting.quality import build_quality_report
 from llm_testkit.reporting.steps import title
+from test_support.builders.quality_report import _files
+from test_support.paths import AUTOMATION_ROOT
 
 pytestmark = pytest.mark.unit
-
-
-def _files(tmp_path: Path, *, incomplete: bool = False) -> tuple[Path, Path, Path]:
-    identifier = "a" * 32
-    title = f"automation-{identifier}-company-policy.txt"
-    content = f"<document_metadata>\nsourceDocument: {title}\n</document_metadata>\n23 working days; 12 calendar days"
-    capture = {
-        "schema_version": 1,
-        "boundary": "ollama-sdk-chat",
-        "request": {
-            "model": "test-model",
-            "stream": False,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": f"[LLM_TESTKIT_CAPTURE:{identifier}]\n[CONTEXT 0]:\n{content}\n[END CONTEXT 0]",
-                },
-                {"role": "user", "content": "Leave?"},
-            ],
-        },
-    }
-    answer = "23 working days" if incomplete else "23 working days; 12 calendar days"
-    sample = build_sample(
-        capture,
-        question="Leave?",
-        answer=answer,
-        reference="Expected facts",
-        expected_model="test-model",
-        capture_id=identifier,
-    )
-    sample["response_sources"] = [{"title": title, "text": "23 working days; 12 calendar days"}]
-    sample_path = tmp_path / "sample.json"
-    sample_path.write_text(json.dumps(sample))
-    evidence = {
-        "schema_version": 1,
-        "metric": "faithfulness",
-        "status": "completed",
-        "sample_sha256": hashlib.sha256(sample_path.read_bytes()).hexdigest(),
-        "result": {
-            "value": 1.0,
-            "statements": [answer],
-            "verdicts": [{"statement": answer, "verdict": 1}],
-        },
-        "judge_model": "test-judge",
-        "judge_model_digest": "digest",
-        "judge_configuration": {"think": False},
-        "ragas_version": "test-version",
-        "created_at": "test-time",
-    }
-    evidence_path = tmp_path / "evidence.json"
-    evidence_path.write_text(json.dumps(evidence))
-    profile_path = tmp_path / "profile.json"
-    profile_path.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "id": "leave",
-                "question": "Leave?",
-                "fact_patterns": {
-                    "leave allowance": "23 working days",
-                    "notice period": "12 calendar days",
-                },
-                "document_title_pattern": r"automation-[a-f0-9]{32}-company-policy\.txt",
-                "source_fragments": ["23 working days", "12 calendar days"],
-            }
-        )
-    )
-    return sample_path, evidence_path, profile_path
 
 
 @title("Quality report combines fact checks, source checks and faithfulness measurement")
@@ -170,7 +103,7 @@ def test_optional_relevance_has_independent_dimensions(tmp_path: Path) -> None:
     "Gated quality reports reject omitted semantic evidence instead of silently passing measurements"
 )
 def test_saved_report_gates_require_all_evidence(tmp_path: Path) -> None:
-    gates = Path(__file__).resolve().parents[2] / "test_data/quality-gates.json"
+    gates = AUTOMATION_ROOT / "test_data/quality-gates.json"
     report = build_quality_report(*_files(tmp_path), gates_path=gates)
     assert report["status"] == "error"
     assert report["dimensions"][2]["status"] == "passed"

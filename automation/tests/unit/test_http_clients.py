@@ -7,15 +7,9 @@ import requests
 from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.reporting.steps import title
+from test_support.fixtures.unit_http_clients import session as session
 
 pytestmark = pytest.mark.unit
-
-
-@pytest.fixture
-def session(monkeypatch: pytest.MonkeyPatch) -> Mock:
-    session = Mock(spec=requests.Session)
-    monkeypatch.setattr(requests, "Session", lambda: session)
-    return session
 
 
 def test_transport_preserves_response_timeouts_and_redirect_contract(session: Mock) -> None:
