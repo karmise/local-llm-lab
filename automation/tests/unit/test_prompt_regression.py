@@ -90,16 +90,16 @@ def test_collection(framework_pytester):
 
 
 @title("Prompt comparison retains teardown errors even when a duplicate call entry failed")
-def test_teardown_error_is_not_hidden(tmp_path):
+def test_teardown_error_is_not_hidden(tmp_path, xml_property_factory):
 
     path = report(tmp_path)
     tree = ET.parse(path)
     suite = tree.getroot().find("testsuite")
     row = suite.findall("testcase")[1]
-    ET.SubElement(row, "error")
+    xml_property_factory(row, "error")
     duplicate = deepcopy(row)
     duplicate.remove(duplicate.find("error"))
-    ET.SubElement(duplicate, "failure")
+    xml_property_factory(duplicate, "failure")
     suite.append(duplicate)
     tree.write(path)
     value_checks.equal(compare(path)["status"], "incomplete")
@@ -108,11 +108,11 @@ def test_teardown_error_is_not_hidden(tmp_path):
 @pytest.mark.parametrize(
     "stale_first", CONFLICTING_PROPERTIES_WITHIN_ONE_TESTCASE_STALE_FIRST_CASES
 )
-def test_conflicting_properties_within_one_testcase(tmp_path, stale_first):
+def test_conflicting_properties_within_one_testcase(tmp_path, stale_first, xml_element_factory):
     path = report(tmp_path)
     tree = ET.parse(path)
     props = tree.getroot().find(".//properties")
-    duplicate = ET.Element("property", name="policy_sha256", value="stale")
+    duplicate = xml_element_factory("property", name="policy_sha256", value="stale")
     prepare_conflicting_properties_within_one_testcase_case(duplicate, props, stale_first)
     tree.write(path)
     result = compare(path)

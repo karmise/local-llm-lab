@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from llm_testkit.observation.evaluation_sample import build_sample
+from test_support.data import common as case_data
 
 
 def _files(tmp_path: Path, *, incomplete: bool = False) -> tuple[Path, Path, Path]:
@@ -17,7 +18,7 @@ def _files(tmp_path: Path, *, incomplete: bool = False) -> tuple[Path, Path, Pat
         "schema_version": 1,
         "boundary": "ollama-sdk-chat",
         "request": {
-            "model": "test-model",
+            "model": case_data.TEST_MODEL,
             "stream": False,
             "messages": [
                 {
@@ -34,11 +35,11 @@ def _files(tmp_path: Path, *, incomplete: bool = False) -> tuple[Path, Path, Pat
         question="Leave?",
         answer=answer,
         reference="Expected facts",
-        expected_model="test-model",
+        expected_model=case_data.TEST_MODEL,
         capture_id=identifier,
     )
     sample["response_sources"] = [{"title": title, "text": "23 working days; 12 calendar days"}]
-    sample_path = tmp_path / "sample.json"
+    sample_path = tmp_path / case_data.SAMPLE_FILE_NAME
     sample_path.write_text(json.dumps(sample))
     evidence = {
         "schema_version": 1,
@@ -51,7 +52,7 @@ def _files(tmp_path: Path, *, incomplete: bool = False) -> tuple[Path, Path, Pat
             "verdicts": [{"statement": answer, "verdict": 1}],
         },
         "judge_model": "test-judge",
-        "judge_model_digest": "digest",
+        "judge_model_digest": case_data.MODEL_DIGEST,
         "judge_configuration": {"think": False},
         "ragas_version": "test-version",
         "created_at": "test-time",
@@ -115,3 +116,8 @@ def make_check_stub(checks, evidence_path):
         }
 
     return check
+
+
+def make_claim_extraction_call(evidence):
+    """Build input for test_saved_faithfulness_rejects_summary_changed_from_raw_judge_calls."""
+    return {"output": {"statements": evidence["result"]["statements"]}}

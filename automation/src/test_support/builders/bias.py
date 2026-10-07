@@ -6,6 +6,7 @@ from copy import deepcopy
 
 from requests import Response
 
+from test_support.data import common as case_data
 from test_support.data.bias import CASES as CASES
 from test_support.data.bias import DATA as DATA
 from test_support.data.bias import DATASET as DATASET
@@ -28,7 +29,7 @@ def paired_report(tmp_path):
             "golden_dataset_sha256": DATASET.sha256,
             "policy_sha256": DATASET.policy_sha256,
             "golden_case_id": case.golden_case.id,
-            "model_digest": "digest",
+            "model_digest": case_data.MODEL_DIGEST,
             "thinking_mode": "default",
             "workspace_configuration": json.dumps(
                 {"chatModel": "model", "openAiPrompt": "Policy", "topN": 4}
@@ -83,7 +84,7 @@ def prepare_comparison_case(change, rows, suite):
         suite.remove(rows[1])
     elif change == "error":
         ET.SubElement(rows[1], "error")
-    elif change == "digest":
+    elif change == case_data.MODEL_DIGEST:
         rows[1].find("./properties/property[@name='model_digest']").set("value", "changed")
     elif change == "duplicate":
         other = deepcopy(rows[1])

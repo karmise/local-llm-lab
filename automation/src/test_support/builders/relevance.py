@@ -106,3 +106,8 @@ def make_relevance_evidence():
         "recall_calls": [{"output": {"classifications": deepcopy(data["recall_classifications"])}}],
     }
     return sample, evidence, data
+
+
+def make_oversized_retrieval():
+    """Build input for test_context_budget."""
+    return {"retrieved_contexts": ["Context"] * 5}

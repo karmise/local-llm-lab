@@ -5,6 +5,7 @@ import json
 import xml.etree.ElementTree as ET
 from copy import deepcopy
 
+from test_support.data import common as case_data
 from test_support.data.qualification import ROOT as ROOT
 from test_support.data.qualification import SELECTOR as SELECTOR
 
@@ -70,7 +71,7 @@ def prepare_invalid_plan_case(change, plan, row):
     elif change == "data":
         plan["data_sha256"] = []
     elif change == "data-checksum":
-        plan["data_sha256"]["policy.txt"] = "0" * 64
+        plan["data_sha256"][case_data.POLICY_DOCUMENT_TITLE] = "0" * 64
     else:
         plan["data_sha256"] = {"../outside.txt": "0" * 64}
 
@@ -156,7 +157,7 @@ def prepare_plan_rejects_ambiguous_paths_and_phase_types_case(change, data):
     if change == "selector-alias":
         data["requirements"][0]["tests"] = ["tests/../tests/test_example.py::test_example"]
     elif change == "data-alias":
-        checksum = data["data_sha256"].pop("policy.txt")
+        checksum = data["data_sha256"].pop(case_data.POLICY_DOCUMENT_TITLE)
         data["data_sha256"]["./policy.txt"] = checksum
     else:
         data["requirements"][0]["phase"] = []

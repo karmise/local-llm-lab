@@ -9,6 +9,7 @@ from llm_testkit.reporting.drift import (
     seal_snapshot,
 )
 from llm_testkit.reporting.gates import METRICS
+from test_support.data import common as case_data
 
 
 def snapshot(sample="a", **changes):
@@ -77,7 +78,7 @@ def prepare_invalid_snapshot_case(change, row):
         row["metrics"].pop("faithfulness")
     elif change == "boolean":
         row["metrics"]["faithfulness"] = True
-    elif change == "digest":
+    elif change == case_data.MODEL_DIGEST:
         row["model_digest"] = ""
     else:
         row["acceptance"]["facts"] = "error"
@@ -127,3 +128,58 @@ def mutate_snapshot_evidence(change, dataset, evidence, path):
     }
 
     return quality
+
+
+def make_snapshot_metadata(dataset, identifier):
+    """Build input for test_snapshot_assembly."""
+    return {
+        "policy_sha256": dataset.policy_sha256,
+        "model_digest": "b" * 64,
+        "thinking_mode": "default",
+        "workspace_configuration": {
+            "chatModel": "model",
+            "openAiPrompt": f"Policy\n[LLM_TESTKIT_CAPTURE:{identifier}]",
+        },
+    }
+
+
+def make_snapshot_sources(evidence, root, case):
+    """Build input for test_snapshot_assembly."""
+    return {
+        "faithfulness": evidence,
+        "correctness": evidence,
+        "relevance": evidence,
+        "profile": root / "quality-paid-leave.json",
+        "dataset_path": root / "golden-policy.json",
+        "policy": root / "company-policy.txt",
+        "case_id": case.id,
+    }
+
+
+def make_snapshot_capture(case, identifier):
+    """Build input for test_snapshot_assembly."""
+    return {
+        "schema_version": 1,
+        "boundary": "ollama-sdk-chat",
+        "request": {
+            "model": "model",
+            "stream": False,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": f"[LLM_TESTKIT_CAPTURE:{identifier}]\n[CONTEXT 0]:\nPolicy\n[END CONTEXT 0]",
+                },
+                {"role": "user", "content": case.question},
+            ],
+        },
+    }
+
+
+def make_judge_identity():
+    """Build input for test_snapshot_assembly."""
+    return {
+        "judge_model": "judge",
+        "judge_model_digest": "d" * 64,
+        "judge_configuration": {},
+        "ragas_version": "test",
+    }

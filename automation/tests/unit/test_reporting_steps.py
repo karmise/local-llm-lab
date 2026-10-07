@@ -18,7 +18,9 @@ from test_support.builders.reporting_steps import (
     make_reporting_backend,
     prepare_reported_operation_case,
 )
+from test_support.data import common as case_data
 from test_support.data.reporting_steps import (
+    ALTERNATIVE_QUESTION_PROFILE,
     REPORTED_OPERATION_REPORTING_INSTALLED_CASES,
 )
 
@@ -31,8 +33,7 @@ pytestmark = pytest.mark.unit
 )
 @title("Reported operation preserves results and failures without exposing arguments [{param_id}]")
 def test_reported_operation_preserves_result_and_failure_without_exposing_arguments(
-    monkeypatch: pytest.MonkeyPatch,
-    reporting_installed: bool,
+    monkeypatch: pytest.MonkeyPatch, reporting_installed: bool, failure_factory
 ) -> None:
     backend = make_reporting_backend(reporting_installed)
     events = []
@@ -42,7 +43,7 @@ def test_reported_operation_preserves_result_and_failure_without_exposing_argume
     prepare_reported_operation_case(backend, reported_step)
     monkeypatch.setattr(steps, "_backend", lambda: backend)
     result = object()
-    failure = RuntimeError("Operation failed")
+    failure = failure_factory(RuntimeError, "Operation failed")
 
     operation = make_operation_stub(failure, result)
 
@@ -79,8 +80,8 @@ def test_live_capture_uses_the_shared_profile_reference(
 ) -> None:
     monkeypatch.setattr(steps, "_backend", lambda: None)
     chat = mock_factory()
-    profile = {"question": "A different policy question?", "reference": "Its expected answer."}
+    profile = case_data.fresh(ALTERNATIVE_QUESTION_PROFILE)
 
-    generate_captured_answer(chat, profile, tmp_path / "sample.json")
+    generate_captured_answer(chat, profile, tmp_path / case_data.SAMPLE_FILE_NAME)
 
     mock_checks.called_once_with(chat, profile["question"], profile["reference"])

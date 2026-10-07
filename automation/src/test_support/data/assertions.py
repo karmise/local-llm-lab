@@ -2,6 +2,8 @@
 
 import pytest
 
+from test_support.data import common as case_data
+
 SEARCH_REJECTS_INCOMPLETE_OR_UNRELATED_RESULTS_BODY_MESSAGE_CASES = [
     pytest.param(b'{"results": []}', "vector search returned no results", id="empty-index"),
     pytest.param(
@@ -19,14 +21,14 @@ SEARCH_REJECTS_INCOMPLETE_OR_UNRELATED_RESULTS_BODY_MESSAGE_CASES = [
 RAG_REJECTS_UNSUBSTANTIATED_FINAL_ANSWERS_ANSWER_SOURCE_TITLE_SOURCE_TEXT_MESSAGE_CASES = [
     pytest.param(
         "<think>23 working days</think>No policy information is available.",
-        "policy.txt",
+        case_data.POLICY_DOCUMENT_TITLE,
         "23 working days",
         "missing expected fact",
         id="reasoning-only-fact",
     ),
     pytest.param(
         "Employees get 25 working days.",
-        "policy.txt",
+        case_data.POLICY_DOCUMENT_TITLE,
         "23 working days",
         "missing expected fact",
         id="incorrect-amount",
@@ -40,14 +42,14 @@ RAG_REJECTS_UNSUBSTANTIATED_FINAL_ANSWERS_ANSWER_SOURCE_TITLE_SOURCE_TEXT_MESSAG
     ),
     pytest.param(
         "Employees get 23 working days.",
-        "policy.txt",
+        case_data.POLICY_DOCUMENT_TITLE,
         "No leave details are provided.",
         "source_text",
         id="unsupported-fact",
     ),
     pytest.param(
         "<think>Employees get 23 working days.",
-        "policy.txt",
+        case_data.POLICY_DOCUMENT_TITLE,
         "23 working days",
         "incomplete thinking tags",
         id="unclosed-thinking",
@@ -81,3 +83,7 @@ MISSING_INFORMATION_REJECTS_HALLUCINATED_OR_IRRELEVANT_ANSWERS_ANSWER_MESSAGE_CA
         id="wrong-topic",
     ),
 ]
+
+
+# Input for test_rag_rejects_unsubstantiated_final_answers
+PAID_LEAVE_FACT_PATTERNS = {"paid leave": "\\b23\\s+working\\s+days\\b"}

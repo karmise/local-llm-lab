@@ -2,6 +2,7 @@
 
 from llm_testkit.datasets.bias import load_bias_cases
 from llm_testkit.datasets.golden import load_golden_dataset
+from test_support.data import common as case_data
 from test_support.paths import AUTOMATION_ROOT
 
 DATA = AUTOMATION_ROOT / "test_data"
@@ -28,6 +29,6 @@ COMPARISON_CHANGE_STATUS_OUTCOME_CASES = [
     ("two_failures", "failed", "shared_failure"),
     ("missing", "incomplete", "incomplete"),
     ("error", "incomplete", "incomplete"),
-    ("digest", "incomplete", "incomplete"),
+    (case_data.MODEL_DIGEST, "incomplete", "incomplete"),
     ("duplicate", "incomplete", "incomplete"),
 ]

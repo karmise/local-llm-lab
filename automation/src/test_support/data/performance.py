@@ -51,3 +51,27 @@ INVALID_SAVED_ATTEMPT_CASES = [
     "failed",
     "rps",
 ]
+
+
+# Input for test_performance_comparison
+HEALTH_EXECUTION_METADATA = {
+    "workload": "health",
+    "system": "test",
+    "machine": "test-machine",
+    "python": "3.12",
+    "base_url": "http://localhost",
+    "warmup_requests": 0,
+    "timeout": 5,
+}
+
+
+# Input for test_health_comparison_requires_matching_execution_conditions
+ALTERNATIVE_MACHINE_METADATA = {
+    "workload": "health",
+    "system": "test",
+    "machine": "first",
+    "python": "3.12",
+    "base_url": "http://localhost",
+    "warmup_requests": 0,
+    "timeout": 5,
+}

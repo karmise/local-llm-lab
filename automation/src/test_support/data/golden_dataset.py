@@ -1,6 +1,7 @@
 """Reviewed catalogs, references and parameter cases."""
 
 from llm_testkit.datasets.golden import load_golden_dataset
+from test_support.data import common as case_data
 from test_support.paths import AUTOMATION_ROOT
 
 DATA_ROOT = AUTOMATION_ROOT / "test_data"
@@ -43,13 +44,18 @@ MISSING_BENEFIT_CASE_IDS = [
 
 
 INVALID_ANSWER_EVIDENCE_CASES = [
-    ("23 working days of paid leave.", None, "policy.txt", "advance notice"),
-    (DATASET.cases[0].reference, "23 working days", "policy.txt", "12 calendar days"),
+    ("23 working days of paid leave.", None, case_data.POLICY_DOCUMENT_TITLE, "advance notice"),
+    (
+        DATASET.cases[0].reference,
+        "23 working days",
+        case_data.POLICY_DOCUMENT_TITLE,
+        "12 calendar days",
+    ),
     (DATASET.cases[0].reference, None, "other.txt", "did not cite"),
     (
         "<think>23 working days and 12 calendar days before leave</think>No answer.",
         None,
-        "policy.txt",
+        case_data.POLICY_DOCUMENT_TITLE,
         "annual allowance",
     ),
 ]

@@ -4,6 +4,8 @@ import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from test_support.data import common as case_data
+
 
 def _report(tmp_path: Path, outcomes: list[str], digests: list[str] | None = None) -> Path:
     root = ET.Element("testsuites")
@@ -20,7 +22,7 @@ def _report(tmp_path: Path, outcomes: list[str], digests: list[str] | None = Non
         properties = ET.SubElement(case, "properties")
         values = {
             "generation_model": "qwen",
-            "model_digest": digests[iteration - 1] if digests else "digest",
+            "model_digest": digests[iteration - 1] if digests else case_data.MODEL_DIGEST,
             "policy_sha256": "policy",
             "workspace_configuration": '{"chatModel": "qwen"}',
             "thinking_mode": "default",

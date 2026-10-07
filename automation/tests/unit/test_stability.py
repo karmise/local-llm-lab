@@ -18,7 +18,9 @@ from test_support.builders.stability import (
     add_golden_case_metadata,
     add_prompt_variant_metadata,
 )
+from test_support.data import common as case_data
 from test_support.data.stability import (
+    CLASSNAME_NAME_TEST_EXAMPLE_QWEN_RUN_1_INPUT,
     CONFIGURATION_METADATA_CHANGE_CASES,
     CONVERSATION_SUMMARY_CHANGE_CASES,
     GOLDEN_SUMMARY_SAME_CASE_CASES,
@@ -60,19 +62,18 @@ def test_setup_error_without_metadata_is_not_a_model_failure(tmp_path: Path) -> 
 
 
 @title("Stability summary counts call and teardown entries as one run")
-def test_duplicate_call_and_teardown_entries_count_as_one_run(tmp_path: Path) -> None:
+def test_duplicate_call_and_teardown_entries_count_as_one_run(
+    tmp_path: Path, xml_property_factory
+) -> None:
     path = _report(tmp_path, ["failure"])
     tree = ET.parse(path)
     suite = tree.getroot().find("testsuite")
-    duplicate = ET.SubElement(
+    duplicate = xml_property_factory(
         suite,
         "testcase",
-        {
-            "classname": "tests.test_rag",
-            "name": "test_example[qwen-run-1]",
-        },
+        case_data.fresh(CLASSNAME_NAME_TEST_EXAMPLE_QWEN_RUN_1_INPUT),
     )
-    ET.SubElement(duplicate, "error")
+    xml_property_factory(duplicate, "error")
     tree.write(path)
     row = summarize_report(path)[0]
     value_checks.equal(row["runs"], 1)

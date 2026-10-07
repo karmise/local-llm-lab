@@ -26,3 +26,19 @@ SUPPORTED_CLAIM_OUTPUTS = [
     },
 ]
 CLAIM_EXTRACTION = {"statements": ["Claim."]}
+
+
+# Input for test_native_judge_request_disables_thinking_and_passes_schema
+OBJECT_RESPONSE_SCHEMA = {"type": "object"}
+
+
+# Input for test_native_judge_request_disables_thinking_and_passes_schema
+DETERMINISTIC_JUDGE_OPTIONS = {"temperature": 0}
+
+
+# Input for test_live_faithfulness_rejects_score_inconsistent_with_verdicts
+EXTRACTED_CLAIM_RESPONSE = {"output": {"statements": ["Claim."]}}
+
+
+# Input for test_live_faithfulness_rejects_score_inconsistent_with_verdicts
+UNSUPPORTED_CLAIM_VERDICT = {"output": {"statements": [{"statement": "Claim.", "verdict": 0}]}}

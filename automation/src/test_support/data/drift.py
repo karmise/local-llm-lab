@@ -1,5 +1,7 @@
 """Named parameter cases for drift scenarios."""
 
+from test_support.data import common as case_data
+
 COMPARISON_CHANGE_STATUS_CASES = [
     ("none", "passed"),
     ("drop", "regression"),
@@ -10,7 +12,7 @@ COMPARISON_CHANGE_STATUS_CASES = [
     ("model", "passed"),
 ]
 
-INVALID_SNAPSHOT_CHANGE_CASES = ["missing", "boolean", "digest", "acceptance"]
+INVALID_SNAPSHOT_CHANGE_CASES = ["missing", "boolean", case_data.MODEL_DIGEST, "acceptance"]
 
 SNAPSHOT_ASSEMBLY_CHANGE_CASES = [
     "none",

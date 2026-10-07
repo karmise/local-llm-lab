@@ -9,6 +9,7 @@ from unittest.mock import Mock
 from llm_testkit.evaluation import benchmark as evaluation
 from llm_testkit.observation.evaluation_sample import build_sample, write_sample
 from llm_testkit.reporting.gates import METRICS
+from test_support.data import common as case_data
 from test_support.data.benchmark import ROOT as ROOT
 
 
@@ -218,8 +219,8 @@ def make_generate_stub(dataset, monkeypatch):
         case = next(c for c in dataset.cases if c.id == identifier)
         sample = _sample(case, dataset, model)
         sample["metadata"]["model_digest"] = "judge-digest"
-        write_sample(directory / "sample.json", sample)
-        _mock_metrics(monkeypatch, case, dataset, directory / "sample.json")
+        write_sample(directory / case_data.SAMPLE_FILE_NAME, sample)
+        _mock_metrics(monkeypatch, case, dataset, directory / case_data.SAMPLE_FILE_NAME)
         junit = directory / "generation.xml"
         junit.write_text(
             f'<testsuite><testcase classname="tests.test_golden_rag" name="test_golden_policy_answer[{identifier}-{model}]"/></testsuite>'
@@ -251,3 +252,23 @@ def make_forged_benchmark_summary(tmp_path):
         "company-policy.txt",
     ):
         (tmp_path / name).write_bytes((ROOT / "test_data" / name).read_bytes())
+
+
+def with_pipeline_directory(kwargs, other):
+    """Build input for test_case_pipeline."""
+    return {**kwargs, "directory": other}
+
+
+def make_judge_model_catalog():
+    """Build input for test_runner_pipeline."""
+    return {"models": [{"name": "qwen3.5:4b", "digest": "judge-digest"}]}
+
+
+def make_forged_saved_report(definition):
+    """Build input for test_forged_top_level_summary."""
+    return {
+        "manifest": definition,
+        "results": [],
+        "calibration": {"status": "error"},
+        "status": "checks_passed",
+    }

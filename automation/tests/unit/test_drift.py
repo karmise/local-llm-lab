@@ -17,6 +17,10 @@ from test_support.assertions import errors as errors
 from test_support.assertions import values as value_checks
 from test_support.assertions.drift import check_snapshot_assembly_outcome
 from test_support.builders.drift import (
+    make_judge_identity,
+    make_snapshot_capture,
+    make_snapshot_metadata,
+    make_snapshot_sources,
     mutate_snapshot_evidence,
     prepare_comparison_case,
     prepare_invalid_snapshot_case,
@@ -25,6 +29,7 @@ from test_support.builders.drift import (
     prepare_snapshot_assembly_case_2,
     snapshot,
 )
+from test_support.data import common as case_data
 from test_support.data.drift import (
     COMPARISON_CHANGE_STATUS_CASES,
     HISTORY_ID_CANNOT_ESCAPE_DESTINATION_RUN_ID_CASES,
@@ -44,7 +49,7 @@ pytestmark = pytest.mark.unit
 @title("Baseline history separates quality drops from changed evaluation conditions [{param_id}]")
 def test_comparison(change, status):
     base = snapshot()
-    changes = {}
+    changes = case_data.fresh(case_data.EMPTY_OBJECT)
     prepare_comparison_case(base, change, changes)
     report = compare_snapshots(base, snapshot("b", **changes))
     value_checks.equal(report["status"], status)
@@ -105,63 +110,24 @@ def test_snapshot_assembly(tmp_path, monkeypatch, change):
     case = next(c for c in dataset.cases if c.id == "paid_leave")
     identifier = "a" * 32
     sample = build_sample(
-        {
-            "schema_version": 1,
-            "boundary": "ollama-sdk-chat",
-            "request": {
-                "model": "model",
-                "stream": False,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": f"[LLM_TESTKIT_CAPTURE:{identifier}]\n[CONTEXT 0]:\nPolicy\n[END CONTEXT 0]",
-                    },
-                    {"role": "user", "content": case.question},
-                ],
-            },
-        },
+        make_snapshot_capture(case, identifier),
         question=case.question,
         answer=case.reference,
         reference=case.reference,
         expected_model="model",
         capture_id=identifier,
     )
-    sample["metadata"] = {
-        "policy_sha256": dataset.policy_sha256,
-        "model_digest": "b" * 64,
-        "thinking_mode": "default",
-        "workspace_configuration": {
-            "chatModel": "model",
-            "openAiPrompt": f"Policy\n[LLM_TESTKIT_CAPTURE:{identifier}]",
-        },
-    }
+    sample["metadata"] = make_snapshot_metadata(dataset, identifier)
     prepare_snapshot_assembly_case(change, sample)
-    path = tmp_path / "sample.json"
+    path = tmp_path / case_data.SAMPLE_FILE_NAME
     path.write_text(json.dumps(sample))
     evidence = tmp_path / "judge.json"
-    evidence.write_text(
-        json.dumps(
-            {
-                "judge_model": "judge",
-                "judge_model_digest": "d" * 64,
-                "judge_configuration": {},
-                "ragas_version": "test",
-            }
-        )
-    )
+    evidence.write_text(json.dumps(make_judge_identity()))
     quality = mutate_snapshot_evidence(change, dataset, evidence, path)
     monkeypatch.setattr(
         "llm_testkit.reporting.drift.build_quality_report", lambda *args, **kwargs: quality
     )
-    arguments = {
-        "faithfulness": evidence,
-        "correctness": evidence,
-        "relevance": evidence,
-        "profile": root / "quality-paid-leave.json",
-        "dataset_path": root / "golden-policy.json",
-        "policy": root / "company-policy.txt",
-        "case_id": case.id,
-    }
+    arguments = make_snapshot_sources(evidence, root, case)
     prepare_snapshot_assembly_case_2(change, evidence, path, quality, sample)
     check_snapshot_assembly_outcome(arguments, case, change, path)
 

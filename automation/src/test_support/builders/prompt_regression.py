@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 from copy import deepcopy
 
 from llm_testkit.reporting.prompt_regression import compare_prompts
+from test_support.data import common as case_data
 from test_support.data.prompt_regression import CATALOG as CATALOG
 from test_support.data.prompt_regression import DATA as DATA
 from test_support.data.prompt_regression import DATASET as DATASET
@@ -29,7 +30,7 @@ def report(tmp_path):
             "prompt_version": v.version,
             "prompt_sha256": v.sha256,
             "prompt_catalog_sha256": CATALOG.sha256,
-            "model_digest": "digest",
+            "model_digest": case_data.MODEL_DIGEST,
             "thinking_mode": "default",
             "workspace_configuration": json.dumps(
                 {"chatModel": "model", "openAiPrompt": v.prompt, "topN": 4}

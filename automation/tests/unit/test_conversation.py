@@ -14,17 +14,22 @@ from test_support.assertions import pytest_runs
 from test_support.assertions import values as value_checks
 from test_support.builders.conversation import (
     make_defective_policy_source,
+    make_invalid_conversation_answers,
     make_walking_response,
     prepare_invalid_catalogs_fail_before_any_generation_case,
     response,
 )
+from test_support.data import common as case_data
 from test_support.data.conversation import (
+    CHAT_MODE_CONFIGURATION,
     CONVERSATION_CHECKS_REJECT_POLICY_DUMPS_HALLUCINATIONS_AND_MISSING_INTENTS_CASE_ID_CHANGE_MESSAGE_CASES,
     DATA,
     INVALID_CATALOGS_FAIL_BEFORE_ANY_GENERATION_DEFECT_MESSAGE_CASES,
     POLICY_PARTS_REQUIRE_THE_EXPECTED_DOCUMENT_AND_SUPPORTING_PASSAGE_CASE_ID_CASES,
     POLICY_PARTS_REQUIRE_THE_EXPECTED_DOCUMENT_AND_SUPPORTING_PASSAGE_DEFECT_CASES,
+    QUERY_MODE_CONFIGURATION,
     REVIEWED_REFERENCES_SATISFY_THEIR_INDEPENDENT_ACCEPTANCE_RULES_CASE_ID_CASES,
+    TEMPORARY_WORKSPACE,
     WALKING_INTENT_ACCEPTS_FRESH_AIR_WITHOUT_REQUIRING_LITERAL_WALK_CASE_ID_CASES,
 )
 from test_support.data.scripts.conversation import (
@@ -45,7 +50,7 @@ def test_reviewed_references_satisfy_their_independent_acceptance_rules(
 ) -> None:
     case = next(case for case in catalog.cases if case.id == case_id)
     assertions.assert_conversation_answer(
-        response(case.reference), case=case, document_title="policy.txt"
+        response(case.reference), case=case, document_title=case_data.POLICY_DOCUMENT_TITLE
     )
 
 
@@ -58,16 +63,12 @@ def test_conversation_checks_reject_policy_dumps_hallucinations_and_missing_inte
     catalog: ConversationCatalog, case_id: str, change: str, message: str
 ) -> None:
     case = next(case for case in catalog.cases if case.id == case_id)
-    changes = {
-        "append wrong units": case.reference + " Submit it 12 working days before leave.",
-        "append invented amount": case.reference + " They get 23 working days.",
-        "remove walk": case.reference.replace("A walk can be a nice way to relax.", ""),
-        "remove unknown": case.reference.split("I do not have")[0],
-        "append transfer": case.reference + " HarborWorks receives 23 working days of leave.",
-    }
+    changes = make_invalid_conversation_answers(case)
     errors.rejects(
         lambda: assertions.assert_conversation_answer(
-            response(changes.get(change, change)), case=case, document_title="policy.txt"
+            response(changes.get(change, change)),
+            case=case,
+            document_title=case_data.POLICY_DOCUMENT_TITLE,
         ),
         expected=AssertionError,
         match=message,
@@ -88,7 +89,7 @@ def test_policy_parts_require_the_expected_document_and_supporting_passage(
     reply = make_defective_policy_source(case, defect)
     errors.rejects(
         lambda: assertions.assert_conversation_answer(
-            reply, case=case, document_title="policy.txt"
+            reply, case=case, document_title=case_data.POLICY_DOCUMENT_TITLE
         ),
         expected=AssertionError,
         match="did not cite|source_text",
@@ -101,7 +102,7 @@ def test_small_talk_sources_are_not_misrepresented_as_evidence_of_skipped_retrie
 ) -> None:
     case = catalog.cases[0]
     assertions.assert_conversation_answer(
-        response(case.reference), case=case, document_title="policy.txt"
+        response(case.reference), case=case, document_title=case_data.POLICY_DOCUMENT_TITLE
     )
 
 
@@ -115,7 +116,9 @@ def test_walking_intent_accepts_fresh_air_without_requiring_literal_walk(
     case = next(case for case in catalog.cases if case.id == case_id)
     suggestion = "That sounds like a lovely idea; enjoy the fresh air and nature!"
     answer = make_walking_response(case, case_id, suggestion)
-    assertions.assert_conversation_answer(response(answer), case=case, document_title="policy.txt")
+    assertions.assert_conversation_answer(
+        response(answer), case=case, document_title=case_data.POLICY_DOCUMENT_TITLE
+    )
 
 
 @title("Company scope remains valid when an inline source filename precedes its facts")
@@ -128,7 +131,9 @@ def test_inline_filename_does_not_break_own_company_fact_scope(
         "employees get 23 working days of paid leave per year. "
         "I have no policy information about HarborWorks."
     )
-    assertions.assert_conversation_answer(response(answer), case=case, document_title="policy.txt")
+    assertions.assert_conversation_answer(
+        response(answer), case=case, document_title=case_data.POLICY_DOCUMENT_TITLE
+    )
 
 
 @title("Another company's entitlement cannot satisfy the Northern Lighthouse allowance")
@@ -142,7 +147,7 @@ def test_own_company_scope_cannot_consume_another_company_fact(
     )
     errors.rejects(
         lambda: assertions.assert_conversation_answer(
-            response(answer), case=case, document_title="policy.txt"
+            response(answer), case=case, document_title=case_data.POLICY_DOCUMENT_TITLE
         ),
         expected=AssertionError,
         match="own company allowance",
@@ -176,7 +181,11 @@ def test_chat_request_explicitly_uses_chat_mode_without_changing_query_client_de
 
     api = mock_factory()
     chat = conversation_chat.__wrapped__(
-        None, {"chatMode": "chat"}, api, {"slug": "temporary"}, unit_settings
+        None,
+        case_data.fresh(CHAT_MODE_CONFIGURATION),
+        api,
+        case_data.fresh(TEMPORARY_WORKSPACE),
+        unit_settings,
     )
     result = chat("Hello!")
     value_checks.identical(result, api.chat.return_value)
@@ -188,7 +197,11 @@ def test_conversation_fixture_rejects_a_query_profile(mock_factory, unit_setting
 
     errors.rejects(
         lambda: conversation_chat.__wrapped__(
-            None, {"chatMode": "query"}, mock_factory(), {"slug": "temporary"}, unit_settings
+            None,
+            case_data.fresh(QUERY_MODE_CONFIGURATION),
+            mock_factory(),
+            case_data.fresh(TEMPORARY_WORKSPACE),
+            unit_settings,
         ),
         expected=AssertionError,
         match="chatMode",

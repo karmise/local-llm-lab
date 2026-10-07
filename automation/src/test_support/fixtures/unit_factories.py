@@ -1,5 +1,6 @@
 """Fresh unit objects and factories for tests requiring several configurations."""
 
+import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
@@ -58,3 +59,21 @@ def operation_lock():
 def evidence_workers():
     with ThreadPoolExecutor(max_workers=4) as workers:
         yield workers
+
+
+@pytest.fixture
+def failure_factory():
+    def create(exception_type, message):
+        return exception_type(message)
+
+    return create
+
+
+@pytest.fixture
+def xml_element_factory():
+    return ET.Element
+
+
+@pytest.fixture
+def xml_property_factory():
+    return ET.SubElement

@@ -4,10 +4,11 @@ import pytest
 
 from llm_testkit.reporting.benchmark import summarize
 from test_support.builders.benchmark import _row, prepare_different_configurations_rejected_case
+from test_support.data import common as case_data
 
 
 def check_benchmark_configuration_changes(calibration, definition):
-    for change in ("prompt", "digest"):
+    for change in ("prompt", case_data.MODEL_DIGEST):
         row = _row("gym_missing", "missing_information")
         prepare_different_configurations_rejected_case(change, row)
         with pytest.raises(ValueError, match="changed"):

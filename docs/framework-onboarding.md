@@ -116,6 +116,7 @@ answer is correct.
 | [clients/anythingllm_client.py](../automation/src/llm_testkit/clients/anythingllm_client.py) | Endpoint paths, URL encoding, payloads and file uploads. | Tests speak in operations such as `create_workspace`, not repeated request construction. Clients return raw responses and do not impose test acceptance criteria. |
 | [pages/workspace_page.py](../automation/src/llm_testkit/pages/workspace_page.py) | UI locators, navigation, sending and source-opening actions. | An upstream label or DOM change can be fixed in one place without rewriting scenarios. |
 | [assertions.py](../automation/src/llm_testkit/assertions.py) | Reusable application, answer, source and UI acceptance checks. | API and UI scenarios reuse the same policy rules and diagnostic messages. |
+| `test_support/assertions/` | Independent unit checks for values, errors, mocks and domain evidence. | The framework's application Assertions cannot hide a failure in their own unit tests. |
 | [test_support/fixtures/environment.py](../automation/src/test_support/fixtures/environment.py) | Paths, settings, API clients and shared scenario profiles. | Tests do not need to find local credentials or duplicate file-loading logic. |
 | [test_support/fixtures/resources.py](../automation/src/test_support/fixtures/resources.py) | Workspace/folder creation, upload, indexing and cleanup. | Resource ownership must remain reliable when a scenario or setup check fails. |
 | [test_support/fixtures/rag.py](../automation/src/test_support/fixtures/rag.py) | Model selection, metadata, generation and optional capture. | Comparisons need a record of the model/configuration that produced each answer. |
@@ -128,8 +129,9 @@ answer is correct.
 | [tests/conftest.py](../automation/tests/conftest.py) | Plugin registration and assertion rewriting. | This entry point stays small rather than accumulating all setup logic. |
 
 Integration tests use `Assertions` for application acceptance checks. Unit tests
-use ordinary pytest `assert` to test the framework independently: a broken
-framework assertion should not also be the tool used to verify its own output.
+call `test_support.assertions`, which uses native pytest assertions internally:
+a broken application assertion cannot also verify its own output. The support
+package separates value, exception and mock checks from domain-specific expectations.
 Unit tests block accidental Requests calls. They use mocked responses, scoped
 patches and, for lifecycle/collection behavior, real child pytest runs.
 
@@ -143,6 +145,8 @@ the executable test functions. Different expectations can use separate tests or
 explicit expected values in a parameter table. Supporting code may use control
 flow where the setup or check requires it. See the
 [readability guide](step-34-test-readability.md) for examples and extension rules.
+For prepared judge fixtures, fresh input copies and the shared unit-check contract,
+read [the scenario-layer guide](step-35-unit-scenario-layers.md).
 
 ## 4. Walk through one paid-leave scenario
 
@@ -468,7 +472,7 @@ Before adding your first scenario, explain these points in your own words:
 - How does the Page Object avoid accepting an earlier answer for a new question?
 - Why are fact matching, cited sources and captured model context separate checks?
 - What does a recorded faithfulness score prove, and what does it leave unresolved?
-- Why do unit tests use plain assertions while integration tests reuse Assertions?
+- Why are shared unit expectations independent of application Assertions?
 - Which file would you change for an endpoint, a locator, a fixture, a scenario or a report?
 
 If you can follow the paid-leave scenario through its fixtures, client/Page Object,

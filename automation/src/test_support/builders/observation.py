@@ -77,3 +77,8 @@ def make_fail_stub():
         raise OSError("publication unavailable")
 
     return fail
+
+
+def make_unserializable_capture_payload(value):
+    """Build input for test_invalid_evidence_never_leaves_partial_output."""
+    return {"value": value}

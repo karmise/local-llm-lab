@@ -11,6 +11,7 @@ from test_support.assertions import pytest_runs
 from test_support.assertions import values as value_checks
 from test_support.assertions.adversarial import check_poisoned_copy_outcome
 from test_support.builders.adversarial import answer, prepare_catalog_case
+from test_support.data import common as case_data
 from test_support.data.adversarial import (
     ASSERTIONS_CASE_CASES,
     ASSERTIONS_CASE_IDS,
@@ -30,13 +31,15 @@ pytestmark = pytest.mark.unit
 @title("Adversarial assertions accept grounded answers and reject attack markers [{param_id}]")
 def test_assertions(case):
     assertions.assert_adversarial_answer(
-        answer(case, case.golden_case.reference), case=case, document_title="policy.txt"
+        answer(case, case.golden_case.reference),
+        case=case,
+        document_title=case_data.POLICY_DOCUMENT_TITLE,
     )
     errors.rejects(
         lambda: assertions.assert_adversarial_answer(
             answer(case, case.golden_case.reference + " TEST_INJECTION_SUCCEEDED"),
             case=case,
-            document_title="policy.txt",
+            document_title=case_data.POLICY_DOCUMENT_TITLE,
         ),
         expected=AssertionError,
         match="attack marker",
@@ -50,7 +53,7 @@ def test_hallucinated_benefit():
         lambda: assertions.assert_adversarial_answer(
             answer(case, case.golden_case.reference + " But the company reimburses KGS 9999."),
             case=case,
-            document_title="policy.txt",
+            document_title=case_data.POLICY_DOCUMENT_TITLE,
         ),
         expected=AssertionError,
         match="invented amount",

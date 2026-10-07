@@ -23,13 +23,18 @@ from test_support.builders.benchmark import (
     _sample,
     make_calibrate_stub,
     make_forged_benchmark_summary,
+    make_forged_saved_report,
     make_generate_stub,
+    make_judge_model_catalog,
     make_subprocess_run_stub,
     prepare_invalid_summary_case,
+    with_pipeline_directory,
 )
+from test_support.data import common as case_data
 from test_support.data.benchmark import (
     INVALID_PLAN_OPTIONS_CASES,
     INVALID_SUMMARY_CHANGE_CASES,
+    NAME_METRIC_CONTEXT_PRECISION_INPUT,
     ROOT,
 )
 from test_support.fixtures.unit_benchmark import benchmark_data as benchmark_data
@@ -83,11 +88,7 @@ def test_failures_remain_visible(benchmark_data):
     report = summarize(definition, [row, _row("gym_missing", "missing_information")], calibration)
     value_checks.equal(report["status"], "failed")
     value_checks.equal(report["summary"]["metrics"]["faithfulness"]["mean"], 1)
-    row["dimensions"][2] = {
-        "name": "context_precision",
-        "metric": "context_precision",
-        "status": "error",
-    }
+    row["dimensions"][2] = case_data.fresh(NAME_METRIC_CONTEXT_PRECISION_INPUT)
     report = summarize(definition, [row], calibration)
     value_checks.equal(report["summary"]["metrics"]["context_precision"]["unavailable"], 1)
     value_checks.identical(report["summary"]["metrics"]["context_precision"]["mean"], None)
@@ -129,7 +130,7 @@ def test_control_mismatch(benchmark_data):
 def test_case_pipeline(tmp_path, benchmark_data, monkeypatch, unit_settings):
     dataset, gates, _, _, _ = benchmark_data
     case = dataset.cases[0]
-    sample_path = tmp_path / "sample.json"
+    sample_path = tmp_path / case_data.SAMPLE_FILE_NAME
     write_sample(sample_path, _sample(case, dataset))
     _mock_metrics(monkeypatch, case, dataset, sample_path)
     kwargs = dict(
@@ -152,7 +153,7 @@ def test_case_pipeline(tmp_path, benchmark_data, monkeypatch, unit_settings):
     other = tmp_path / "failed"
     other.mkdir()
     evaluation.evaluate_correctness_report.return_value["sample_sha256"] = "wrong"
-    row = evaluation.evaluate_case(sample_path, **{**kwargs, "directory": other})
+    row = evaluation.evaluate_case(sample_path, **with_pipeline_directory(kwargs, other))
     value_checks.equal(
         next((d for d in row["dimensions"] if d.get("metric") == "factual_correctness"))["status"],
         "error",
@@ -164,12 +165,14 @@ def test_case_pipeline(tmp_path, benchmark_data, monkeypatch, unit_settings):
 
 
 @title("Refusal cases run reviewed checks without invoking a semantic judge")
-def test_refusal_case_no_judge(tmp_path, benchmark_data, monkeypatch, mock_factory, unit_settings):
+def test_refusal_case_no_judge(
+    tmp_path, benchmark_data, monkeypatch, mock_factory, unit_settings, failure_factory
+):
     dataset, gates, _, _, _ = benchmark_data
     case = next(c for c in dataset.cases if c.id == "gym_missing")
-    path = tmp_path / "sample.json"
+    path = tmp_path / case_data.SAMPLE_FILE_NAME
     write_sample(path, _sample(case, dataset))
-    judge = mock_factory(side_effect=AssertionError("Unexpected judge call"))
+    judge = mock_factory(side_effect=failure_factory(AssertionError, "Unexpected judge call"))
     monkeypatch.setattr(evaluation, "evaluate_sample_report", judge)
     row = evaluation.evaluate_case(
         path,
@@ -195,7 +198,7 @@ def test_runner_pipeline(tmp_path, benchmark_data, monkeypatch, mock_factory):
     root = tmp_path / "automation"
     shutil.copytree(ROOT / "test_data", root / "test_data")
     catalog = mock_factory(status_code=200)
-    catalog.json.return_value = {"models": [{"name": "qwen3.5:4b", "digest": "judge-digest"}]}
+    catalog.json.return_value = make_judge_model_catalog()
     monkeypatch.setattr(runner.OllamaClient, "list_models", lambda _: catalog)
 
     calibrate = make_calibrate_stub(calibration)
@@ -231,13 +234,15 @@ def test_runner_pipeline(tmp_path, benchmark_data, monkeypatch, mock_factory):
 
 
 @title("Benchmark dry run performs no model or application operations")
-def test_dry_run(monkeypatch, tmp_path, capsys, mock_factory):
+def test_dry_run(monkeypatch, tmp_path, capsys, mock_factory, failure_factory):
     monkeypatch.setattr(
         "sys.argv",
         ["benchmark", "--root", str(ROOT), "--output", str(tmp_path / "new"), "--dry-run"],
     )
     monkeypatch.setattr(
-        runner, "run", mock_factory(side_effect=AssertionError("Unexpected execution"))
+        runner,
+        "run",
+        mock_factory(side_effect=failure_factory(AssertionError, "Unexpected execution")),
     )
     value_checks.equal(runner.main(), 0)
     value_checks.equal(json.loads(capsys.readouterr().out)["maximum_model_calls"], 43)
@@ -254,7 +259,7 @@ def test_generation_teardown_error(tmp_path, monkeypatch):
     dataset = load_golden_dataset(
         ROOT / "test_data/golden-policy.json", ROOT / "test_data/company-policy.txt"
     )
-    sample_path = samples / "sample.json"
+    sample_path = samples / case_data.SAMPLE_FILE_NAME
     write_sample(sample_path, _sample(dataset.cases[0], dataset))
 
     subprocess_run = make_subprocess_run_stub(sample_path)
@@ -263,18 +268,20 @@ def test_generation_teardown_error(tmp_path, monkeypatch):
     result = runner.generate_sample(root, directory, "paid_leave", "qwen3.5:4b")
     value_checks.equal(result["generation_status"], "error")
     value_checks.equal(result["generation_details"][0]["message"], "Cleanup failed")
-    value_checks.truthy((directory / "sample.json").is_file())
+    value_checks.truthy((directory / case_data.SAMPLE_FILE_NAME).is_file())
 
 
 @title("Preflight failures retain every planned result as an error without generation")
-def test_preflight_failure(tmp_path, benchmark_data, monkeypatch, mock_factory):
+def test_preflight_failure(tmp_path, benchmark_data, monkeypatch, mock_factory, failure_factory):
     dataset, gates, plan, _, _ = benchmark_data
     root = tmp_path / "automation"
     shutil.copytree(ROOT / "test_data", root / "test_data")
     monkeypatch.setattr(
-        runner.OllamaClient, "list_models", mock_factory(side_effect=RuntimeError("Offline"))
+        runner.OllamaClient,
+        "list_models",
+        mock_factory(side_effect=failure_factory(RuntimeError, "Offline")),
     )
-    generate = mock_factory(side_effect=AssertionError("Unexpected generation"))
+    generate = mock_factory(side_effect=failure_factory(AssertionError, "Unexpected generation"))
     monkeypatch.setattr(runner, "generate_sample", generate)
     report = runner.run(
         root, tmp_path / "offline", plan, dataset, gates, notify=lambda *a, **k: None
@@ -311,12 +318,7 @@ def test_forged_top_level_summary(tmp_path, benchmark_data):
     dataset, gates, _, definition, _ = benchmark_data
     make_forged_benchmark_summary(tmp_path)
     write_sample(tmp_path / "manifest.json", definition)
-    saved = {
-        "manifest": definition,
-        "results": [],
-        "calibration": {"status": "error"},
-        "status": "checks_passed",
-    }
+    saved = make_forged_saved_report(definition)
     write_sample(tmp_path / "benchmark.json", saved)
     report = load_saved_benchmark(tmp_path / "benchmark.json")
     value_checks.equal(report["status"], "error")

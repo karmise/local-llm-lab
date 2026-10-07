@@ -59,3 +59,15 @@ INVALID_CATALOGS_FAIL_BEFORE_ANY_GENERATION_DEFECT_MESSAGE_CASES = [
     ("missing reference rule", "reference is missing"),
     ("forbidden reference", "reference violates"),
 ]
+
+
+# Input for test_chat_request_explicitly_uses_chat_mode_without_changing_query_client_default
+CHAT_MODE_CONFIGURATION = {"chatMode": "chat"}
+
+
+# Input for test_chat_request_explicitly_uses_chat_mode_without_changing_query_client_default
+TEMPORARY_WORKSPACE = {"slug": "temporary"}
+
+
+# Input for test_conversation_fixture_rejects_a_query_profile
+QUERY_MODE_CONFIGURATION = {"chatMode": "query"}

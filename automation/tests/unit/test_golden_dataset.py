@@ -1,5 +1,4 @@
 import json
-from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -14,6 +13,7 @@ from test_support.builders.golden_dataset import (
     invent_missing_benefit,
     prepare_invalid_catalog_is_rejected_case,
 )
+from test_support.data import common as case_data
 from test_support.data.golden_dataset import (
     DATA_ROOT,
     DATASET,
@@ -23,13 +23,16 @@ from test_support.data.golden_dataset import (
     REFERENCE_ACCEPTANCE_CASES,
     golden_case_id,
 )
+from test_support.fixtures.unit_golden_dataset import (
+    golden_category_counts as golden_category_counts,
+)
 
 pytestmark = pytest.mark.unit
 
 
 @title("Golden catalog covers every policy section and acceptance category")
-def test_catalog_covers_policy_and_categories() -> None:
-    counts = Counter(case.category for case in DATASET.cases)
+def test_catalog_covers_policy_and_categories(golden_category_counts) -> None:
+    counts = golden_category_counts
     value_checks.equal(set(counts), CATEGORIES)
     value_checks.equal(counts["missing_information"], 3)
     value_checks.equal(counts["boundary"], 3)
@@ -54,7 +57,7 @@ def test_paid_leave_reference_matches_existing_profile() -> None:
 @title("Golden reference satisfies its configured answer and source criteria [{param_id}]")
 def test_reference_satisfies_acceptance(case) -> None:
     assertions.assert_golden_answer(
-        _response(case.reference), case=case, document_title="policy.txt"
+        _response(case.reference), case=case, document_title=case_data.POLICY_DOCUMENT_TITLE
     )
 
 
@@ -83,7 +86,9 @@ def test_missing_policy_rejects_invented_benefit(case_id: str) -> None:
     invented = invent_missing_benefit(case_id)
     errors.rejects(
         lambda: assertions.assert_golden_answer(
-            _response(case.reference + invented), case=case, document_title="policy.txt"
+            _response(case.reference + invented),
+            case=case,
+            document_title=case_data.POLICY_DOCUMENT_TITLE,
         ),
         expected=AssertionError,
         match="forbidden content",
@@ -102,7 +107,7 @@ def test_bad_evidence_is_rejected(answer, source, document, message) -> None:
         lambda: assertions.assert_golden_answer(
             _response(answer, source=source, document=document),
             case=DATASET.cases[0],
-            document_title="policy.txt",
+            document_title=case_data.POLICY_DOCUMENT_TITLE,
         ),
         expected=AssertionError,
         match=message,

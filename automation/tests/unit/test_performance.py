@@ -13,17 +13,21 @@ from test_support.assertions import pytest_runs
 from test_support.assertions import values as value_checks
 from test_support.builders.performance import (
     make_bounded_failure_workload,
+    make_rag_execution_metadata,
     make_timeout_workload,
     mutate_health_execution_conditions,
     mutate_saved_attempt,
     prepare_evidence_case,
     prepare_performance_comparison_case,
 )
+from test_support.data import common as case_data
 from test_support.data.performance import (
+    ALTERNATIVE_MACHINE_METADATA,
     BUDGET_REQUESTS_USERS_CASES,
     EVIDENCE_CHANGE_CASES,
     HEALTH_BATCH_CONTEXT,
     HEALTH_EXECUTION_CHANGES,
+    HEALTH_EXECUTION_METADATA,
     INVALID_BATCH_FIELD_CASES,
     INVALID_SAVED_ATTEMPT_CASES,
     PERFORMANCE_COMPARISON_CASES,
@@ -117,15 +121,7 @@ def test_selection(framework_pytester):
 def test_performance_comparison(change, expected):
 
     base = run_batch(lambda: None)
-    base["metadata"] = {
-        "workload": "health",
-        "system": "test",
-        "machine": "test-machine",
-        "python": "3.12",
-        "base_url": "http://localhost",
-        "warmup_requests": 0,
-        "timeout": 5,
-    }
+    base["metadata"] = case_data.fresh(HEALTH_EXECUTION_METADATA)
     current = deepcopy(base)
     prepare_performance_comparison_case(change, current)
     value_checks.equal(compare_batches(base, current)["status"], expected)
@@ -148,21 +144,7 @@ def test_saved_batch_revalidates_budget_and_numeric_types(field, value):
 def test_rag_comparison_requires_explicit_provenance(field):
 
     base = run_batch(lambda: None)
-    base["metadata"] = {
-        "workload": "rag",
-        "system": "test",
-        "machine": "test-machine",
-        "python": "3.12",
-        "base_url": "http://localhost",
-        "warmup_requests": 0,
-        "timeout": 60,
-        "policy_sha256": "a" * 64,
-        "golden_dataset_sha256": "b" * 64,
-        "case_id": "carryover_limit",
-        "model_digest": "c" * 64,
-        "generation_model": "model",
-        "configuration": {"chatModel": "model", "topN": 4},
-    }
+    base["metadata"] = make_rag_execution_metadata()
     base["metadata"].pop(field)
     value_checks.equal(compare_batches(base, deepcopy(base))["status"], "incomparable")
 
@@ -182,15 +164,7 @@ def test_incompatible_capture_mode_fails_before_external_setup(framework_pyteste
 def test_health_comparison_requires_matching_execution_conditions(change):
 
     base = run_batch(lambda: None)
-    base["metadata"] = {
-        "workload": "health",
-        "system": "test",
-        "machine": "first",
-        "python": "3.12",
-        "base_url": "http://localhost",
-        "warmup_requests": 0,
-        "timeout": 5,
-    }
+    base["metadata"] = case_data.fresh(ALTERNATIVE_MACHINE_METADATA)
     current = deepcopy(base)
     mutate_health_execution_conditions(base, change, current)
     value_checks.equal(compare_batches(base, current)["status"], "incomparable")

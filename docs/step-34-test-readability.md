@@ -95,10 +95,11 @@ models: 32 checks. Provenance, malformed evidence, failure propagation, resource
 cleanup and qualification checks remain. There is no target test count: keep a
 case when it exercises a distinct behavior or acceptance rule.
 
-Unit tests may use plain pytest assertions to verify the framework independently
-of its own assertion helpers. Application API/UI checks use `llm_testkit.assertions`.
-An explicit `pytest.raises` block is also a readable expected outcome. Conditionals
-remain appropriate inside validators, builders, fixtures and reusable checks.
+At this stage, unit bodies still used native assertions and `pytest.raises`.
+[Step 35](step-35-unit-scenario-layers.md) subsequently moves those checks into
+independent `test_support.assertions` modules. Application API/UI checks use
+`llm_testkit.assertions`. Conditionals remain appropriate inside validators,
+builders, fixtures and reusable checks.
 
 Optional judge/browser imports are lazy in supporting code, so a base installation
 can collect tests without installing every extra. Tests contain no local imports,

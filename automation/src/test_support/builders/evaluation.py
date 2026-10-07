@@ -6,6 +6,7 @@ import pytest
 from requests import Response
 
 from llm_testkit.observation.evaluation_sample import build_sample
+from test_support.data import common as case_data
 
 
 def _sample() -> dict:
@@ -14,7 +15,7 @@ def _sample() -> dict:
         "schema_version": 1,
         "boundary": "ollama-sdk-chat",
         "request": {
-            "model": "test-model",
+            "model": case_data.TEST_MODEL,
             "stream": False,
             "messages": [
                 {
@@ -31,7 +32,7 @@ def _sample() -> dict:
         question="How much leave?",
         answer="Employees receive 23 working days.",
         reference="23 working days.",
-        expected_model="test-model",
+        expected_model=case_data.TEST_MODEL,
         capture_id=capture_id,
     )
 
@@ -48,7 +49,7 @@ def _response(output: dict, *, done_reason: str = "stop") -> Response:
     response.status_code = 200
     response._content = json.dumps(
         {
-            "model": "test-model",
+            "model": case_data.TEST_MODEL,
             "done": True,
             "done_reason": done_reason,
             "message": {"content": json.dumps(output)},

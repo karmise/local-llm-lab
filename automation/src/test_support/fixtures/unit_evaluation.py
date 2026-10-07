@@ -20,19 +20,22 @@ from test_support.builders.evaluation import (
     make_Statements_schema,
 )
 from test_support.builders.judge_scenarios import FailedServiceScenario, JudgeScenario, run_async
+from test_support.data import common as case_data
 from test_support.data.evaluation import CLAIM_EXTRACTION, SUPPORTED_CLAIM_OUTPUTS
 
 
 @pytest.fixture
 def failed_evaluation_service(tmp_path, monkeypatch) -> FailedServiceScenario:
     _judge_class()
-    path = tmp_path / "sample.json"
+    path = tmp_path / case_data.SAMPLE_FILE_NAME
     path.write_text(json.dumps(_sample()))
     transport = Mock()
     client = Mock()
     catalog = Response()
     catalog.status_code = 200
-    catalog._content = json.dumps({"models": [{"name": "test-model", "digest": "digest"}]}).encode()
+    catalog._content = json.dumps(
+        {"models": [{"name": case_data.TEST_MODEL, "digest": case_data.MODEL_DIGEST}]}
+    ).encode()
     client.list_models.return_value = catalog
     judge = Mock(calls=[{"error_evidence": "incomplete generation"}], options={})
     monkeypatch.setattr(
@@ -46,7 +49,7 @@ def failed_evaluation_service(tmp_path, monkeypatch) -> FailedServiceScenario:
     monkeypatch.setattr("llm_testkit.evaluation.faithfulness.score_sample", failed_score)
     return FailedServiceScenario(
         evaluate=lambda: evaluate_sample_report(
-            path, settings=Settings(), judge_model="test-model"
+            path, settings=Settings(), judge_model=case_data.TEST_MODEL
         ),
         transport=transport,
         judge=judge,
@@ -59,7 +62,7 @@ def faithfulness_judge() -> JudgeScenario:
     client.structured_chat.side_effect = [
         _response(output) for output in deepcopy(SUPPORTED_CLAIM_OUTPUTS)
     ]
-    judge = _judge_class()(client, "test-model")
+    judge = _judge_class()(client, case_data.TEST_MODEL)
     return JudgeScenario(
         evaluate=lambda: run_async(lambda: score_sample(_sample(), judge)),
         judge=judge,
@@ -74,7 +77,7 @@ def faithfulness_judge() -> JudgeScenario:
 def invalid_faithfulness_judge(output) -> JudgeScenario:
     client = Mock()
     client.structured_chat.side_effect = [_response(CLAIM_EXTRACTION), _response(deepcopy(output))]
-    judge = _judge_class()(client, "test-model")
+    judge = _judge_class()(client, case_data.TEST_MODEL)
     return JudgeScenario(
         evaluate=lambda: run_async(lambda: score_sample(_sample(), judge)),
         judge=judge,
@@ -88,7 +91,7 @@ def invalid_faithfulness_judge(output) -> JudgeScenario:
 def truncated_judge() -> JudgeScenario:
     client = Mock()
     client.structured_chat.return_value = _response(CLAIM_EXTRACTION, done_reason="length")
-    judge = _judge_class()(client, "test-model")
+    judge = _judge_class()(client, case_data.TEST_MODEL)
     schema = make_Statements_schema()
     return JudgeScenario(
         evaluate=lambda: judge.generate("prompt", schema),

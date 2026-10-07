@@ -12,8 +12,16 @@ from test_support.assertions import values as value_checks
 from test_support.assertions.http_clients import (
     check_upload_closes_document_even_when_request_fails_outcome,
 )
-from test_support.builders.http_clients import make_upload_stub
+from test_support.builders.http_clients import (
+    make_created_workspace_payload,
+    make_upload_stub,
+    make_workspace_template,
+)
+from test_support.data import common as case_data
 from test_support.data.http_clients import (
+    AUTHENTICATED_HEADERS,
+    CHAT_MESSAGE_PAYLOAD,
+    REVIEWED_CHAT_CONFIGURATION,
     UPLOAD_CLOSES_DOCUMENT_EVEN_WHEN_REQUEST_FAILS_FAIL_CASES,
     WORKSPACE_SLUGS_ARE_ENCODED_AS_ONE_PATH_SEGMENT_SLUG_CASES,
 )
@@ -35,14 +43,22 @@ def test_transport_preserves_response_timeouts_and_redirect_contract(
             timeout=5,
             allow_redirects=False,
         )
-        http.request("POST", "chat", timeout=120, allow_redirects=True, json={"message": "hello"})
+        http.request(
+            "POST",
+            "chat",
+            timeout=120,
+            allow_redirects=True,
+            json=case_data.fresh(CHAT_MESSAGE_PAYLOAD),
+        )
         value_checks.equal(session.request.call_args.kwargs["timeout"], 120)
         value_checks.identical(session.request.call_args.kwargs["allow_redirects"], True)
     mock_checks.called_once_with(session.close)
 
 
-def test_transport_closes_and_does_not_retry_failed_generation(session: Mock, http_factory) -> None:
-    failure = requests.Timeout("Model response timed out")
+def test_transport_closes_and_does_not_retry_failed_generation(
+    session: Mock, http_factory, failure_factory
+) -> None:
+    failure = failure_factory(requests.Timeout, "Model response timed out")
     session.request.side_effect = failure
     with (
         errors.expected_error(requests.Timeout) as caught,
@@ -63,9 +79,11 @@ def test_shared_transport_does_not_leak_authentication_between_clients(
         authenticated.verify_authentication()
         anonymous.verify_authentication()
     value_checks.equal(
-        session.request.call_args_list[0].kwargs["headers"], {"Authorization": "Bearer test-key"}
+        session.request.call_args_list[0].kwargs["headers"], case_data.fresh(AUTHENTICATED_HEADERS)
     )
-    value_checks.equal(session.request.call_args_list[1].kwargs["headers"], {})
+    value_checks.equal(
+        session.request.call_args_list[1].kwargs["headers"], case_data.fresh(case_data.EMPTY_OBJECT)
+    )
 
 
 @pytest.mark.parametrize("slug", WORKSPACE_SLUGS_ARE_ENCODED_AS_ONE_PATH_SEGMENT_SLUG_CASES)
@@ -84,12 +102,13 @@ def test_workspace_slugs_are_encoded_as_one_path_segment(
 def test_workspace_creation_does_not_mutate_configuration(
     session: Mock, api_factory, http_factory
 ) -> None:
-    configuration = {"name": "template", "chatModel": "test-model"}
+    configuration = make_workspace_template()
     with http_factory("http://localhost", 5) as http:
         api_factory(http).create_workspace("temporary", configuration)
     value_checks.equal(configuration["name"], "template")
     value_checks.equal(
-        session.request.call_args.kwargs["json"], {"name": "temporary", "chatModel": "test-model"}
+        session.request.call_args.kwargs["json"],
+        make_created_workspace_payload(),
     )
 
 
@@ -97,7 +116,7 @@ def test_workspace_creation_does_not_mutate_configuration(
 def test_workspace_update_uses_authenticated_route_and_preserves_settings(
     session: Mock, api_factory, http_factory
 ) -> None:
-    configuration = {"chatMode": "chat", "openAiPrompt": "Reviewed prompt"}
+    configuration = case_data.fresh(REVIEWED_CHAT_CONFIGURATION)
     with http_factory("http://localhost", 5) as http:
         response = api_factory(http, api_key="test-key").update_workspace(
             "policy/lab", configuration
@@ -107,19 +126,19 @@ def test_workspace_update_uses_authenticated_route_and_preserves_settings(
         session.request,
         method="POST",
         url="http://localhost/api/v1/workspace/policy%2Flab/update",
-        headers={"Authorization": "Bearer test-key"},
-        json={"chatMode": "chat", "openAiPrompt": "Reviewed prompt"},
+        headers=case_data.fresh(AUTHENTICATED_HEADERS),
+        json=case_data.fresh(REVIEWED_CHAT_CONFIGURATION),
         timeout=5,
         allow_redirects=False,
     )
-    value_checks.equal(configuration, {"chatMode": "chat", "openAiPrompt": "Reviewed prompt"})
+    value_checks.equal(configuration, case_data.fresh(REVIEWED_CHAT_CONFIGURATION))
 
 
 @pytest.mark.parametrize("fail", UPLOAD_CLOSES_DOCUMENT_EVEN_WHEN_REQUEST_FAILS_FAIL_CASES)
 def test_upload_closes_document_even_when_request_fails(
     session: Mock, tmp_path: Path, fail: bool, api_factory, http_factory
 ) -> None:
-    path = tmp_path / "policy.txt"
+    path = tmp_path / case_data.POLICY_DOCUMENT_TITLE
     path.write_text("Fictional policy", encoding="utf-8")
     documents = []
 

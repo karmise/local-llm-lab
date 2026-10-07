@@ -30,3 +30,11 @@ INVALID_SUMMARY_CHANGE_CASES = [
     "false_pass",
     "inapplicable",
 ]
+
+
+# Input for test_failures_remain_visible
+NAME_METRIC_CONTEXT_PRECISION_INPUT = {
+    "name": "context_precision",
+    "metric": "context_precision",
+    "status": "error",
+}

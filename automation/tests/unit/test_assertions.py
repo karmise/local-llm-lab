@@ -5,9 +5,16 @@ import pytest
 from llm_testkit import assertions
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
-from test_support.builders.assertions import _gym_response, _response
+from test_support.builders.assertions import (
+    _gym_response,
+    _response,
+    make_answer_payload,
+    make_installed_model_entry,
+)
+from test_support.data import common as case_data
 from test_support.data.assertions import (
     MISSING_INFORMATION_REJECTS_HALLUCINATED_OR_IRRELEVANT_ANSWERS_ANSWER_MESSAGE_CASES,
+    PAID_LEAVE_FACT_PATTERNS,
     RAG_REJECTS_UNSUBSTANTIATED_FINAL_ANSWERS_ANSWER_SOURCE_TITLE_SOURCE_TEXT_MESSAGE_CASES,
     SEARCH_REJECTS_INCOMPLETE_OR_UNRELATED_RESULTS_BODY_MESSAGE_CASES,
 )
@@ -62,7 +69,7 @@ def test_search_rejects_incomplete_or_unrelated_results(body: bytes, message: st
     errors.rejects(
         lambda: assertions.assert_search_contains(
             _response(body),
-            document_title="policy.txt",
+            document_title=case_data.POLICY_DOCUMENT_TITLE,
             fragments=("23 working days", "12 calendar days"),
         ),
         expected=AssertionError,
@@ -78,18 +85,12 @@ def test_search_rejects_incomplete_or_unrelated_results(body: bytes, message: st
 def test_rag_rejects_unsubstantiated_final_answers(
     answer: str, source_title: str, source_text: str, message: str
 ) -> None:
-    payload = {
-        "type": "textResponse",
-        "error": None,
-        "close": True,
-        "textResponse": answer,
-        "sources": [{"title": source_title, "text": source_text}],
-    }
+    payload = make_answer_payload(answer, source_title, source_text)
     errors.rejects(
         lambda: assertions.assert_rag_answer(
             _response(json.dumps(payload).encode()),
-            fact_patterns={"paid leave": "\\b23\\s+working\\s+days\\b"},
-            document_title="policy.txt",
+            fact_patterns=case_data.fresh(PAID_LEAVE_FACT_PATTERNS),
+            document_title=case_data.POLICY_DOCUMENT_TITLE,
             source_fragments=("23 working days",),
         ),
         expected=AssertionError,
@@ -108,7 +109,7 @@ def test_missing_information_rejects_hallucinated_or_irrelevant_answers(
     errors.rejects(
         lambda: assertions.assert_missing_policy_information(
             _gym_response(answer),
-            document_title="policy.txt",
+            document_title=case_data.POLICY_DOCUMENT_TITLE,
             source_fragments=("gym membership reimbursement policies are not covered",),
         ),
         expected=AssertionError,
@@ -120,7 +121,7 @@ def test_missing_information_rejects_hallucinated_or_irrelevant_answers(
 def test_missing_information_accepts_document_section_numbers() -> None:
     assertions.assert_missing_policy_information(
         _gym_response("Gym reimbursement is not covered, as stated in section 4."),
-        document_title="policy.txt",
+        document_title=case_data.POLICY_DOCUMENT_TITLE,
         source_fragments=("gym membership reimbursement policies are not covered",),
     )
 
@@ -138,7 +139,7 @@ def test_model_selection_rejects_an_uninstalled_model() -> None:
 def test_model_selection_requires_a_digest() -> None:
     errors.rejects(
         lambda: assertions.assert_model_available(
-            [{"name": "test-model", "digest": ""}], "test-model"
+            [make_installed_model_entry()], case_data.TEST_MODEL
         ),
         expected=AssertionError,
         match="Expected a model digest",

@@ -92,6 +92,7 @@ Correctness remains a measurement until explicit gates are supplied. Context pre
 | `src/llm_testkit/clients/` | API routes, request payloads and file uploads; return raw responses |
 | `src/llm_testkit/pages/` | Browser locators and actions |
 | `src/llm_testkit/assertions.py` | API/answer/source/quality/UI acceptance criteria |
+| `src/test_support/assertions/` | Independent unit expectations: values, exceptions, mock calls and domain evidence |
 | `src/llm_testkit/pytest_support/options.py` | CLI selection, model matrix, opt-in validation after `-k`/`-m` |
 | `src/test_support/fixtures/` | Scoped setup, dependencies, resource ownership, evidence and cleanup |
 | `src/test_support/builders/` | Test objects, deterministic doubles and named scenario preparation |
@@ -110,10 +111,12 @@ validating other response fields. Each cleanup also verifies absence. Pytest
 reports test and teardown failures separately and still runs the remaining
 finalizers. A failed upload/indexing/check must not leave a workspace behind.
 
-Use plain pytest `assert` in unit tests to verify the framework independently of
-its own assertion helpers. Unit tests block Requests calls unless explicitly
-mocked; telemetry settings are scoped with `monkeypatch`. Lifecycle and CLI tests
-exercise real child pytest runs, not private fixture wrappers or `sys.modules`.
+Use `test_support.assertions` for unit expectations. Its native pytest checks are
+independent of application Assertions, so a broken application check cannot
+verify its own output. Exception helpers preserve type, regex matching and the
+original captured exception. Shared checks are included in the CI coverage gate.
+Unit tests block Requests calls unless explicitly mocked; telemetry settings are
+scoped with `monkeypatch`. Lifecycle and CLI tests exercise real child pytest runs.
 
 Put shared questions, references and acceptance patterns in `test_data`. API, UI
 and quality scenarios should consume the same profiles. `rag_chat` and
@@ -127,8 +130,16 @@ linear: prepare, act, check. Conditional setup, test doubles and browser simulat
 belong to test support; acceptance rules belong to `Assertions`. Optional browser
 and judge imports remain lazy in supporting code.
 
+Prefer prepared fixtures for a stable scenario, such as `correctness_judge` or
+`correctness_evidence`. Use a fixture factory when a test needs several clients,
+responses or configurations. Mutable input catalogs are copied with
+`test_support.data.common.fresh`; never mutate a shared parameter dictionary.
+Protocol field names and meaningful expected values can remain explicit in checks.
+
 The [test readability guide](../docs/step-34-test-readability.md) explains these
 boundaries and the selection of representative unit cases.
+The [shared-check and fixture guide](../docs/step-35-unit-scenario-layers.md)
+walks through the subsequent extraction of checks, object construction and payloads.
 
 Use Playwright's retrying expectations instead of fixed sleeps. After sending a
 question, the Page Object targets the next persisted assistant reply; completion

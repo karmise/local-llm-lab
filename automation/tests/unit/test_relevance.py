@@ -12,6 +12,7 @@ from test_support.assertions import errors as errors
 from test_support.assertions import judges as judge_checks
 from test_support.assertions import values as value_checks
 from test_support.builders.relevance import (
+    make_oversized_retrieval,
     make_relevance_evidence,
     prepare_evidence_binding_case,
     prepare_invalid_relevance_case,
@@ -60,9 +61,7 @@ def test_context_budget(mock_factory):
     pytest.importorskip("ragas")
     judge = mock_factory()
     errors.rejects(
-        lambda: asyncio.run(
-            score_relevance({"retrieved_contexts": ["Context"] * 5}, CASE, judge, judge)
-        ),
+        lambda: asyncio.run(score_relevance(make_oversized_retrieval(), CASE, judge, judge)),
         expected=ValueError,
         match="never truncated",
     )

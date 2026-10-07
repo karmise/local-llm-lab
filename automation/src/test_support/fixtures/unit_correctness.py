@@ -12,14 +12,21 @@ from llm_testkit.evaluation.correctness import (
     score_correctness,
 )
 from test_support.builders.correctness import (
+    CorrectnessEvidenceScenario,
+    CorrectnessQualityScenario,
+    IncompleteControlScenario,
     _calls,
+    _evidence,
     _result,
     _sample,
     append_judge_responses,
     make_failed_score_stub,
+    make_incomplete_control,
+    make_quality_scenario,
 )
 from test_support.builders.judge_scenarios import FailedServiceScenario, JudgeScenario, run_async
 from test_support.builders.optional import load_ollama_judge
+from test_support.data import common as case_data
 from test_support.data.correctness import (
     CASE,
     ROOT,
@@ -29,13 +36,15 @@ from test_support.data.correctness import (
 @pytest.fixture
 def failed_correctness_service(tmp_path, monkeypatch) -> FailedServiceScenario:
     pytest.importorskip("ragas")
-    path = tmp_path / "sample.json"
+    path = tmp_path / case_data.SAMPLE_FILE_NAME
     path.write_text(json.dumps(_sample()))
     transport = Mock()
     client = Mock()
     catalog = Response()
     catalog.status_code = 200
-    catalog._content = json.dumps({"models": [{"name": "test-model", "digest": "digest"}]}).encode()
+    catalog._content = json.dumps(
+        {"models": [{"name": case_data.TEST_MODEL, "digest": case_data.MODEL_DIGEST}]}
+    ).encode()
     client.list_models.return_value = catalog
     judge = Mock(calls=[{"error": "truncated"}], options={})
     monkeypatch.setattr(
@@ -54,7 +63,7 @@ def failed_correctness_service(tmp_path, monkeypatch) -> FailedServiceScenario:
             policy_file=ROOT / "company-policy.txt",
             case_id=CASE.id,
             settings=Settings(),
-            judge_model="test-model",
+            judge_model=case_data.TEST_MODEL,
         ),
         transport=transport,
         judge=judge,
@@ -68,7 +77,7 @@ def correctness_judge(rv, gv, expected) -> JudgeScenario:
     append_judge_responses([call["output"] for call in _calls(result)], responses)
     client = Mock()
     client.structured_chat.side_effect = responses
-    judge = load_ollama_judge()(client, "test-model", max_calls=4)
+    judge = load_ollama_judge()(client, case_data.TEST_MODEL, max_calls=4)
     return JudgeScenario(
         evaluate=lambda: run_async(lambda: score_correctness(_sample(), judge)),
         judge=judge,
@@ -76,3 +85,24 @@ def correctness_judge(rv, gv, expected) -> JudgeScenario:
         expected_score=expected,
         maximum_calls=4,
     )
+
+
+@pytest.fixture
+def correctness_evidence() -> CorrectnessEvidenceScenario:
+    sample = _sample()
+    return CorrectnessEvidenceScenario(sample, _evidence(sample))
+
+
+@pytest.fixture
+def correctness_quality(tmp_path) -> CorrectnessQualityScenario:
+    return make_quality_scenario(tmp_path)
+
+
+@pytest.fixture
+def correctness_controls():
+    return json.loads((ROOT / "correctness-controls.json").read_text())["cases"]
+
+
+@pytest.fixture
+def incomplete_control(correctness_controls) -> IncompleteControlScenario:
+    return make_incomplete_control(correctness_controls)

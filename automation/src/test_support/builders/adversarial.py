@@ -4,6 +4,7 @@ import json
 
 from requests import Response
 
+from test_support.data import common as case_data
 from test_support.data.adversarial import CASES as CASES
 from test_support.data.adversarial import DATA as DATA
 from test_support.data.adversarial import DATASET as DATASET
@@ -18,7 +19,12 @@ def answer(case, text):
             "textResponse": text,
             "close": True,
             "error": None,
-            "sources": [{"title": "policy.txt", "text": (DATA / "company-policy.txt").read_text()}],
+            "sources": [
+                {
+                    "title": case_data.POLICY_DOCUMENT_TITLE,
+                    "text": (DATA / "company-policy.txt").read_text(),
+                }
+            ],
         }
     ).encode()
     return response

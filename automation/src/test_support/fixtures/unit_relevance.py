@@ -22,6 +22,7 @@ from test_support.builders.relevance import (
     make_Judge_schema,
     result,
 )
+from test_support.data import common as case_data
 from test_support.data.relevance import (
     CASE,
     ROOT,
@@ -55,12 +56,14 @@ def failed_relevance_service(tmp_path, monkeypatch) -> FailedServiceScenario:
         expected_model="test",
         capture_id=identifier,
     )
-    path = tmp_path / "sample.json"
+    path = tmp_path / case_data.SAMPLE_FILE_NAME
     path.write_text(json.dumps(sample))
     transport, client = Mock(), Mock()
     response = Response()
     response.status_code = 200
-    response._content = json.dumps({"models": [{"name": "test", "digest": "digest"}]}).encode()
+    response._content = json.dumps(
+        {"models": [{"name": "test", "digest": case_data.MODEL_DIGEST}]}
+    ).encode()
     client.list_models.return_value = response
     precision = Mock(calls=[{"error": "Truncated"}], options={})
     recall = Mock(calls=[], options={})

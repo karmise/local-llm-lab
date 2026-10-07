@@ -13,12 +13,22 @@ from test_support.assertions.calibration import check_invalid_control_catalog
 from test_support.builders.calibration import (
     _case,
     _result,
+    make_alternative_control,
+    make_control_catalog,
+    make_error_control,
     make_factory_stub,
     make_fake_score_stub,
+    make_incomplete_policy_reply,
+    make_large_control_catalog,
+    make_mismatched_control,
+    make_numbered_control,
     prepare_control_loader_rejects_wrong_context_or_bad_labels_case,
 )
+from test_support.data import common as case_data
 from test_support.data.calibration import (
     CONTROL_LOADER_REJECTS_WRONG_CONTEXT_OR_BAD_LABELS_CHANGE_CASES,
+    FACTS_23_WORKING_DAYS_12_CALENDAR_DAYS_INPUT,
+    ORIGINAL_INPUT,
     RUNNER_REJECTS_EMPTY_OR_EXCESSIVE_CONTROL_RUNS_COUNT_CASES,
 )
 
@@ -34,7 +44,7 @@ def test_unknown_control_selection_fails_before_model_calls() -> None:
 
 @title("Targeted calibration selection removes duplicate controls")
 def test_targeted_selection_deduplicates_controls() -> None:
-    selected = select_controls([_case(), {**_case(), "id": "other"}], ["mixed", "mixed"])
+    selected = select_controls([_case(), make_alternative_control()], ["mixed", "mixed"])
     value_checks.equal([case["id"] for case in selected], ["mixed"])
 
 
@@ -43,7 +53,9 @@ def test_targeted_selection_deduplicates_controls() -> None:
 def test_runner_rejects_empty_or_excessive_control_runs(count: int, mock_factory) -> None:
     factory = mock_factory()
     errors.rejects(
-        lambda: asyncio.run(evaluate_controls({}, [_case()] * count, factory)),
+        lambda: asyncio.run(
+            evaluate_controls(case_data.fresh(case_data.EMPTY_OBJECT), [_case()] * count, factory)
+        ),
         expected=ValueError,
         match="between one and three",
     )
@@ -93,7 +105,7 @@ def test_two_expected_claims_cannot_match_one_combined_statement() -> None:
 @pytest.mark.parametrize("change", CONTROL_LOADER_REJECTS_WRONG_CONTEXT_OR_BAD_LABELS_CHANGE_CASES)
 @title("Calibration loader rejects unrelated context and invalid control labels [{param_id}]")
 def test_control_loader_rejects_wrong_context_or_bad_labels(tmp_path: Path, change: str) -> None:
-    controls = {"schema_version": 1, "required_context_fragments": ["Policy"], "cases": [_case()]}
+    controls = make_control_catalog()
     prepare_control_loader_rejects_wrong_context_or_bad_labels_case(change, controls)
     path = tmp_path / "controls.json"
     path.write_text(json.dumps(controls))
@@ -104,8 +116,8 @@ def test_control_loader_rejects_wrong_context_or_bad_labels(tmp_path: Path, chan
 def test_control_runner_preserves_mismatch_and_error_then_continues(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    cases = [_case(), {**_case(), "id": "mismatch"}, {**_case(), "id": "error"}]
-    original = {"response": "Original application answer", "retrieved_contexts": ["Policy"]}
+    cases = [_case(), make_mismatched_control(), make_error_control()]
+    original = case_data.fresh(ORIGINAL_INPUT)
     observed_responses = []
 
     fake_score = make_fake_score_stub(observed_responses)
@@ -124,11 +136,7 @@ def test_control_runner_preserves_mismatch_and_error_then_continues(
 
 @title("Large calibration catalog loads without running every control")
 def test_large_catalog_can_be_loaded_without_executing_all_cases(tmp_path: Path) -> None:
-    controls = {
-        "schema_version": 1,
-        "required_context_fragments": ["Policy"],
-        "cases": [{**_case(), "id": f"control-{i}"} for i in range(6)],
-    }
+    controls = make_large_control_catalog()
     path = tmp_path / "controls.json"
     path.write_text(json.dumps(controls))
     cases, checksum = load_controls(path, ["Policy"])
@@ -143,7 +151,7 @@ def test_large_catalog_can_be_loaded_without_executing_all_cases(tmp_path: Path)
 
 @title("Explicit oversized calibration batch is rejected before model calls")
 def test_explicit_oversized_batch_is_rejected_before_model_calls() -> None:
-    cases = [{**_case(), "id": f"control-{i}"} for i in range(4)]
+    cases = [make_numbered_control(i) for i in range(4)]
     errors.rejects(
         lambda: select_controls(cases, [case["id"] for case in cases]),
         expected=ValueError,
@@ -155,25 +163,14 @@ def test_explicit_oversized_batch_is_rejected_before_model_calls() -> None:
 def test_faithful_incomplete_answer_still_fails_required_fact_check(response_factory) -> None:
     response = response_factory()
     response.status_code = 200
-    response._content = json.dumps(
-        {
-            "type": "textResponse",
-            "error": None,
-            "close": True,
-            "textResponse": "Each employee receives 23 working days of paid leave per year.",
-            "sources": [{"title": "policy.txt", "text": "23 working days; 12 calendar days"}],
-        }
-    ).encode()
+    response._content = json.dumps(make_incomplete_policy_reply()).encode()
     # A valid faithfulness score does not excuse omission of a requested fact.
     assertions.assert_quality_score(1.0, minimum=1.0)
     errors.rejects(
         lambda: assertions.assert_rag_answer(
             response,
-            fact_patterns={
-                "23 working days": "\\b23\\s+working\\s+days\\b",
-                "12 calendar days": "\\b12\\s+calendar\\s+days\\b",
-            },
-            document_title="policy.txt",
+            fact_patterns=case_data.fresh(FACTS_23_WORKING_DAYS_12_CALENDAR_DAYS_INPUT),
+            document_title=case_data.POLICY_DOCUMENT_TITLE,
             source_fragments=("23 working days", "12 calendar days"),
         ),
         expected=AssertionError,

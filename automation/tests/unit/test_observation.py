@@ -16,12 +16,15 @@ from test_support.builders.observation import (
     _sample,
     make_fail_stub,
     make_publish_stub,
+    make_unserializable_capture_payload,
     prepare_sample_rejects_mismatched_or_ambiguous_observations_case,
     prepare_sdk_hook_preserves_request_return_values_streams_and_errors_case,
 )
+from test_support.data import common as case_data
 from test_support.data.observation import (
     INVALID_EVIDENCE_NEVER_LEAVES_PARTIAL_OUTPUT_VALUE_CASES,
     SAMPLE_REJECTS_MISMATCHED_OR_AMBIGUOUS_OBSERVATIONS_CHANGE_CASES,
+    SERIALIZABLE_CAPTURE_PAYLOAD,
 )
 from test_support.paths import AUTOMATION_ROOT
 
@@ -35,7 +38,7 @@ def test_sample_extracts_only_actual_document_context_and_preserves_request(tmp_
     sample = _sample(capture)
     value_checks.equal(sample["retrieved_contexts"], ["23 working days", "12 calendar days"])
     value_checks.equal(sample["observation"], original)
-    path = tmp_path / "sample.json"
+    path = tmp_path / case_data.SAMPLE_FILE_NAME
     write_sample(path, sample)
     value_checks.equal(json.loads(path.read_text())["reference"], "Expected answer")
     errors.rejects(lambda: write_sample(path, sample), expected=FileExistsError)
@@ -98,14 +101,17 @@ console.log(JSON.stringify({ sameRequest, sameReturn: returned === response, sam
 
 @pytest.mark.parametrize("value", INVALID_EVIDENCE_NEVER_LEAVES_PARTIAL_OUTPUT_VALUE_CASES)
 def test_invalid_evidence_never_leaves_partial_output(tmp_path, value):
-    path = tmp_path / "sample.json"
-    errors.rejects(lambda: write_sample(path, {"value": value}), expected=(ValueError, TypeError))
+    path = tmp_path / case_data.SAMPLE_FILE_NAME
+    errors.rejects(
+        lambda: write_sample(path, make_unserializable_capture_payload(value)),
+        expected=(ValueError, TypeError),
+    )
     value_checks.falsy(list(tmp_path.iterdir()))
 
 
 def test_concurrent_evidence_writers_publish_once_without_overwrite(tmp_path, evidence_workers):
 
-    path = tmp_path / "sample.json"
+    path = tmp_path / case_data.SAMPLE_FILE_NAME
 
     publish = make_publish_stub(path)
 
@@ -122,7 +128,9 @@ def test_publication_failure_removes_temporary_evidence(tmp_path, monkeypatch):
 
     monkeypatch.setattr("llm_testkit.observation.evaluation_sample.os.link", fail)
     errors.rejects(
-        lambda: write_sample(tmp_path / "sample.json", {"value": 1}),
+        lambda: write_sample(
+            tmp_path / case_data.SAMPLE_FILE_NAME, case_data.fresh(SERIALIZABLE_CAPTURE_PAYLOAD)
+        ),
         expected=OSError,
         match="publication unavailable",
     )

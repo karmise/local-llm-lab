@@ -11,6 +11,7 @@ from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.datasets.golden import GoldenCase, load_golden_dataset
+from test_support.data.authentication import INVALID_API_KEY
 
 
 @pytest.fixture(scope="session")
@@ -89,3 +90,8 @@ def golden_metadata(
     record_property("golden_dataset_sha256", dataset.sha256)
     record_property("golden_case_id", golden_case.id)
     record_property("golden_category", golden_case.category)
+
+
+@pytest.fixture
+def invalid_anythingllm_api(http_client: HttpClient) -> AnythingLLMClient:
+    return AnythingLLMClient(http_client, api_key=INVALID_API_KEY)

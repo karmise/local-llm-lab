@@ -19,9 +19,14 @@ from test_support.builders.evaluation import (
     _judge_class,
     _sample,
 )
+from test_support.data import common as case_data
 from test_support.data.evaluation import (
+    DETERMINISTIC_JUDGE_OPTIONS,
+    EXTRACTED_CLAIM_RESPONSE,
+    OBJECT_RESPONSE_SCHEMA,
     PIPELINE_REJECTS_MISSING_ALTERED_OR_INVALID_VERDICTS_OUTPUT_CASES,
     QUALITY_SCORE_REJECTS_INVALID_RESULTS_VALUE_CASES,
+    UNSUPPORTED_CLAIM_VERDICT,
 )
 from test_support.fixtures.unit_evaluation import (
     failed_evaluation_service as failed_evaluation_service,
@@ -39,7 +44,7 @@ pytestmark = pytest.mark.unit
 def test_sample_loader_rejects_context_substitution(tmp_path: Path) -> None:
     sample = _sample()
     sample["retrieved_contexts"] = ["An unrelated policy."]
-    path = tmp_path / "sample.json"
+    path = tmp_path / case_data.SAMPLE_FILE_NAME
     path.write_text(json.dumps(sample))
     errors.rejects(lambda: load_sample(path), expected=ValueError, match="contexts do not match")
 
@@ -86,12 +91,12 @@ def test_native_judge_request_disables_thinking_and_passes_schema(
     mock_factory, ollama_factory
 ) -> None:
     http = mock_factory()
-    schema = {"type": "object"}
+    schema = case_data.fresh(OBJECT_RESPONSE_SCHEMA)
     ollama_factory(http).structured_chat(
-        model="test-model",
+        model=case_data.TEST_MODEL,
         prompt="Judge this",
         schema=schema,
-        options={"temperature": 0},
+        options=case_data.fresh(DETERMINISTIC_JUDGE_OPTIONS),
     )
     payload = http.request.call_args.kwargs["json"]
     value_checks.identical(payload["think"], False)
@@ -105,7 +110,7 @@ def test_cli_preserves_failure_as_error_report(
 ) -> None:
     _judge_class()
 
-    source = tmp_path / "sample.json"
+    source = tmp_path / case_data.SAMPLE_FILE_NAME
     source.write_text("{}")
     output = tmp_path / "report.json"
     monkeypatch.setattr("sys.argv", ["faithfulness", str(source), "--output", str(output)])
@@ -146,8 +151,8 @@ def test_live_faithfulness_rejects_score_inconsistent_with_verdicts(
     monkeypatch.setattr(collections, "Faithfulness", mock_factory(return_value=metric))
     judge = mock_factory(
         calls=[
-            {"output": {"statements": ["Claim."]}},
-            {"output": {"statements": [{"statement": "Claim.", "verdict": 0}]}},
+            case_data.fresh(EXTRACTED_CLAIM_RESPONSE),
+            case_data.fresh(UNSUPPORTED_CLAIM_VERDICT),
         ]
     )
     errors.rejects(

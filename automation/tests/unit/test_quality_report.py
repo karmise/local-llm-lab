@@ -14,12 +14,16 @@ from test_support.assertions import values as value_checks
 from test_support.builders.quality_report import (
     _files,
     make_check_stub,
+    make_claim_extraction_call,
     make_load_dataset_stub,
     make_step_stub,
     prepare_invalid_judge_evidence_case,
 )
+from test_support.data import common as case_data
 from test_support.data.quality_report import (
+    INCONSISTENT_FAITHFULNESS_CALL,
     INVALID_JUDGE_EVIDENCE_CHANGE_CASES,
+    ORIGINAL_RELEVANCE_OBSERVATION,
 )
 from test_support.paths import AUTOMATION_ROOT
 
@@ -137,15 +141,15 @@ def test_relevance_dimensions_share_one_validated_evidence(tmp_path, monkeypatch
     report = build_quality_report(*paths, relevance_path=evidence_path)
     value_checks.equal([d["details"]["value"] for d in report["dimensions"][-2:]], [0.5, 0.5])
     value_checks.equal(loads, [1])
-    value_checks.equal(checks, [{"observation": 1}])
+    value_checks.equal(checks, [case_data.fresh(ORIGINAL_RELEVANCE_OBSERVATION)])
 
 
 def test_saved_faithfulness_rejects_summary_changed_from_raw_judge_calls(tmp_path):
     paths = _files(tmp_path)
     evidence = json.loads(paths[1].read_text())
     evidence["judge_calls"] = [
-        {"output": {"statements": evidence["result"]["statements"]}},
-        {"output": {"statements": [{"statement": "different claim", "verdict": 0}]}},
+        make_claim_extraction_call(evidence),
+        case_data.fresh(INCONSISTENT_FAITHFULNESS_CALL),
     ]
     paths[1].write_text(json.dumps(evidence))
     value_checks.equal(build_quality_report(*paths)["status"], "error")

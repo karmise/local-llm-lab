@@ -5,11 +5,14 @@ from copy import deepcopy
 
 from requests import Response
 
+from test_support.data import common as case_data
 from test_support.data.golden_dataset import DATA_ROOT as DATA_ROOT
 from test_support.data.golden_dataset import DATASET as DATASET
 
 
-def _response(answer: str, *, source: str | None = None, document: str = "policy.txt") -> Response:
+def _response(
+    answer: str, *, source: str | None = None, document: str = case_data.POLICY_DOCUMENT_TITLE
+) -> Response:
     response = Response()
     response.status_code = 200
     response._content = json.dumps(

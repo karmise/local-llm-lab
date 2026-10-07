@@ -18,3 +18,10 @@ CONVERSATION_SUMMARY_CHANGE_CASES = [
     "changed-catalog",
     "missing-catalog",
 ]
+
+
+# Input for test_duplicate_call_and_teardown_entries_count_as_one_run
+CLASSNAME_NAME_TEST_EXAMPLE_QWEN_RUN_1_INPUT = {
+    "classname": "tests.test_rag",
+    "name": "test_example[qwen-run-1]",
+}

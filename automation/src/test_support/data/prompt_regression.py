@@ -2,6 +2,7 @@
 
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.datasets.prompts import load_prompt_catalog
+from test_support.data import common as case_data
 from test_support.paths import AUTOMATION_ROOT
 
 ROOT = AUTOMATION_ROOT
@@ -23,7 +24,7 @@ COMPARISON_CHANGE_EXPECTED_CASES = [
     ("missing", "incomplete"),
     ("skipped", "incomplete"),
     ("error", "incomplete"),
-    ("digest", "incomplete"),
+    (case_data.MODEL_DIGEST, "incomplete"),
     ("prompt", "incomplete"),
     ("dataset", "incomplete"),
     ("duplicate", "incomplete"),

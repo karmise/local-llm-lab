@@ -2,7 +2,6 @@ import pytest
 
 from llm_testkit import assertions
 from llm_testkit.clients.anythingllm_client import AnythingLLMClient
-from llm_testkit.core.http_client import HttpClient
 from llm_testkit.reporting.steps import title
 
 
@@ -26,8 +25,7 @@ def test_missing_api_key_is_rejected(anythingllm_api: AnythingLLMClient) -> None
 
 @pytest.mark.api
 @title("Developer API rejects an invalid API key")
-def test_invalid_api_key_is_rejected(http_client: HttpClient) -> None:
-    client = AnythingLLMClient(http_client, api_key="invalid-test-key")
-    response = client.verify_authentication()
+def test_invalid_api_key_is_rejected(invalid_anythingllm_api: AnythingLLMClient) -> None:
+    response = invalid_anythingllm_api.verify_authentication()
 
     assertions.assert_api_key_rejected(response)

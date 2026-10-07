@@ -3,13 +3,24 @@
 import hashlib
 import json
 from copy import deepcopy
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 from requests import Response
 
 from llm_testkit.evaluation.correctness import METRIC_CONFIGURATION
 from llm_testkit.observation.evaluation_sample import build_sample
+from llm_testkit.reporting.quality import build_quality_report
+from test_support.data import common as case_data
 from test_support.data.correctness import CASE as CASE
 from test_support.data.correctness import DATASET as DATASET
+from test_support.data.correctness import (
+    EDITED_RAW_CLAIMS,
+    EVIDENCE_MUTATION_FIELDS,
+    INCOMPLETE_REFERENCE_CLAIMS,
+    MODIFIED_EVIDENCE_VALUE,
+)
 from test_support.data.correctness import ROOT as ROOT
 
 
@@ -43,7 +54,7 @@ def _sample():
         "schema_version": 1,
         "boundary": "ollama-sdk-chat",
         "request": {
-            "model": "test-model",
+            "model": case_data.TEST_MODEL,
             "stream": False,
             "messages": [
                 {
@@ -59,7 +70,7 @@ def _sample():
         question=CASE.question,
         answer=CASE.reference,
         reference=CASE.reference,
-        expected_model="test-model",
+        expected_model=case_data.TEST_MODEL,
         capture_id=identifier,
     )
     sample["response_sources"] = [{"title": name, "text": context}]
@@ -91,8 +102,8 @@ def _evidence(sample, checksum="sample"):
         "metric_configuration": deepcopy(METRIC_CONFIGURATION),
         "result": _result(),
         "judge_calls": _calls(_result()),
-        "judge_model": "test-model",
-        "judge_model_digest": "digest",
+        "judge_model": case_data.TEST_MODEL,
+        "judge_model_digest": case_data.MODEL_DIGEST,
     }
 
 
@@ -126,10 +137,95 @@ def append_judge_responses(outputs, responses):
         response.status_code = 200
         response._content = json.dumps(
             {
-                "model": "test-model",
+                "model": case_data.TEST_MODEL,
                 "done": True,
                 "done_reason": "stop",
                 "message": {"content": json.dumps(output)},
             }
         ).encode()
         responses.append(response)
+
+
+def make_valid_faithfulness_evidence(checksum):
+    """Build input for test_quality_report_adds_independent_correctness_measurement."""
+    return {
+        "schema_version": 1,
+        "metric": "faithfulness",
+        "status": "completed",
+        "sample_sha256": checksum,
+        "result": {
+            "value": 1.0,
+            "statements": ["Claim"],
+            "verdicts": [{"statement": "Claim", "verdict": 1}],
+        },
+        "judge_model": "judge",
+        "judge_model_digest": case_data.MODEL_DIGEST,
+        "judge_configuration": {},
+        "ragas_version": "test",
+        "created_at": "now",
+    }
+
+
+@dataclass
+class CorrectnessEvidenceScenario:
+    sample: dict[str, Any]
+    evidence: dict[str, Any]
+
+    def invalidate(self, change: str) -> None:
+        self.evidence[EVIDENCE_MUTATION_FIELDS[change]] = MODIFIED_EVIDENCE_VALUE
+
+    def corrupt_raw_claims(self) -> None:
+        self.evidence["judge_calls"][0]["output"]["claims"] = list(EDITED_RAW_CLAIMS)
+
+
+@dataclass
+class CorrectnessQualityScenario:
+    sample_path: Path
+    faithfulness_path: Path
+    correctness_path: Path
+    correctness: dict[str, Any]
+
+    def build_report(self) -> dict[str, Any]:
+        return build_quality_report(
+            self.sample_path,
+            self.faithfulness_path,
+            ROOT / "quality-paid-leave.json",
+            correctness_path=self.correctness_path,
+        )
+
+    def invalidate_sample_checksum(self) -> None:
+        self.correctness["sample_sha256"] = "other"
+        self.correctness_path.write_text(json.dumps(self.correctness))
+
+
+@dataclass
+class IncompleteControlScenario:
+    control: dict[str, Any]
+    result: dict[str, Any]
+
+    def attribute_missing_claim(self) -> None:
+        self.result["reference_verdicts"] = _verdicts(INCOMPLETE_REFERENCE_CLAIMS, (1, 1))
+        self.result["value"] = 1.0
+
+
+def make_quality_scenario(tmp_path: Path) -> CorrectnessQualityScenario:
+    sample = _sample()
+    source = tmp_path / case_data.SAMPLE_FILE_NAME
+    source.write_text(json.dumps(sample))
+    checksum = hashlib.sha256(source.read_bytes()).hexdigest()
+    faith_path = tmp_path / "faith.json"
+    faith_path.write_text(json.dumps(make_valid_faithfulness_evidence(checksum)))
+    correctness = _evidence(sample, checksum)
+    correctness["result"] = _result((0, 0), (0, 0), 0.0)
+    correctness["judge_calls"] = _calls(correctness["result"])
+    correct_path = tmp_path / "correct.json"
+    correct_path.write_text(json.dumps(correctness))
+    return CorrectnessQualityScenario(source, faith_path, correct_path, correctness)
+
+
+def make_incomplete_control(controls) -> IncompleteControlScenario:
+    control = next(c for c in controls if c["id"] == "incomplete")
+    result = _result((1, 1), (1, 0), 0.8)
+    result["reference_claims"] = list(INCOMPLETE_REFERENCE_CLAIMS)
+    result["reference_verdicts"] = _verdicts(INCOMPLETE_REFERENCE_CLAIMS, (1, 0))
+    return IncompleteControlScenario(control, result)

@@ -77,3 +77,19 @@ PLAN_REJECTS_AMBIGUOUS_PATHS_AND_PHASE_TYPES_CHANGE_CASES = [
     "data-alias",
     "phase-type",
 ]
+
+
+# Input for test_matching_requirements
+MATCHING_GOLDEN_CASE_METADATA = {"golden_case_id": "first"}
+
+
+# Input for test_matching_requirements
+OTHER_GOLDEN_CASE_METADATA = {"golden_case_id": "other"}
+
+
+# Input for test_trace_outcomes
+FINAL_OUTCOME_STATUSES = {"passed": "passed", "failed": "failed"}
+
+
+# Input for test_trace_outcomes
+INCOMPLETE_OUTCOME_STATUSES = {"error": "incomplete", "skipped": "incomplete"}
