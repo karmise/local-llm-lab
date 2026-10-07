@@ -17,6 +17,8 @@ from llm_testkit.evaluation.faithfulness import (
     score_sample,
 )
 from llm_testkit.reporting.steps import title
+from test_support.assertions import errors as errors
+from test_support.assertions import values as value_checks
 from test_support.builders.evaluation import (
     _judge_class,
     _response,
@@ -38,21 +40,22 @@ def test_sample_loader_rejects_context_substitution(tmp_path: Path) -> None:
     sample["retrieved_contexts"] = ["An unrelated policy."]
     path = tmp_path / "sample.json"
     path.write_text(json.dumps(sample))
-    with pytest.raises(ValueError, match="contexts do not match"):
-        load_sample(path)
+    errors.rejects(lambda: load_sample(path), expected=ValueError, match="contexts do not match")
 
 
 @pytest.mark.parametrize("value", QUALITY_SCORE_REJECTS_INVALID_RESULTS_VALUE_CASES)
 @title("Quality-score check rejects invalid values [{param_id}]")
 def test_quality_score_rejects_invalid_results(value: object) -> None:
-    with pytest.raises(AssertionError):
-        assertions.assert_quality_score(value)
+    errors.rejects(lambda: assertions.assert_quality_score(value), expected=AssertionError)
 
 
 @title("Quality threshold rejects a score below the required minimum")
 def test_quality_threshold_rejects_low_score() -> None:
-    with pytest.raises(AssertionError, match="below"):
-        assertions.assert_quality_score(0.5, minimum=0.8)
+    errors.rejects(
+        lambda: assertions.assert_quality_score(0.5, minimum=0.8),
+        expected=AssertionError,
+        match="below",
+    )
 
 
 @title("RAGAS computes supported-claim ratio from mocked judge responses")
@@ -76,11 +79,12 @@ def test_real_ragas_pipeline_computes_supported_claim_ratio_without_network() ->
     ]
     judge = Judge(client, "test-model")
     result = asyncio.run(score_sample(_sample(), judge))
-    assert result["value"] == 0.5
-    assert client.structured_chat.call_count == 2
-    assert client.structured_chat.call_args.kwargs["options"] == judge.options
-    with pytest.raises(ValueError, match="budget"):
-        judge.generate("extra request", type(Mock()))
+    value_checks.equal(result["value"], 0.5)
+    value_checks.equal(client.structured_chat.call_count, 2)
+    value_checks.equal(client.structured_chat.call_args.kwargs["options"], judge.options)
+    errors.rejects(
+        lambda: judge.generate("extra request", type(Mock())), expected=ValueError, match="budget"
+    )
 
 
 @pytest.mark.parametrize(
@@ -95,8 +99,10 @@ def test_pipeline_rejects_missing_altered_or_invalid_verdicts(output: dict) -> N
         _response({"statements": ["Claim."]}),
         _response(copy.deepcopy(output)),
     ]
-    with pytest.raises((ValueError, AssertionError)):
-        asyncio.run(score_sample(_sample(), Judge(client, "test-model")))
+    errors.rejects(
+        lambda: asyncio.run(score_sample(_sample(), Judge(client, "test-model"))),
+        expected=(ValueError, AssertionError),
+    )
 
 
 @title("Local judge rejects truncated generation without retrying")
@@ -109,9 +115,12 @@ def test_judge_rejects_truncated_generation_without_retry() -> None:
     client.structured_chat.return_value = _response(
         {"statements": ["Claim."]}, done_reason="length"
     )
-    with pytest.raises(ValueError, match="truncated"):
-        Judge(client, "test-model").generate("prompt", Statements)
-    assert client.structured_chat.call_count == 1
+    errors.rejects(
+        lambda: Judge(client, "test-model").generate("prompt", Statements),
+        expected=ValueError,
+        match="truncated",
+    )
+    value_checks.equal(client.structured_chat.call_count, 1)
 
 
 @title("Native judge request disables thinking and includes the response schema")
@@ -125,9 +134,9 @@ def test_native_judge_request_disables_thinking_and_passes_schema() -> None:
         options={"temperature": 0},
     )
     payload = http.request.call_args.kwargs["json"]
-    assert payload["think"] is False
-    assert payload["stream"] is False
-    assert payload["format"] == schema
+    value_checks.identical(payload["think"], False)
+    value_checks.identical(payload["stream"], False)
+    value_checks.equal(payload["format"], schema)
 
 
 @title("Faithfulness CLI preserves a failure in its error report")
@@ -140,10 +149,10 @@ def test_cli_preserves_failure_as_error_report(
     source.write_text("{}")
     output = tmp_path / "report.json"
     monkeypatch.setattr("sys.argv", ["faithfulness", str(source), "--output", str(output)])
-    assert main() == 1
+    value_checks.equal(main(), 1)
     report = json.loads(output.read_text())
-    assert report["status"] == "error"
-    assert report["error"]["type"] == "KeyError"
+    value_checks.equal(report["status"], "error")
+    value_checks.equal(report["error"]["type"], "KeyError")
 
 
 @title("Faithfulness CLI refuses to overwrite an existing report before model calls")
@@ -154,10 +163,9 @@ def test_cli_refuses_to_overwrite_report_before_model_calls(
     output = tmp_path / "report.json"
     output.write_text("existing")
     monkeypatch.setattr("sys.argv", ["faithfulness", "missing-sample", "--output", str(output)])
-    with pytest.raises(SystemExit) as error:
-        main()
-    assert error.value.code == 2
-    assert output.read_text() == "existing"
+    error = errors.rejects(lambda: main(), expected=SystemExit)
+    value_checks.equal(error.value.code, 2)
+    value_checks.equal(output.read_text(), "existing")
 
 
 @title("Evaluation service preserves judge failure and closes its HTTP transport")
@@ -188,10 +196,10 @@ def test_evaluation_service_preserves_judge_failure_and_closes_transport(
 
     monkeypatch.setattr("llm_testkit.evaluation.faithfulness.score_sample", failed_score)
     report = evaluate_sample_report(path, settings=Settings(), judge_model="test-model")
-    assert report["status"] == "error"
-    assert report["error"]["type"] == "ValueError"
-    assert report["judge_calls"] == judge.calls
-    assert transport.close.call_count == 1
+    value_checks.equal(report["status"], "error")
+    value_checks.equal(report["error"]["type"], "ValueError")
+    value_checks.equal(report["judge_calls"], judge.calls)
+    value_checks.equal(transport.close.call_count, 1)
 
 
 def test_live_faithfulness_rejects_score_inconsistent_with_verdicts(monkeypatch):
@@ -207,5 +215,6 @@ def test_live_faithfulness_rejects_score_inconsistent_with_verdicts(monkeypatch)
             {"output": {"statements": [{"statement": "Claim.", "verdict": 0}]}},
         ]
     )
-    with pytest.raises(ValueError, match="score"):
-        asyncio.run(score_sample(_sample(), judge))
+    errors.rejects(
+        lambda: asyncio.run(score_sample(_sample(), judge)), expected=ValueError, match="score"
+    )

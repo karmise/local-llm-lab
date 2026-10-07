@@ -13,8 +13,10 @@ from llm_testkit.reporting.drift import (
 )
 from llm_testkit.reporting.gates import METRICS
 from llm_testkit.reporting.steps import title
+from test_support.assertions import errors as errors
+from test_support.assertions import values as value_checks
+from test_support.assertions.drift import check_snapshot_assembly_outcome
 from test_support.builders.drift import (
-    check_snapshot_assembly_outcome,
     mutate_snapshot_evidence,
     prepare_comparison_case,
     prepare_invalid_snapshot_case,
@@ -45,22 +47,24 @@ def test_comparison(change, status):
     changes = {}
     prepare_comparison_case(base, change, changes)
     report = compare_snapshots(base, snapshot("b", **changes))
-    assert report["status"] == status
-    assert report["generation_model_changed"] == (change == "model")
+    value_checks.equal(report["status"], status)
+    value_checks.equal(report["generation_model_changed"], change == "model")
 
 
 @title("An identical captured answer is not a new time-series observation")
 def test_duplicate_and_integrity(tmp_path):
     base = snapshot()
     path = record_snapshot(tmp_path, base)
-    assert path.exists()
-    with pytest.raises(ValueError, match="already recorded"):
-        record_snapshot(tmp_path, snapshot(run_id="other"))
-    assert compare_snapshots(base, base)["status"] == "duplicate"
+    value_checks.truthy(path.exists())
+    errors.rejects(
+        lambda: record_snapshot(tmp_path, snapshot(run_id="other")),
+        expected=ValueError,
+        match="already recorded",
+    )
+    value_checks.equal(compare_snapshots(base, base)["status"], "duplicate")
     edited = deepcopy(base)
     edited["metrics"]["faithfulness"] = 0.0
-    with pytest.raises(ValueError, match="integrity"):
-        validate_snapshot(edited)
+    errors.rejects(lambda: validate_snapshot(edited), expected=ValueError, match="integrity")
 
 
 @pytest.mark.parametrize("change", INVALID_SNAPSHOT_CHANGE_CASES)
@@ -69,20 +73,21 @@ def test_invalid_snapshot(change):
     row = snapshot()
     row.pop("snapshot_sha256")
     prepare_invalid_snapshot_case(change, row)
-    with pytest.raises((ValueError, AssertionError)):
-        validate_snapshot(seal_snapshot(row))
+    errors.rejects(
+        lambda: validate_snapshot(seal_snapshot(row)), expected=(ValueError, AssertionError)
+    )
 
 
 @title("Allowed metric-drop boundary passes without rounding small regressions away")
 def test_drop_boundary():
     base = snapshot()
-    assert (
-        compare_snapshots(base, snapshot("b", metrics=dict.fromkeys(METRICS, 0.95)))["status"]
-        == "passed"
+    value_checks.equal(
+        compare_snapshots(base, snapshot("b", metrics=dict.fromkeys(METRICS, 0.95)))["status"],
+        "passed",
     )
-    assert (
-        compare_snapshots(base, snapshot("b", metrics=dict.fromkeys(METRICS, 0.949)))["status"]
-        == "regression"
+    value_checks.equal(
+        compare_snapshots(base, snapshot("b", metrics=dict.fromkeys(METRICS, 0.949)))["status"],
+        "regression",
     )
 
 
@@ -163,19 +168,19 @@ def test_snapshot_assembly(tmp_path, monkeypatch, change):
 
 @pytest.mark.parametrize("run_id", HISTORY_ID_CANNOT_ESCAPE_DESTINATION_RUN_ID_CASES)
 def test_history_id_cannot_escape_destination(tmp_path, run_id):
-    with pytest.raises(ValueError):
-        record_snapshot(tmp_path / "history", snapshot(run_id=run_id))
-    assert not (tmp_path / "escaped.json").exists()
+    errors.rejects(
+        lambda: record_snapshot(tmp_path / "history", snapshot(run_id=run_id)), expected=ValueError
+    )
+    value_checks.falsy((tmp_path / "escaped.json").exists())
 
 
 def test_sealing_snapshot_is_idempotent():
     row = snapshot()
-    assert seal_snapshot(row) == row
+    value_checks.equal(seal_snapshot(row), row)
 
 
 @pytest.mark.parametrize("field", RESEALED_HISTORY_FIELD_CASES)
 def test_resealed_history_revalidates_provenance_contents(field):
     row = snapshot()
     prepare_resealed_history_case(field, row)
-    with pytest.raises(ValueError):
-        validate_snapshot(seal_snapshot(row))
+    errors.rejects(lambda: validate_snapshot(seal_snapshot(row)), expected=ValueError)

@@ -34,16 +34,6 @@ def _report(tmp_path: Path, outcomes: list[str], digests: list[str] | None = Non
     return path
 
 
-def check_golden_summary_outcome(rows, same_case):
-    if same_case:
-        assert len(rows) == 1
-        assert rows[0]["configuration_consistent"] is False
-    else:
-        assert len(rows) == 2
-        assert all(row["runs"] == 1 for row in rows)
-        assert all(not row["mixed_pass_fail_observed"] for row in rows)
-
-
 def prepare_configuration_metadata_case(change, i, prop, props):
     if change == "conflict" and i == 0:
         props.insert(0, ET.Element("property", name="model_digest", value="stale"))
@@ -59,16 +49,6 @@ def prepare_conversation_summary_case(change, i, props):
             name="conversation_catalog_sha256",
             value=str(i) if change == "changed-catalog" else "catalog",
         )
-
-
-def check_conversation_summary_outcome(change, rows):
-    if change == "different-cases":
-        assert len(rows) == 2
-        assert all(row["runs"] == 1 and not row["mixed_pass_fail_observed"] for row in rows)
-    else:
-        assert len(rows) == 1
-        assert rows[0]["configuration_consistent"] is False
-        assert rows[0]["metadata_complete"] is (change == "changed-catalog")
 
 
 def add_golden_case_metadata(same_case, tree):

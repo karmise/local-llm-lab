@@ -2,7 +2,7 @@
 
 import pytest
 
-pytest.register_assert_rewrite("llm_testkit.assertions")
+pytest.register_assert_rewrite("llm_testkit.assertions", "test_support.assertions")
 
 pytest_plugins = (
     "test_support.fixtures.conversation",

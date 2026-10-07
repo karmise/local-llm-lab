@@ -34,14 +34,6 @@ def make_operation_stub(failure, result):
     return operation
 
 
-def check_reported_operation_outcome(
-    backend,
-):
-    if backend is not None:
-        assert backend.attach.call_count == 0
-        assert backend.dynamic.parameter.call_count == 0
-
-
 def make_missing_allure_stub():
     def missing_allure(name: str):
         raise ModuleNotFoundError("Allure is not installed", name="allure")

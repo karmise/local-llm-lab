@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from requests import Response
 
-from llm_testkit.evaluation.correctness import METRIC_CONFIGURATION, validate_control
+from llm_testkit.evaluation.correctness import METRIC_CONFIGURATION
 from llm_testkit.observation.evaluation_sample import build_sample
 from test_support.data.correctness import CASE as CASE
 from test_support.data.correctness import DATASET as DATASET
@@ -133,9 +133,3 @@ def append_judge_responses(outputs, responses):
             }
         ).encode()
         responses.append(response)
-
-
-def check_control_expectations(cases):
-    for control in cases:
-        validate_control(control)
-        assert control["case_id"] == CASE.id

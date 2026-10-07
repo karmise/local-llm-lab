@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from test_support.assertions import errors as errors
 from test_support.builders.catalog_validation import (
     prepare_malformed_catalog_case,
     set_invalid_lookup_field,
@@ -27,8 +28,7 @@ def test_malformed_catalogs_raise_actionable_validation_errors(tmp_path, catalog
     data = prepare_malformed_catalog_case(change, data, rows_key)
     path = tmp_path / "invalid.json"
     path.write_text(json.dumps(data))
-    with pytest.raises(ValueError):
-        load(path)
+    errors.rejects(lambda: load(path), expected=ValueError)
 
 
 @pytest.mark.parametrize("catalog", DUPLICATE_JSON_FIELDS_CATALOG_CASES)
@@ -37,8 +37,7 @@ def test_duplicate_json_fields_are_not_silently_overwritten(tmp_path, catalog):
     raw = (DATA / filename).read_text()
     path = tmp_path / "ambiguous.json"
     path.write_text('{"schema_version": 0,' + raw.lstrip()[1:])
-    with pytest.raises(ValueError, match="duplicate JSON field"):
-        load(path)
+    errors.rejects(lambda: load(path), expected=ValueError, match="duplicate JSON field")
 
 
 @pytest.mark.parametrize(
@@ -51,5 +50,4 @@ def test_nonstring_lookup_fields_raise_validation_errors(tmp_path, catalog, fiel
     set_invalid_lookup_field(data, field, rows_key)
     path = tmp_path / "invalid.json"
     path.write_text(json.dumps(data))
-    with pytest.raises(ValueError):
-        load(path)
+    errors.rejects(lambda: load(path), expected=ValueError)

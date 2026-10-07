@@ -77,8 +77,3 @@ def make_fail_stub():
         raise OSError("publication unavailable")
 
     return fail
-
-
-def check_capture_hook_results(actual):
-    for field in ("sameRequest", "sameReturn", "sameStream", "sameError"):
-        assert actual[field] is True

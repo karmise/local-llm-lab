@@ -4,11 +4,8 @@ import hashlib
 import json
 from copy import deepcopy
 
-import pytest
-
 from llm_testkit.reporting.drift import (
     digest,
-    make_snapshot,
     seal_snapshot,
 )
 from llm_testkit.reporting.gates import METRICS
@@ -101,17 +98,6 @@ def prepare_snapshot_assembly_case_2(change, evidence, path, quality, sample):
         evidence.write_text(evidence.read_text() + "\n")
     elif change == "changed-dataset":
         quality["golden_dataset_sha256"] = "0" * 64
-
-
-def check_snapshot_assembly_outcome(arguments, case, change, path):
-    if change != "none":
-        with pytest.raises(ValueError):
-            make_snapshot(path, **arguments)
-    else:
-        row = make_snapshot(path, **arguments)
-        assert row["configuration"]["openAiPrompt"] == "Policy"
-        assert row["case_id"] == case.id
-        assert set(row["evidence_sha256"]) == {"faithfulness", "correctness", "relevance"}
 
 
 def prepare_resealed_history_case(field, row):

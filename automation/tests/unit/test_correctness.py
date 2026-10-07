@@ -18,6 +18,9 @@ from llm_testkit.evaluation.correctness import (
 )
 from llm_testkit.reporting.quality import build_quality_report
 from llm_testkit.reporting.steps import title
+from test_support.assertions import errors as errors
+from test_support.assertions import values as value_checks
+from test_support.assertions.correctness import check_control_expectations
 from test_support.builders.correctness import (
     _calls,
     _evidence,
@@ -25,7 +28,6 @@ from test_support.builders.correctness import (
     _sample,
     _verdicts,
     append_judge_responses,
-    check_control_expectations,
     make_failed_score_stub,
     prepare_invalid_claim_evidence_is_rejected_case,
 )
@@ -68,10 +70,9 @@ def test_real_ragas_correctness_with_mocked_judge(rv, gv, expected):
     client.structured_chat.side_effect = responses
     judge = OllamaJudge(client, "test-model", max_calls=4)
     scored = asyncio.run(score_correctness(_sample(), judge))
-    assert scored["value"] == expected
-    assert client.structured_chat.call_count == 4
-    with pytest.raises(ValueError, match="budget"):
-        judge.generate("extra", Mock())
+    value_checks.equal(scored["value"], expected)
+    value_checks.equal(client.structured_chat.call_count, 4)
+    errors.rejects(lambda: judge.generate("extra", Mock()), expected=ValueError, match="budget")
 
 
 @pytest.mark.parametrize("change", INVALID_CLAIM_EVIDENCE_IS_REJECTED_CHANGE_CASES)
@@ -79,8 +80,7 @@ def test_real_ragas_correctness_with_mocked_judge(rv, gv, expected):
 def test_invalid_claim_evidence_is_rejected(change):
     result = _result()
     prepare_invalid_claim_evidence_is_rejected_case(change, result)
-    with pytest.raises(ValueError):
-        validate_result(result)
+    errors.rejects(lambda: validate_result(result), expected=ValueError)
 
 
 @pytest.mark.parametrize("change", UNRELATED_OR_SYNTHETIC_EVIDENCE_IS_REJECTED_CHANGE_CASES)
@@ -100,20 +100,23 @@ def test_unrelated_or_synthetic_evidence_is_rejected(change):
         "unfinished": "status",
     }[change]
     evidence[field] = "changed"
-    with pytest.raises(ValueError):
-        check_correctness_evidence(evidence, "sample", sample, DATASET)
+    errors.rejects(
+        lambda: check_correctness_evidence(evidence, "sample", sample, DATASET), expected=ValueError
+    )
 
 
 @title("Correctness rejects substituted reference and stale sample provenance")
 def test_sample_must_use_current_golden_reference():
     sample = _sample()
     sample["reference"] = "Edited reference"
-    with pytest.raises(ValueError, match="question/reference"):
-        bind_case(sample, DATASET, CASE.id)
+    errors.rejects(
+        lambda: bind_case(sample, DATASET, CASE.id), expected=ValueError, match="question/reference"
+    )
     sample = _sample()
     sample["metadata"] = {"golden_dataset_sha256": "stale"}
-    with pytest.raises(ValueError, match="provenance"):
-        bind_case(sample, DATASET, CASE.id)
+    errors.rejects(
+        lambda: bind_case(sample, DATASET, CASE.id), expected=ValueError, match="provenance"
+    )
 
 
 @title("Optional correctness records a valid low score and independently rejects broken evidence")
@@ -148,16 +151,16 @@ def test_quality_report_adds_independent_correctness_measurement(tmp_path):
     report = build_quality_report(
         source, faith_path, ROOT / "quality-paid-leave.json", correctness_path=correct_path
     )
-    assert len(report["dimensions"]) == 4
-    assert report["status"] == "checks_passed"
-    assert report["dimensions"][-1]["details"]["value"] == 0.0
+    value_checks.length(report["dimensions"], 4)
+    value_checks.equal(report["status"], "checks_passed")
+    value_checks.equal(report["dimensions"][-1]["details"]["value"], 0.0)
     correctness["sample_sha256"] = "other"
     correct_path.write_text(json.dumps(correctness))
     report = build_quality_report(
         source, faith_path, ROOT / "quality-paid-leave.json", correctness_path=correct_path
     )
-    assert report["dimensions"][-1]["status"] == "error"
-    assert report["dimensions"][2]["status"] == "measured"
+    value_checks.equal(report["dimensions"][-1]["status"], "error")
+    value_checks.equal(report["dimensions"][2]["status"], "measured")
 
 
 @title("Correctness CLI refuses overwriting evidence before model calls")
@@ -168,10 +171,9 @@ def test_correctness_cli_refuses_overwrite(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "sys.argv", ["correctness", "sample", "--case", "paid_leave", "--output", str(output)]
     )
-    with pytest.raises(SystemExit) as error:
-        main()
-    assert error.value.code == 2
-    assert output.read_text() == "existing"
+    error = errors.rejects(lambda: main(), expected=SystemExit)
+    value_checks.equal(error.value.code, 2)
+    value_checks.equal(output.read_text(), "existing")
 
 
 @title("Correctness controls tolerate decomposition variation while verifying omission labels")
@@ -191,14 +193,13 @@ def test_incomplete_control_checks_semantics_instead_of_fixed_claim_count():
     check_control(result, control)
     result["reference_verdicts"] = _verdicts(claims, (1, 1))
     result["value"] = 1.0
-    with pytest.raises(ValueError):
-        check_control(result, control)
+    errors.rejects(lambda: check_control(result, control), expected=ValueError)
 
 
 @title("All curated correctness controls have valid labelled expectations")
 def test_control_catalog_has_valid_expectations():
     cases = json.loads((ROOT / "correctness-controls.json").read_text())["cases"]
-    assert len({c["id"] for c in cases}) == len(cases) == 4
+    value_checks.truthy(len({c["id"] for c in cases}) == len(cases) == 4)
     check_control_expectations(cases)
 
 
@@ -207,8 +208,9 @@ def test_raw_calls_must_match_summary():
     sample = _sample()
     evidence = _evidence(sample)
     evidence["judge_calls"][0]["output"]["claims"] = ["Edited"]
-    with pytest.raises(ValueError):
-        check_correctness_evidence(evidence, "sample", sample, DATASET)
+    errors.rejects(
+        lambda: check_correctness_evidence(evidence, "sample", sample, DATASET), expected=ValueError
+    )
 
 
 @title("Correctness service preserves failure evidence and closes its transport")
@@ -243,6 +245,6 @@ def test_correctness_service_closes_transport_on_judge_error(tmp_path, monkeypat
         settings=Settings(),
         judge_model="test-model",
     )
-    assert report["status"] == "error"
-    assert report["judge_calls"] == judge.calls
-    assert transport.close.call_count == 1
+    value_checks.equal(report["status"], "error")
+    value_checks.equal(report["judge_calls"], judge.calls)
+    value_checks.equal(transport.close.call_count, 1)

@@ -9,10 +9,12 @@ import pytest
 
 from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.reporting.steps import title
+from test_support.assertions import errors as errors
+from test_support.assertions import values as value_checks
+from test_support.assertions.observation import check_capture_hook_results
 from test_support.builders.observation import (
     _capture,
     _sample,
-    check_capture_hook_results,
     make_fail_stub,
     make_publish_stub,
     prepare_sample_rejects_mismatched_or_ambiguous_observations_case,
@@ -32,13 +34,12 @@ def test_sample_extracts_only_actual_document_context_and_preserves_request(tmp_
     capture = _capture()
     original = copy.deepcopy(capture)
     sample = _sample(capture)
-    assert sample["retrieved_contexts"] == ["23 working days", "12 calendar days"]
-    assert sample["observation"] == original
+    value_checks.equal(sample["retrieved_contexts"], ["23 working days", "12 calendar days"])
+    value_checks.equal(sample["observation"], original)
     path = tmp_path / "sample.json"
     write_sample(path, sample)
-    assert json.loads(path.read_text())["reference"] == "Expected answer"
-    with pytest.raises(FileExistsError):
-        write_sample(path, sample)
+    value_checks.equal(json.loads(path.read_text())["reference"], "Expected answer")
+    errors.rejects(lambda: write_sample(path, sample), expected=FileExistsError)
 
 
 @pytest.mark.parametrize("change", SAMPLE_REJECTS_MISMATCHED_OR_AMBIGUOUS_OBSERVATIONS_CHANGE_CASES)
@@ -48,8 +49,7 @@ def test_sample_rejects_mismatched_or_ambiguous_observations(change: str) -> Non
     request = capture["request"]
     system = request["messages"][0]
     prepare_sample_rejects_mismatched_or_ambiguous_observations_case(change, request, system)
-    with pytest.raises(ValueError):
-        _sample(capture)
+    errors.rejects(lambda: _sample(capture), expected=ValueError)
 
 
 @title("SDK capture hook preserves requests, return values, streams and exceptions")
@@ -92,17 +92,16 @@ console.log(JSON.stringify({ sameRequest, sameReturn: returned === response, sam
     )
     actual = json.loads(result.stdout)
     check_capture_hook_results(actual)
-    assert actual["files"] == 1
+    value_checks.equal(actual["files"], 1)
     saved = json.loads(next(tmp_path.glob("*.json")).read_text())
-    assert saved["request"] == _capture()["request"]
+    value_checks.equal(saved["request"], _capture()["request"])
 
 
 @pytest.mark.parametrize("value", INVALID_EVIDENCE_NEVER_LEAVES_PARTIAL_OUTPUT_VALUE_CASES)
 def test_invalid_evidence_never_leaves_partial_output(tmp_path, value):
     path = tmp_path / "sample.json"
-    with pytest.raises((ValueError, TypeError)):
-        write_sample(path, {"value": value})
-    assert not list(tmp_path.iterdir())
+    errors.rejects(lambda: write_sample(path, {"value": value}), expected=(ValueError, TypeError))
+    value_checks.falsy(list(tmp_path.iterdir()))
 
 
 def test_concurrent_evidence_writers_publish_once_without_overwrite(tmp_path):
@@ -114,16 +113,19 @@ def test_concurrent_evidence_writers_publish_once_without_overwrite(tmp_path):
     with ThreadPoolExecutor(max_workers=4) as workers:
         outcomes = list(workers.map(publish, range(4)))
     winners = [i for i in outcomes if i is not None]
-    assert len(winners) == 1
-    assert json.loads(path.read_text())["writer"] == winners[0]
-    assert path.stat().st_mode & 0o777 == 0o600
-    assert list(tmp_path.iterdir()) == [path]
+    value_checks.length(winners, 1)
+    value_checks.equal(json.loads(path.read_text())["writer"], winners[0])
+    value_checks.equal(path.stat().st_mode & 511, 384)
+    value_checks.equal(list(tmp_path.iterdir()), [path])
 
 
 def test_publication_failure_removes_temporary_evidence(tmp_path, monkeypatch):
     fail = make_fail_stub()
 
     monkeypatch.setattr("llm_testkit.observation.evaluation_sample.os.link", fail)
-    with pytest.raises(OSError, match="publication unavailable"):
-        write_sample(tmp_path / "sample.json", {"value": 1})
-    assert not list(tmp_path.iterdir())
+    errors.rejects(
+        lambda: write_sample(tmp_path / "sample.json", {"value": 1}),
+        expected=OSError,
+        match="publication unavailable",
+    )
+    value_checks.falsy(list(tmp_path.iterdir()))

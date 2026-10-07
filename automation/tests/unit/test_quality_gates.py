@@ -6,6 +6,9 @@ import pytest
 from llm_testkit import assertions
 from llm_testkit.reporting.gates import apply_quality_gates, load_quality_gates
 from llm_testkit.reporting.steps import title
+from test_support.assertions import errors as errors
+from test_support.assertions import pytest_runs
+from test_support.assertions import values as value_checks
 from test_support.builders.quality_gates import (
     measured_report,
     prepare_configuration_case,
@@ -30,10 +33,10 @@ def test_apply_gates():
     before = deepcopy(report)
     gated = apply_quality_gates(report, GATES)
     assertions.assert_quality_report(gated)
-    assert gated["status"] == "checks_passed"
-    assert report == before
-    assert gated["quality_gates"]["calibration"] == "experimental"
-    assert all(d["status"] == "passed" for d in gated["dimensions"])
+    value_checks.equal(gated["status"], "checks_passed")
+    value_checks.equal(report, before)
+    value_checks.equal(gated["quality_gates"]["calibration"], "experimental")
+    value_checks.all_true((d["status"] == "passed" for d in gated["dimensions"]))
 
 
 @pytest.mark.parametrize("metric,change,expected_status", FAIL_CLOSED_CASES)
@@ -43,9 +46,8 @@ def test_fail_closed(metric, change, expected_status):
     row = next(d for d in report["dimensions"] if d.get("metric") == metric)
     prepare_fail_closed_case(change, report, row)
     gated = apply_quality_gates(report, GATES)
-    assert gated["status"] == expected_status
-    with pytest.raises(AssertionError):
-        assertions.assert_quality_report(gated)
+    value_checks.equal(gated["status"], expected_status)
+    errors.rejects(lambda: assertions.assert_quality_report(gated), expected=AssertionError)
 
 
 @pytest.mark.parametrize("metric", BOUNDARY_METRIC_CASES)
@@ -54,9 +56,9 @@ def test_boundary(metric):
     report = measured_report()
     row = next(d for d in report["dimensions"] if d.get("metric") == metric)
     row["details"]["value"] = load_quality_gates(GATES)["minimum_scores"][metric]
-    assert apply_quality_gates(report, GATES)["status"] == "checks_passed"
+    value_checks.equal(apply_quality_gates(report, GATES)["status"], "checks_passed")
     row["details"]["value"] -= 1e-6
-    assert apply_quality_gates(report, GATES)["status"] == "failed"
+    value_checks.equal(apply_quality_gates(report, GATES)["status"], "failed")
 
 
 @pytest.mark.parametrize("change", CONFIGURATION_CHANGE_CASES)
@@ -68,21 +70,21 @@ def test_configuration(tmp_path, change):
     prepare_configuration_case(change, config)
     path = tmp_path / "gates.json"
     path.write_text(json.dumps(config))
-    with pytest.raises((ValueError, AssertionError)):
-        load_quality_gates(path)
+    errors.rejects(lambda: load_quality_gates(path), expected=(ValueError, AssertionError))
 
 
 @title("Duplicate metric dimensions cannot satisfy quality gates")
 def test_duplicate_metric():
     report = measured_report()
     report["dimensions"].append(deepcopy(report["dimensions"][-1]))
-    with pytest.raises(ValueError, match="Duplicate"):
-        apply_quality_gates(report, GATES)
+    errors.rejects(
+        lambda: apply_quality_gates(report, GATES), expected=ValueError, match="Duplicate"
+    )
 
 
 @title("A low measured value produces a failing pytest exit code for CI")
 def test_pytest_exit_code(framework_pytester):
     framework_pytester.makepyfile(render_pytest_exit_code_makepyfile_source())
     result = framework_pytester.runpytest_subprocess("-q")
-    result.assert_outcomes(failed=1)
-    assert result.ret == pytest.ExitCode.TESTS_FAILED
+    pytest_runs.outcomes(result, failed=1)
+    value_checks.equal(result.ret, pytest.ExitCode.TESTS_FAILED)

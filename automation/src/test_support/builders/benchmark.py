@@ -6,11 +6,8 @@ import json
 from pathlib import Path
 from unittest.mock import Mock
 
-import pytest
-
 from llm_testkit.evaluation import benchmark as evaluation
 from llm_testkit.observation.evaluation_sample import build_sample, write_sample
-from llm_testkit.reporting.benchmark import summarize
 from llm_testkit.reporting.gates import METRICS
 from test_support.data.benchmark import ROOT as ROOT
 
@@ -244,14 +241,6 @@ def make_subprocess_run_stub(sample_path):
         return Mock(returncode=1)
 
     return subprocess_run
-
-
-def mutate_benchmark_configuration(calibration, definition):
-    for change in ("prompt", "digest"):
-        row = _row("gym_missing", "missing_information")
-        prepare_different_configurations_rejected_case(change, row)
-        with pytest.raises(ValueError, match="changed"):
-            summarize(definition, [_row(), row], calibration)
 
 
 def make_forged_benchmark_summary(tmp_path):

@@ -8,6 +8,9 @@ from llm_testkit import assertions
 from llm_testkit.datasets.bias import load_bias_cases
 from llm_testkit.reporting.bias import compare_pairs
 from llm_testkit.reporting.steps import title
+from test_support.assertions import errors as errors
+from test_support.assertions import pytest_runs
+from test_support.assertions import values as value_checks
 from test_support.builders.bias import (
     make_response_stub,
     paired_report,
@@ -37,12 +40,15 @@ def test_answers(case):
     assertions.assert_bias_answer(
         response(case.golden_case.reference), case=case, document_title="policy"
     )
-    with pytest.raises(AssertionError, match="eligibility"):
-        assertions.assert_bias_answer(
+    errors.rejects(
+        lambda: assertions.assert_bias_answer(
             response(case.golden_case.reference + " You are not eligible."),
             case=case,
             document_title="policy",
-        )
+        ),
+        expected=AssertionError,
+        match="eligibility",
+    )
 
 
 @pytest.mark.parametrize("change", CATALOG_CHANGE_CASES)
@@ -53,8 +59,7 @@ def test_catalog(change, tmp_path):
     prepare_catalog_case(change, data, pair)
     path = tmp_path / "cases.json"
     path.write_text(json.dumps(data))
-    with pytest.raises(ValueError):
-        load_bias_cases(path, DATASET)
+    errors.rejects(lambda: load_bias_cases(path, DATASET), expected=ValueError)
 
 
 @pytest.mark.parametrize(
@@ -79,8 +84,8 @@ def test_comparison(change, status, outcome, tmp_path):
         pair_ids=["gender_carryover"],
         models=["model"],
     )
-    assert report["status"] == status
-    assert report["comparisons"][0]["outcome"] == outcome
+    value_checks.equal(report["status"], status)
+    value_checks.equal(report["comparisons"][0]["outcome"], outcome)
 
 
 @title("Bias variants collect as independent opt-in case/model runs")
@@ -88,9 +93,15 @@ def test_selection(framework_pytester):
     shutil.copytree(DATA, framework_pytester.path / "test_data")
     framework_pytester.makeconftest('pytest_plugins=["llm_testkit.pytest_support.options"]')
     framework_pytester.makepyfile(SELECTION_MAKEPYFILE_SOURCE)
-    framework_pytester.runpytest_subprocess(
-        "-q", "--rag-model", "test", "-k", "gender"
-    ).assert_outcomes(skipped=2, deselected=4)
-    framework_pytester.runpytest_subprocess(
-        "-q", "--rag-model", "test", "-k", "gender", "--run-bias"
-    ).assert_outcomes(passed=2, deselected=4)
+    pytest_runs.outcomes(
+        framework_pytester.runpytest_subprocess("-q", "--rag-model", "test", "-k", "gender"),
+        skipped=2,
+        deselected=4,
+    )
+    pytest_runs.outcomes(
+        framework_pytester.runpytest_subprocess(
+            "-q", "--rag-model", "test", "-k", "gender", "--run-bias"
+        ),
+        passed=2,
+        deselected=4,
+    )

@@ -8,10 +8,13 @@ import requests
 from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.reporting.steps import title
-from test_support.builders.http_clients import (
+from test_support.assertions import errors as errors
+from test_support.assertions import mocks as mock_checks
+from test_support.assertions import values as value_checks
+from test_support.assertions.http_clients import (
     check_upload_closes_document_even_when_request_fails_outcome,
-    make_upload_stub,
 )
+from test_support.builders.http_clients import make_upload_stub
 from test_support.data.http_clients import (
     UPLOAD_CLOSES_DOCUMENT_EVEN_WHEN_REQUEST_FAILS_FAIL_CASES,
     WORKSPACE_SLUGS_ARE_ENCODED_AS_ONE_PATH_SEGMENT_SLUG_CASES,
@@ -24,27 +27,31 @@ pytestmark = pytest.mark.unit
 def test_transport_preserves_response_timeouts_and_redirect_contract(session: Mock) -> None:
     with HttpClient("https://example.test/root/", 5) as http:
         response = http.request("GET", "/api/ping")
-        assert response is session.request.return_value
-        session.request.assert_called_once_with(
+        value_checks.identical(response, session.request.return_value)
+        mock_checks.called_once_with(
+            session.request,
             method="GET",
             url="https://example.test/root/api/ping",
             timeout=5,
             allow_redirects=False,
         )
         http.request("POST", "chat", timeout=120, allow_redirects=True, json={"message": "hello"})
-        assert session.request.call_args.kwargs["timeout"] == 120
-        assert session.request.call_args.kwargs["allow_redirects"] is True
-    session.close.assert_called_once_with()
+        value_checks.equal(session.request.call_args.kwargs["timeout"], 120)
+        value_checks.identical(session.request.call_args.kwargs["allow_redirects"], True)
+    mock_checks.called_once_with(session.close)
 
 
 def test_transport_closes_and_does_not_retry_failed_generation(session: Mock) -> None:
     failure = requests.Timeout("Model response timed out")
     session.request.side_effect = failure
-    with pytest.raises(requests.Timeout) as caught, HttpClient("http://localhost", 5) as http:
+    with (
+        errors.expected_error(requests.Timeout) as caught,
+        HttpClient("http://localhost", 5) as http,
+    ):
         http.request("POST", "/chat")
-    assert caught.value is failure
-    session.request.assert_called_once()
-    session.close.assert_called_once_with()
+    value_checks.identical(caught.value, failure)
+    mock_checks.called_once(session.request)
+    mock_checks.called_once_with(session.close)
 
 
 def test_shared_transport_does_not_leak_authentication_between_clients(session: Mock) -> None:
@@ -53,10 +60,10 @@ def test_shared_transport_does_not_leak_authentication_between_clients(session: 
         anonymous = AnythingLLMClient(http)
         authenticated.verify_authentication()
         anonymous.verify_authentication()
-    assert session.request.call_args_list[0].kwargs["headers"] == {
-        "Authorization": "Bearer test-key"
-    }
-    assert session.request.call_args_list[1].kwargs["headers"] == {}
+    value_checks.equal(
+        session.request.call_args_list[0].kwargs["headers"], {"Authorization": "Bearer test-key"}
+    )
+    value_checks.equal(session.request.call_args_list[1].kwargs["headers"], {})
 
 
 @pytest.mark.parametrize("slug", WORKSPACE_SLUGS_ARE_ENCODED_AS_ONE_PATH_SEGMENT_SLUG_CASES)
@@ -64,9 +71,9 @@ def test_workspace_slugs_are_encoded_as_one_path_segment(session: Mock, slug: st
 
     with HttpClient("http://localhost", 5) as http:
         AnythingLLMClient(http).get_workspace(slug)
-    assert (
-        session.request.call_args.kwargs["url"]
-        == f"http://localhost/api/v1/workspace/{quote(slug, safe='')}"
+    value_checks.equal(
+        session.request.call_args.kwargs["url"],
+        f"http://localhost/api/v1/workspace/{quote(slug, safe='')}",
     )
 
 
@@ -74,11 +81,10 @@ def test_workspace_creation_does_not_mutate_configuration(session: Mock) -> None
     configuration = {"name": "template", "chatModel": "test-model"}
     with HttpClient("http://localhost", 5) as http:
         AnythingLLMClient(http).create_workspace("temporary", configuration)
-    assert configuration["name"] == "template"
-    assert session.request.call_args.kwargs["json"] == {
-        "name": "temporary",
-        "chatModel": "test-model",
-    }
+    value_checks.equal(configuration["name"], "template")
+    value_checks.equal(
+        session.request.call_args.kwargs["json"], {"name": "temporary", "chatModel": "test-model"}
+    )
 
 
 @title("Workspace settings update uses the authenticated API and preserves its input")
@@ -88,8 +94,9 @@ def test_workspace_update_uses_authenticated_route_and_preserves_settings(sessio
         response = AnythingLLMClient(http, api_key="test-key").update_workspace(
             "policy/lab", configuration
         )
-    assert response is session.request.return_value
-    session.request.assert_called_once_with(
+    value_checks.identical(response, session.request.return_value)
+    mock_checks.called_once_with(
+        session.request,
         method="POST",
         url="http://localhost/api/v1/workspace/policy%2Flab/update",
         headers={"Authorization": "Bearer test-key"},
@@ -97,7 +104,7 @@ def test_workspace_update_uses_authenticated_route_and_preserves_settings(sessio
         timeout=5,
         allow_redirects=False,
     )
-    assert configuration == {"chatMode": "chat", "openAiPrompt": "Reviewed prompt"}
+    value_checks.equal(configuration, {"chatMode": "chat", "openAiPrompt": "Reviewed prompt"})
 
 
 @pytest.mark.parametrize("fail", UPLOAD_CLOSES_DOCUMENT_EVEN_WHEN_REQUEST_FAILS_FAIL_CASES)
@@ -114,5 +121,5 @@ def test_upload_closes_document_even_when_request_fails(
     with HttpClient("http://localhost", 5) as http:
         api = AnythingLLMClient(http)
         check_upload_closes_document_even_when_request_fails_outcome(api, fail, path)
-    assert len(documents) == 1
-    assert documents[0].closed
+    value_checks.length(documents, 1)
+    value_checks.truthy(documents[0].closed)

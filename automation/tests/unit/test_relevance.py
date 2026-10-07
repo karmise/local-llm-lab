@@ -14,6 +14,8 @@ from llm_testkit.evaluation.relevance import (
 )
 from llm_testkit.observation.evaluation_sample import build_sample
 from llm_testkit.reporting.steps import title
+from test_support.assertions import errors as errors
+from test_support.assertions import values as value_checks
 from test_support.builders.relevance import (
     make_failed_score_stub,
     make_Judge_schema,
@@ -47,10 +49,10 @@ def test_real_ragas_metrics_with_mocked_judge():
         "reference": CASE.reference,
         "retrieved_contexts": ["Relevant", "Unrelated", "Relevant"],
     }
-    assert asyncio.run(score_relevance(sample, CASE, precision, recall)) == expected
-    assert len(precision.calls) == 3
-    assert len(recall.calls) == 1
-    assert expected["context_precision"] == pytest.approx(5 / 6)
+    value_checks.equal(asyncio.run(score_relevance(sample, CASE, precision, recall)), expected)
+    value_checks.length(precision.calls, 3)
+    value_checks.length(recall.calls, 1)
+    value_checks.equal(expected["context_precision"], pytest.approx(5 / 6))
 
 
 @pytest.mark.parametrize("change", INVALID_RELEVANCE_CHANGE_CASES)
@@ -58,8 +60,7 @@ def test_real_ragas_metrics_with_mocked_judge():
 def test_invalid_relevance(change):
     data = result()
     prepare_invalid_relevance_case(change, data)
-    with pytest.raises(ValueError):
-        validate_relevance(data, CASE, 3)
+    errors.rejects(lambda: validate_relevance(data, CASE, 3), expected=ValueError)
 
 
 @pytest.mark.parametrize("change", EVIDENCE_BINDING_CHANGE_CASES)
@@ -67,17 +68,23 @@ def test_invalid_relevance(change):
 def test_evidence_binding(change):
     sample, evidence, _ = make_relevance_evidence()
     prepare_evidence_binding_case(change, evidence)
-    with pytest.raises(ValueError):
-        check_relevance_evidence(evidence, "sample", sample, DATASET)
+    errors.rejects(
+        lambda: check_relevance_evidence(evidence, "sample", sample, DATASET), expected=ValueError
+    )
 
 
 @title("Context evaluation rejects oversized retrieval without silently truncating or judging")
 def test_context_budget():
     pytest.importorskip("ragas")
     judge = Mock()
-    with pytest.raises(ValueError, match="never truncated"):
-        asyncio.run(score_relevance({"retrieved_contexts": ["Context"] * 5}, CASE, judge, judge))
-    assert not judge.mock_calls
+    errors.rejects(
+        lambda: asyncio.run(
+            score_relevance({"retrieved_contexts": ["Context"] * 5}, CASE, judge, judge)
+        ),
+        expected=ValueError,
+        match="never truncated",
+    )
+    value_checks.falsy(judge.mock_calls)
 
 
 @title("Context evaluator retains raw failed calls and closes its transport")
@@ -134,14 +141,14 @@ def test_service_error_evidence(tmp_path, monkeypatch):
         settings=Settings(),
         judge_model="test",
     )
-    assert report["status"] == "error"
-    assert report["precision_calls"] == precision.calls
-    assert report["recall_calls"] == []
-    assert transport.close.call_count == 1
-    assert report["judge_configuration"]["maximum_calls"] == 2
+    value_checks.equal(report["status"], "error")
+    value_checks.equal(report["precision_calls"], precision.calls)
+    value_checks.equal(report["recall_calls"], [])
+    value_checks.equal(transport.close.call_count, 1)
+    value_checks.equal(report["judge_configuration"]["maximum_calls"], 2)
 
 
 @title("Completed relevance evidence retains validated original metric values")
 def test_valid_evidence_binding():
     sample, evidence, expected = make_relevance_evidence()
-    assert check_relevance_evidence(evidence, "sample", sample, DATASET) == expected
+    value_checks.equal(check_relevance_evidence(evidence, "sample", sample, DATASET), expected)

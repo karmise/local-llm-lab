@@ -10,6 +10,10 @@ from llm_testkit import assertions
 from llm_testkit.config import Settings
 from llm_testkit.datasets.conversation import ConversationCatalog, load_conversation_catalog
 from llm_testkit.reporting.steps import title
+from test_support.assertions import errors as errors
+from test_support.assertions import mocks as mock_checks
+from test_support.assertions import pytest_runs
+from test_support.assertions import values as value_checks
 from test_support.builders.conversation import (
     make_defective_policy_source,
     make_walking_response,
@@ -63,10 +67,13 @@ def test_conversation_checks_reject_policy_dumps_hallucinations_and_missing_inte
         "remove unknown": case.reference.split("I do not have")[0],
         "append transfer": case.reference + " HarborWorks receives 23 working days of leave.",
     }
-    with pytest.raises(AssertionError, match=message):
-        assertions.assert_conversation_answer(
+    errors.rejects(
+        lambda: assertions.assert_conversation_answer(
             response(changes.get(change, change)), case=case, document_title="policy.txt"
-        )
+        ),
+        expected=AssertionError,
+        match=message,
+    )
 
 
 @pytest.mark.parametrize(
@@ -81,8 +88,13 @@ def test_policy_parts_require_the_expected_document_and_supporting_passage(
 ) -> None:
     case = next(case for case in catalog.cases if case.id == case_id)
     reply = make_defective_policy_source(case, defect)
-    with pytest.raises(AssertionError, match="did not cite|source_text"):
-        assertions.assert_conversation_answer(reply, case=case, document_title="policy.txt")
+    errors.rejects(
+        lambda: assertions.assert_conversation_answer(
+            reply, case=case, document_title="policy.txt"
+        ),
+        expected=AssertionError,
+        match="did not cite|source_text",
+    )
 
 
 @title("A concise greeting does not imply that retrieval was skipped")
@@ -130,10 +142,13 @@ def test_own_company_scope_cannot_consume_another_company_fact(
         "Hi! Enjoy your walk. Northern Lighthouse: see company-policy.txt; "
         "HarborWorks employees get 23 working days per year. I have no information about HarborWorks."
     )
-    with pytest.raises(AssertionError, match="own company allowance"):
-        assertions.assert_conversation_answer(
+    errors.rejects(
+        lambda: assertions.assert_conversation_answer(
             response(answer), case=case, document_title="policy.txt"
-        )
+        ),
+        expected=AssertionError,
+        match="own company allowance",
+    )
 
 
 @pytest.mark.parametrize(
@@ -149,8 +164,11 @@ def test_invalid_catalogs_fail_before_any_generation(
     prepare_invalid_catalogs_fail_before_any_generation_case(data, defect, row)
     path = tmp_path / "catalog.json"
     path.write_text(json.dumps(data))
-    with pytest.raises(ValueError, match=message):
-        load_conversation_catalog(path, DATA / "company-policy.txt")
+    errors.rejects(
+        lambda: load_conversation_catalog(path, DATA / "company-policy.txt"),
+        expected=ValueError,
+        match=message,
+    )
 
 
 @title("Conversation fixture sends an explicit Chat-mode request")
@@ -161,17 +179,20 @@ def test_chat_request_explicitly_uses_chat_mode_without_changing_query_client_de
         None, {"chatMode": "chat"}, api, {"slug": "temporary"}, Settings()
     )
     result = chat("Hello!")
-    assert result is api.chat.return_value
-    api.chat.assert_called_once_with("temporary", "Hello!", mode="chat", timeout=300)
+    value_checks.identical(result, api.chat.return_value)
+    mock_checks.called_once_with(api.chat, "temporary", "Hello!", mode="chat", timeout=300)
 
 
 @title("Conversation fixture rejects a document-only Query profile")
 def test_conversation_fixture_rejects_a_query_profile() -> None:
 
-    with pytest.raises(AssertionError, match="chatMode"):
-        conversation_chat.__wrapped__(
+    errors.rejects(
+        lambda: conversation_chat.__wrapped__(
             None, {"chatMode": "query"}, Mock(), {"slug": "temporary"}, Settings()
-        )
+        ),
+        expected=AssertionError,
+        match="chatMode",
+    )
 
 
 @title("Conversation selection honors opt-in, model budget and independent repetitions")
@@ -184,23 +205,29 @@ def test_conversation_collection_defaults_to_one_model_and_accepts_explicit_matr
     runner.makepyfile(
         CONVERSATION_COLLECTION_DEFAULTS_TO_ONE_MODEL_AND_ACCEPTS_EXPLICIT_MATRIX_MAKEPYFILE_SOURCE
     )
-    runner.runpytest_subprocess("--run-conversation", "-k", "greeting", "-q").assert_outcomes(
-        passed=1, deselected=4
+    pytest_runs.outcomes(
+        runner.runpytest_subprocess("--run-conversation", "-k", "greeting", "-q"),
+        passed=1,
+        deselected=4,
     )
-    runner.runpytest_subprocess(
-        "--run-conversation",
-        "--rag-model",
-        "model-a",
-        "--rag-model",
-        "model-b",
-        "--rag-repeat",
-        "2",
-        "-k",
-        "greeting",
-        "-q",
-    ).assert_outcomes(passed=4, deselected=16)
+    pytest_runs.outcomes(
+        runner.runpytest_subprocess(
+            "--run-conversation",
+            "--rag-model",
+            "model-a",
+            "--rag-model",
+            "model-b",
+            "--rag-repeat",
+            "2",
+            "-k",
+            "greeting",
+            "-q",
+        ),
+        passed=4,
+        deselected=16,
+    )
     result = runner.runpytest_subprocess("--run-conversation", "--capture-rag", "-k", "greeting")
-    assert result.ret == pytest.ExitCode.USAGE_ERROR
+    value_checks.equal(result.ret, pytest.ExitCode.USAGE_ERROR)
     result.stderr.fnmatch_lines(["*small talk is not a RAG sample*"])
 
 
@@ -210,7 +237,10 @@ def test_catalog_change_after_collection_is_not_accepted_as_the_original_case(
 ) -> None:
 
     changed_case = replace(catalog.cases[0], question="Different question")
-    with pytest.raises(pytest.fail.Exception, match="changed after collection"):
-        conversation_metadata.__wrapped__(
+    errors.rejects(
+        lambda: conversation_metadata.__wrapped__(
             DATA.parent, DATA / "company-policy.txt", changed_case, lambda *_: None
-        )
+        ),
+        expected=pytest.fail.Exception,
+        match="changed after collection",
+    )

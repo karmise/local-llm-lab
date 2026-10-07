@@ -80,11 +80,6 @@ def prepare_trace_outcomes_case(rows, status):
         rows.append(("second", status, {}))
 
 
-def check_trace_outcomes_outcome(status, trace):
-    if status not in ("passed", "missing"):
-        assert trace["deviations"][0]["details"][0]["text"] == "original detail"
-
-
 def prepare_invalid_package_inputs_case(args, change, junit, path):
     if change == "empty":
         args["junit_files"] = []

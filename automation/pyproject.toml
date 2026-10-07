@@ -65,7 +65,7 @@ select = ["E4", "E7", "E9", "F", "I", "B"]
 
 [tool.coverage.run]
 branch = true
-source = ["llm_testkit", "test_support.fixtures"]
+source = ["llm_testkit", "test_support.fixtures", "test_support.assertions"]
 patch = ["subprocess"]
 parallel = true
 

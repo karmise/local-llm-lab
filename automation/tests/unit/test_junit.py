@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 
 from llm_testkit.reporting.junit import read_junit
+from test_support.assertions import errors as errors
+from test_support.assertions import values as value_checks
 from test_support.builders.junit import make_read_once_stub
 from test_support.data.junit import MALFORMED_JUNIT_HAS_ACTIONABLE_ERROR_BODY_CASES
 
@@ -23,13 +25,15 @@ def test_phase_entries_retain_all_outcomes_and_original_details(tmp_path):
         </testcase>
       </testsuite></testsuites>""")
     report = read_junit(path)
-    assert report.sha256 == hashlib.sha256(path.read_bytes()).hexdigest()
-    assert len(report.cases) == 1
+    value_checks.equal(report.sha256, hashlib.sha256(path.read_bytes()).hexdigest())
+    value_checks.length(report.cases, 1)
     case = next(iter(report.cases.values()))
-    assert case.outcomes == {"failed", "error"}
-    assert case.status == "error"
-    assert case.conflicts == {"model"}
-    assert [d["text"] for d in case.details] == ["Missing fact", "Workspace still exists"]
+    value_checks.equal(case.outcomes, {"failed", "error"})
+    value_checks.equal(case.status, "error")
+    value_checks.equal(case.conflicts, {"model"})
+    value_checks.equal(
+        [d["text"] for d in case.details], ["Missing fact", "Workspace still exists"]
+    )
 
 
 @pytest.mark.parametrize(
@@ -39,8 +43,7 @@ def test_phase_entries_retain_all_outcomes_and_original_details(tmp_path):
 def test_malformed_junit_has_actionable_error(tmp_path, body):
     path = tmp_path / "invalid.xml"
     path.write_text("<testsuite>" + body + "</testsuite>")
-    with pytest.raises(ValueError, match="requires a name"):
-        read_junit(path)
+    errors.rejects(lambda: read_junit(path), expected=ValueError, match="requires a name")
 
 
 def test_reader_hashes_exactly_the_bytes_it_parses(tmp_path, monkeypatch):
@@ -52,6 +55,6 @@ def test_reader_hashes_exactly_the_bytes_it_parses(tmp_path, monkeypatch):
 
     monkeypatch.setattr(Path, "read_bytes", read_once)
     report = read_junit(path)
-    assert report.sha256 == hashlib.sha256(raw).hexdigest()
-    assert next(iter(report.cases.values())).name == "original"
-    assert reads == [1]
+    value_checks.equal(report.sha256, hashlib.sha256(raw).hexdigest())
+    value_checks.equal(next(iter(report.cases.values())).name, "original")
+    value_checks.equal(reads, [1])

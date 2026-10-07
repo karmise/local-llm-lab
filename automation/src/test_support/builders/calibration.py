@@ -2,10 +2,6 @@
 
 from unittest.mock import Mock
 
-import pytest
-
-from llm_testkit.evaluation.calibration import load_controls
-
 
 def _case() -> dict:
     return {
@@ -52,8 +48,3 @@ def make_factory_stub(judges):
         return judge
 
     return factory
-
-
-def mutate_control_catalog(change, path):
-    with pytest.raises(ValueError):
-        load_controls(path, ["Other document" if change == "context" else "Policy"])

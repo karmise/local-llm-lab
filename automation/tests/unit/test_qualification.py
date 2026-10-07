@@ -8,8 +8,11 @@ import pytest
 from llm_testkit.qualification import package
 from llm_testkit.qualification.plan import expected_cells, load_plan, matching_requirements
 from llm_testkit.reporting.steps import title
+from test_support.assertions import errors as errors
+from test_support.assertions import pytest_runs
+from test_support.assertions import values as value_checks
+from test_support.assertions.qualification import check_trace_outcomes_outcome
 from test_support.builders.qualification import (
-    check_trace_outcomes_outcome,
     make_change_after_parsing_stub,
     make_teardown_entries,
     prepare_conflicting_inline_provenance_cannot_pass_case,
@@ -45,20 +48,20 @@ pytestmark = pytest.mark.unit
 def test_committed_plan_matches_real_tests():
     plan = load_plan(ROOT / "test_data/qualification-plan.json", ROOT)
     requirements = {r["id"]: r for r in plan["requirements"]}
-    assert len(requirements) == 13
-    assert len(expected_cells(requirements["REQ-GOLDEN"])) == 32
-    assert len(expected_cells(requirements["REQ-PROMPT"])) == 64
-    assert len(expected_cells(requirements["REQ-BIAS"])) == 12
-    assert len([r for r in requirements.values() if r["phase"] == "IQ"]) == 3
+    value_checks.length(requirements, 13)
+    value_checks.length(expected_cells(requirements["REQ-GOLDEN"]), 32)
+    value_checks.length(expected_cells(requirements["REQ-PROMPT"]), 64)
+    value_checks.length(expected_cells(requirements["REQ-BIAS"]), 12)
+    value_checks.length([r for r in requirements.values() if r["phase"] == "IQ"], 3)
 
 
 @title("Qualification lookup can narrow a parameterized test by declared properties")
 def test_matching_requirements(evidence_lab):
     _, _, plan = evidence_lab
-    assert matching_requirements(plan, SELECTOR + "[first]")
-    assert matching_requirements(plan, SELECTOR, {"golden_case_id": "first"})
-    assert not matching_requirements(plan, SELECTOR, {"golden_case_id": "other"})
-    assert not matching_requirements(plan, "tests/other.py::test_other")
+    value_checks.truthy(matching_requirements(plan, SELECTOR + "[first]"))
+    value_checks.truthy(matching_requirements(plan, SELECTOR, {"golden_case_id": "first"}))
+    value_checks.falsy(matching_requirements(plan, SELECTOR, {"golden_case_id": "other"}))
+    value_checks.falsy(matching_requirements(plan, "tests/other.py::test_other"))
 
 
 @pytest.mark.parametrize(
@@ -72,8 +75,7 @@ def test_invalid_plan(evidence_lab, change):
     row = plan["requirements"][0]
     prepare_invalid_plan_case(change, plan, row)
     path.write_text(json.dumps(plan))
-    with pytest.raises(ValueError):
-        load_plan(path, root)
+    errors.rejects(lambda: load_plan(path, root), expected=ValueError)
 
 
 @pytest.mark.parametrize("status", TRACE_OUTCOMES_STATUS_CASES)
@@ -83,13 +85,15 @@ def test_trace_outcomes(evidence_lab, status):
     rows = [("first", "passed", {})]
     prepare_trace_outcomes_case(rows, status)
     trace = package.trace_results(plan, [write_junit(root, plan, rows)], ["OQ"])
-    assert trace["status"] == {"passed": "passed", "failed": "failed"}.get(status, "incomplete")
-    assert trace["review_status"] == "pending human review"
-    assert trace["compliance_claim"] is False
-    assert trace["requirements"][0]["cells"][1]["status"] == {
-        "error": "incomplete",
-        "skipped": "incomplete",
-    }.get(status, status)
+    value_checks.equal(
+        trace["status"], {"passed": "passed", "failed": "failed"}.get(status, "incomplete")
+    )
+    value_checks.equal(trace["review_status"], "pending human review")
+    value_checks.identical(trace["compliance_claim"], False)
+    value_checks.equal(
+        trace["requirements"][0]["cells"][1]["status"],
+        {"error": "incomplete", "skipped": "incomplete"}.get(status, status),
+    )
     check_trace_outcomes_outcome(status, trace)
 
 
@@ -102,8 +106,8 @@ def test_unbound_results(evidence_lab, metadata):
     root, _, plan = evidence_lab
     junit = write_junit(root, plan, [("first", "passed", metadata), ("second", "passed", {})])
     trace = package.trace_results(plan, [junit], ["OQ"])
-    assert trace["status"] == "incomplete"
-    assert trace["deviations"][0]["status"] == "unbound"
+    value_checks.equal(trace["status"], "incomplete")
+    value_checks.equal(trace["deviations"][0]["status"], "unbound")
 
 
 @title("A later passing run does not erase a prior qualification failure")
@@ -111,7 +115,7 @@ def test_later_pass_preserves_failure(evidence_lab):
     root, _, plan = evidence_lab
     earlier = write_junit(root, plan, [("first", "failed", {})], "earlier.xml")
     later = write_junit(root, plan, [("first", "passed", {}), ("second", "passed", {})])
-    assert package.trace_results(plan, [earlier, later], ["OQ"])["status"] == "failed"
+    value_checks.equal(package.trace_results(plan, [earlier, later], ["OQ"])["status"], "failed")
 
 
 @pytest.mark.parametrize("change", TEARDOWN_ENTRIES_CHANGE_CASES)
@@ -123,16 +127,15 @@ def test_teardown_entries(evidence_lab, change):
     duplicate = make_teardown_entries(change)
     junit = write_junit(root, plan, [("first", "passed", {}), duplicate, ("second", "passed", {})])
     trace = package.trace_results(plan, [junit], ["OQ"])
-    assert trace["status"] == "incomplete"
-    assert trace["deviations"]
+    value_checks.equal(trace["status"], "incomplete")
+    value_checks.truthy(trace["deviations"])
 
 
 @pytest.mark.parametrize("phases", PHASE_SCOPE_PHASES_CASES)
 @title("Qualification packaging requires an explicit populated protocol scope [{param_id}]")
 def test_phase_scope(evidence_lab, phases):
     _, _, plan = evidence_lab
-    with pytest.raises(ValueError):
-        package.trace_results(plan, [], phases)
+    errors.rejects(lambda: package.trace_results(plan, [], phases), expected=ValueError)
 
 
 @title("Legacy JUnit without requirement metadata remains incomplete evidence")
@@ -140,7 +143,7 @@ def test_legacy_results(evidence_lab):
     root, _, plan = evidence_lab
     path = root / "legacy.xml"
     path.write_text('<testsuite><testcase name="test_example"/></testsuite>')
-    assert package.trace_results(plan, [path], ["OQ"])["status"] == "incomplete"
+    value_checks.equal(package.trace_results(plan, [path], ["OQ"])["status"], "incomplete")
 
 
 @title("Evidence packages retain exact inputs and code, verify checksums and refuse overwrite")
@@ -154,18 +157,20 @@ def test_package_integrity(evidence_lab):
         root=root, plan_path=path, junit_files=[junit], phases=["OQ"], attachments=[attachment]
     )
     trace = package.build_package(output, **args)
-    assert trace["status"] == "passed"
+    value_checks.equal(trace["status"], "passed")
     package.verify_package(output)
-    assert (output / "definitions/src/runtime.py").read_bytes() == b"VERSION = 1\n"
-    assert (output / "definitions/data/policy.txt").read_bytes() == b"Six days\n"
-    assert (output / "junit/0-results.xml").read_bytes() == junit.read_bytes()
-    assert (output / "attachments/0-metrics.json").read_bytes() == attachment.read_bytes()
-    assert "REQ-EXAMPLE | OQ | high | passed" in (output / "summary.md").read_text()
-    with pytest.raises(ValueError, match="already exists"):
-        package.build_package(output, **args)
+    value_checks.equal((output / "definitions/src/runtime.py").read_bytes(), b"VERSION = 1\n")
+    value_checks.equal((output / "definitions/data/policy.txt").read_bytes(), b"Six days\n")
+    value_checks.equal((output / "junit/0-results.xml").read_bytes(), junit.read_bytes())
+    value_checks.equal(
+        (output / "attachments/0-metrics.json").read_bytes(), attachment.read_bytes()
+    )
+    value_checks.contains((output / "summary.md").read_text(), "REQ-EXAMPLE | OQ | high | passed")
+    errors.rejects(
+        lambda: package.build_package(output, **args), expected=ValueError, match="already exists"
+    )
     (output / "summary.md").write_text("changed")
-    with pytest.raises(ValueError, match="checksum"):
-        package.verify_package(output)
+    errors.rejects(lambda: package.verify_package(output), expected=ValueError, match="checksum")
 
 
 @pytest.mark.parametrize("change", INVALID_PACKAGE_INPUTS_CHANGE_CASES)
@@ -176,10 +181,9 @@ def test_invalid_package_inputs(evidence_lab, change):
     args = dict(root=root, plan_path=path, junit_files=[junit], phases=["OQ"])
     prepare_invalid_package_inputs_case(args, change, junit, path)
     output = root / "reports/package"
-    with pytest.raises(ValueError):
-        package.build_package(output, **args)
-    assert not output.exists()
-    assert not list(output.parent.glob("qualification-*"))
+    errors.rejects(lambda: package.build_package(output, **args), expected=ValueError)
+    value_checks.falsy(output.exists())
+    value_checks.falsy(list(output.parent.glob("qualification-*")))
 
 
 @pytest.mark.parametrize("change", INVALID_MANIFEST_CHANGE_CASES)
@@ -196,8 +200,7 @@ def test_invalid_manifest(evidence_lab, change):
     manifest = json.loads(manifest_path.read_text())
     prepare_invalid_manifest_case(change, manifest)
     manifest_path.write_text(json.dumps(manifest))
-    with pytest.raises(ValueError):
-        package.verify_package(output)
+    errors.rejects(lambda: package.verify_package(output), expected=ValueError)
 
 
 @title("Qualification CLI preserves an incomplete package and returns a failing exit status")
@@ -222,8 +225,8 @@ def test_cli_incomplete(evidence_lab, monkeypatch, capsys):
             str(output),
         ],
     )
-    assert package.main() == 1
-    assert "incomplete" in capsys.readouterr().out
+    value_checks.equal(package.main(), 1)
+    value_checks.contains(capsys.readouterr().out, "incomplete")
     package.verify_package(output)
 
 
@@ -238,10 +241,15 @@ def test_changed_inputs(evidence_lab, monkeypatch, change):
 
     monkeypatch.setattr(package, "trace_results", change_after_parsing)
     output = root / "reports/package"
-    with pytest.raises(ValueError, match="changed during packaging"):
-        package.build_package(output, root=root, plan_path=path, junit_files=[junit], phases=["OQ"])
-    assert not output.exists()
-    assert not list(output.parent.glob("qualification-*"))
+    errors.rejects(
+        lambda: package.build_package(
+            output, root=root, plan_path=path, junit_files=[junit], phases=["OQ"]
+        ),
+        expected=ValueError,
+        match="changed during packaging",
+    )
+    value_checks.falsy(output.exists())
+    value_checks.falsy(list(output.parent.glob("qualification-*")))
 
 
 @title("Real pytest execution emits requirement, plan, source and node identity into JUnit")
@@ -257,25 +265,27 @@ def test_pytest_traceability(framework_pytester, evidence_lab):
     (child / "test_data/qualification-plan.json").write_text(json.dumps(plan))
     framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.evidence"]')
     result = framework_pytester.runpytest_subprocess("-q", "--junitxml=results.xml")
-    result.assert_outcomes(passed=1)
+    pytest_runs.outcomes(result, passed=1)
     properties = {
         p.attrib["name"]: p.attrib["value"]
         for p in ET.parse(child / "results.xml").findall(".//property")
     }
-    assert properties["test_node_id"] == SELECTOR
-    assert json.loads(properties["requirement_ids"]) == ["REQ-EXAMPLE"]
-    assert json.loads(properties["qualification_phases"]) == ["OQ"]
-    assert (
+    value_checks.equal(properties["test_node_id"], SELECTOR)
+    value_checks.equal(json.loads(properties["requirement_ids"]), ["REQ-EXAMPLE"])
+    value_checks.equal(json.loads(properties["qualification_phases"]), ["OQ"])
+    value_checks.equal(
         package.trace_results(
             load_plan(child / "test_data/qualification-plan.json", child),
             [child / "results.xml"],
             ["OQ"],
-        )["status"]
-        == "passed"
+        )["status"],
+        "passed",
     )
     plan["requirements"][0]["tests"] = ["tests/test_example.py::test_unknown"]
     (child / "test_data/qualification-plan.json").write_text(json.dumps(plan))
-    assert framework_pytester.runpytest_subprocess("-q").ret == pytest.ExitCode.USAGE_ERROR
+    value_checks.equal(
+        framework_pytester.runpytest_subprocess("-q").ret, pytest.ExitCode.USAGE_ERROR
+    )
 
 
 @pytest.mark.parametrize("stale_first", CONFLICTING_INLINE_PROVENANCE_CANNOT_PASS_STALE_FIRST_CASES)
@@ -287,7 +297,7 @@ def test_conflicting_inline_provenance_cannot_pass(evidence_lab, stale_first):
     duplicate = ET.Element("property", name="qualification_plan_sha256", value="stale")
     prepare_conflicting_inline_provenance_cannot_pass_case(duplicate, props, stale_first)
     tree.write(junit)
-    assert package.trace_results(plan, [junit], ["OQ"])["status"] == "incomplete"
+    value_checks.equal(package.trace_results(plan, [junit], ["OQ"])["status"], "incomplete")
 
 
 @pytest.mark.parametrize("change", PACKAGE_VERIFICATION_BINDS_OUTCOMES_TO_INPUTS_CHANGE_CASES)
@@ -301,8 +311,7 @@ def test_package_verification_binds_outcomes_to_inputs(evidence_lab, change):
     manifest = json.loads(manifest_path.read_text())
     prepare_package_verification_binds_outcomes_to_inputs_case(change, manifest, output)
     manifest_path.write_text(json.dumps(manifest))
-    with pytest.raises(ValueError):
-        package.verify_package(output)
+    errors.rejects(lambda: package.verify_package(output), expected=ValueError)
 
 
 def test_nested_fixture_changes_invalidate_framework_provenance(evidence_lab):
@@ -310,7 +319,7 @@ def test_nested_fixture_changes_invalidate_framework_provenance(evidence_lab):
     (root / "tests/ui").mkdir()
     (root / "tests/ui/conftest.py").write_text("FIXTURE_VERSION = 1\n")
     changed = load_plan(path, root)
-    assert changed["framework_source_sha256"] != original["framework_source_sha256"]
+    value_checks.not_equal(changed["framework_source_sha256"], original["framework_source_sha256"])
 
 
 @pytest.mark.parametrize("change", PLAN_REJECTS_AMBIGUOUS_PATHS_AND_PHASE_TYPES_CHANGE_CASES)
@@ -319,8 +328,7 @@ def test_plan_rejects_ambiguous_paths_and_phase_types(evidence_lab, change):
     data = json.loads(path.read_text())
     prepare_plan_rejects_ambiguous_paths_and_phase_types_case(change, data)
     path.write_text(json.dumps(data))
-    with pytest.raises(ValueError):
-        load_plan(path, root)
+    errors.rejects(lambda: load_plan(path, root), expected=ValueError)
 
 
 def test_package_verification_is_independent_of_original_directory(evidence_lab):

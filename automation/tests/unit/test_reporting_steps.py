@@ -6,8 +6,11 @@ import pytest
 from llm_testkit.reporting import steps
 from llm_testkit.reporting.live_quality import generate_captured_answer
 from llm_testkit.reporting.steps import title
+from test_support.assertions import errors as errors
+from test_support.assertions import mocks as mock_checks
+from test_support.assertions import values as value_checks
+from test_support.assertions.reporting_steps import check_reported_operation_outcome
 from test_support.builders.reporting_steps import (
-    check_reported_operation_outcome,
     expected_reporting_events,
     make_missing_allure_stub,
     make_missing_transitive_dependency_stub,
@@ -44,13 +47,14 @@ def test_reported_operation_preserves_result_and_failure_without_exposing_argume
 
     operation = make_operation_stub(failure, result)
 
-    assert operation("private-key") is result
-    with pytest.raises(RuntimeError, match="Operation failed") as caught:
-        operation("private-key", fail=True)
-    assert caught.value is failure
+    value_checks.identical(operation("private-key"), result)
+    caught = errors.rejects(
+        lambda: operation("private-key", fail=True), expected=RuntimeError, match="Operation failed"
+    )
+    value_checks.identical(caught.value, failure)
     expected = expected_reporting_events(reporting_installed)
-    assert events == expected
-    assert operation.__wrapped__.__name__ == "operation"
+    value_checks.equal(events, expected)
+    value_checks.equal(operation.__wrapped__.__name__, "operation")
     check_reported_operation_outcome(backend)
 
 
@@ -61,13 +65,14 @@ def test_optional_reporter_handles_only_the_missing_allure_package(
     missing_allure = make_missing_allure_stub()
 
     monkeypatch.setattr(steps, "import_module", missing_allure)
-    assert steps._backend() is None
+    value_checks.identical(steps._backend(), None)
 
     missing_transitive_dependency = make_missing_transitive_dependency_stub()
 
     monkeypatch.setattr(steps, "import_module", missing_transitive_dependency)
-    with pytest.raises(ModuleNotFoundError, match="dependency is broken"):
-        steps._backend()
+    errors.rejects(
+        lambda: steps._backend(), expected=ModuleNotFoundError, match="dependency is broken"
+    )
 
 
 def test_live_capture_uses_the_shared_profile_reference(
@@ -79,4 +84,4 @@ def test_live_capture_uses_the_shared_profile_reference(
 
     generate_captured_answer(chat, profile, tmp_path / "sample.json")
 
-    chat.assert_called_once_with(profile["question"], profile["reference"])
+    mock_checks.called_once_with(chat, profile["question"], profile["reference"])

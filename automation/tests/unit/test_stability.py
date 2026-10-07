@@ -5,6 +5,11 @@ import pytest
 
 from llm_testkit.reporting.stability import summarize_report
 from llm_testkit.reporting.steps import title
+from test_support.assertions import values as value_checks
+from test_support.assertions.stability import (
+    check_conversation_summary_outcome,
+    check_golden_summary_outcome,
+)
 from test_support.builders.stability import (
     _report,
     add_bias_group_metadata,
@@ -12,8 +17,6 @@ from test_support.builders.stability import (
     add_conversation_metadata,
     add_golden_case_metadata,
     add_prompt_variant_metadata,
-    check_conversation_summary_outcome,
-    check_golden_summary_outcome,
 )
 from test_support.data.stability import (
     CONFIGURATION_METADATA_CHANGE_CASES,
@@ -28,17 +31,17 @@ pytestmark = pytest.mark.unit
 @title("Stability summary preserves mixed passed and failed runs")
 def test_summary_preserves_mixed_pass_fail_results(tmp_path: Path) -> None:
     row = summarize_report(_report(tmp_path, ["passed", "failure", "passed"]))[0]
-    assert row["runs"] == 3
-    assert row["passed"] == 2
-    assert row["failed"] == 1
-    assert row["mixed_pass_fail_observed"] is True
-    assert row["configuration_consistent"] is True
+    value_checks.equal(row["runs"], 3)
+    value_checks.equal(row["passed"], 2)
+    value_checks.equal(row["failed"], 1)
+    value_checks.identical(row["mixed_pass_fail_observed"], True)
+    value_checks.identical(row["configuration_consistent"], True)
 
 
 @title("Stability summary detects changes in model configuration")
 def test_summary_detects_configuration_changes(tmp_path: Path) -> None:
     row = summarize_report(_report(tmp_path, ["passed", "failure"], ["first", "second"]))[0]
-    assert row["configuration_consistent"] is False
+    value_checks.identical(row["configuration_consistent"], False)
 
 
 @title("Stability summary distinguishes setup errors from model failures")
@@ -49,11 +52,11 @@ def test_setup_error_without_metadata_is_not_a_model_failure(tmp_path: Path) -> 
     failed_case.remove(failed_case.find("properties"))
     tree.write(path)
     row = summarize_report(path)[0]
-    assert row["runs"] == 2
-    assert row["errored"] == 1
-    assert row["failed"] == 0
-    assert row["mixed_pass_fail_observed"] is False
-    assert row["metadata_complete"] is False
+    value_checks.equal(row["runs"], 2)
+    value_checks.equal(row["errored"], 1)
+    value_checks.equal(row["failed"], 0)
+    value_checks.identical(row["mixed_pass_fail_observed"], False)
+    value_checks.identical(row["metadata_complete"], False)
 
 
 @title("Stability summary counts call and teardown entries as one run")
@@ -72,9 +75,9 @@ def test_duplicate_call_and_teardown_entries_count_as_one_run(tmp_path: Path) ->
     ET.SubElement(duplicate, "error")
     tree.write(path)
     row = summarize_report(path)[0]
-    assert row["runs"] == 1
-    assert row["failed"] == 1
-    assert row["errored"] == 1
+    value_checks.equal(row["runs"], 1)
+    value_checks.equal(row["failed"], 1)
+    value_checks.equal(row["errored"], 1)
 
 
 @pytest.mark.parametrize(
@@ -101,8 +104,8 @@ def test_prompt_variants_are_not_reported_as_flaky_repetitions(tmp_path: Path) -
     add_prompt_variant_metadata(tree)
     tree.write(path)
     rows = summarize_report(path)
-    assert len(rows) == 2
-    assert all(not r["mixed_pass_fail_observed"] for r in rows)
+    value_checks.length(rows, 2)
+    value_checks.all_true((not r["mixed_pass_fail_observed"] for r in rows))
 
 
 @title("Counterfactual variants remain separate stability scenarios")
@@ -111,7 +114,7 @@ def test_bias_groups(tmp_path):
     tree = ET.parse(path)
     add_bias_group_metadata(tree)
     tree.write(path)
-    assert len(summarize_report(path)) == 2
+    value_checks.length(summarize_report(path), 2)
 
 
 @pytest.mark.parametrize("change", CONFIGURATION_METADATA_CHANGE_CASES)
@@ -122,8 +125,8 @@ def test_configuration_metadata_is_normalized_and_validated(tmp_path, change):
     add_configuration_metadata(change, tree)
     tree.write(path)
     result = summarize_report(path)[0]
-    assert result["configuration_consistent"] is (change == "capture")
-    assert result["metadata_complete"] is (change == "capture")
+    value_checks.identical(result["configuration_consistent"], change == "capture")
+    value_checks.identical(result["metadata_complete"], change == "capture")
 
 
 def test_equal_function_names_in_different_modules_are_distinct_scenarios(tmp_path):
@@ -132,9 +135,9 @@ def test_equal_function_names_in_different_modules_are_distinct_scenarios(tmp_pa
     tree.getroot().findall(".//testcase")[1].set("classname", "tests.test_other_rag")
     tree.write(path)
     rows = summarize_report(path)
-    assert len(rows) == 2
-    assert {r["classname"] for r in rows} == {"tests.test_rag", "tests.test_other_rag"}
-    assert all(r["runs"] == 1 and not r["mixed_pass_fail_observed"] for r in rows)
+    value_checks.length(rows, 2)
+    value_checks.equal({r["classname"] for r in rows}, {"tests.test_rag", "tests.test_other_rag"})
+    value_checks.all_true((r["runs"] == 1 and (not r["mixed_pass_fail_observed"]) for r in rows))
 
 
 @pytest.mark.parametrize("change", CONVERSATION_SUMMARY_CHANGE_CASES)
