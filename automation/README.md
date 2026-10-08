@@ -195,6 +195,8 @@ Reference-based retrieval evaluation is described in [Context precision and reca
 
 [Judge suitability and disagreement review](../docs/step-36-judge-validation.md) adds eight source-bound controls for all four metrics, a serial 18-call judge experiment, and offline diagnostics for verified saved benchmarks. The observed reference-attribution mismatch keeps release suitability unestablished; thresholds remain experimental.
 
+[Real two-model comparison](../docs/step-37-two-model-benchmark.md) executes the curated benchmark on both installed models and records chat request durations in sample/JUnit evidence. Saved reports show per-model timing counts and mean/min/max; older samples retain unavailable timings.
+
 [Metric history and baseline monitoring](../docs/step-28-metric-history.md) records immutable, provenance-bound measurements and compares new evidence to an explicit baseline without model calls.
 
 [Performance checks](../docs/step-29-performance.md) provide explicitly selected health or RAG batches, bounded concurrency, individual timing/error evidence and declared latency gates. They do not run model load on ordinary CI pushes.

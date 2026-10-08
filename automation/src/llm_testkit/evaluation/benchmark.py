@@ -1,6 +1,7 @@
 """Evaluate all applicable dimensions without replacing judge errors with scores."""
 
 import hashlib
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -63,6 +64,10 @@ def check_sample(path: Path, dataset: GoldenDataset, case: GoldenCase, model: st
         raise ValueError("Benchmark generation model/digest mismatch")
     if not isinstance(metadata.get("workspace_configuration"), dict):
         raise ValueError("Benchmark sample lacks workspace configuration")
+    if "answer_request_seconds" in metadata:
+        duration = metadata["answer_request_seconds"]
+        if type(duration) not in (int, float) or not math.isfinite(duration) or duration <= 0:
+            raise ValueError("Answer request duration must be a finite positive number")
     return sample
 
 
@@ -111,6 +116,8 @@ def evaluate_case(
             "dimensions": acceptance_dimensions(sample, case),
             "judge_calls": 0,
             "evidence_sha256": {}}
+    if "answer_request_seconds" in sample["metadata"]:
+        row["answer_request_seconds"] = sample["metadata"]["answer_request_seconds"]
     if case.category == "missing_information":
         row["dimensions"].extend({
                 "name":

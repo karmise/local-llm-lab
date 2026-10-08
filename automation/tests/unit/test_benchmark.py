@@ -16,15 +16,18 @@ from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
 from test_support.assertions import mocks as mock_checks
 from test_support.assertions import values as value_checks
-from test_support.assertions.benchmark import check_benchmark_configuration_changes
+from test_support.assertions.benchmark import check_answer_timing, check_benchmark_configuration_changes
 from test_support.builders.benchmark import (
         _mock_metrics, _row, _sample, make_calibrate_stub, make_forged_benchmark_summary, make_forged_saved_report,
         make_generate_stub, make_judge_model_catalog, make_subprocess_run_stub, prepare_invalid_summary_case,
-        with_pipeline_directory)
+        timed_rows, with_pipeline_directory)
 from test_support.data import common as case_data
 from test_support.data.benchmark import (
-        INVALID_PLAN_OPTIONS_CASES, INVALID_SUMMARY_CHANGE_CASES, NAME_METRIC_CONTEXT_PRECISION_INPUT, ROOT)
+        ANSWER_DURATION_SECONDS, INVALID_ANSWER_DURATIONS, INVALID_PLAN_OPTIONS_CASES, INVALID_SUMMARY_CHANGE_CASES,
+        NAME_METRIC_CONTEXT_PRECISION_INPUT, ROOT)
 from test_support.fixtures.unit_benchmark import benchmark_data as benchmark_data
+from test_support.fixtures.unit_benchmark import measured_chat as measured_chat
+from test_support.fixtures.unit_benchmark import timed_sample as timed_sample
 
 pytestmark = pytest.mark.unit
 
@@ -34,6 +37,38 @@ def test_default_plan_budget(benchmark_data):
     dataset = benchmark_data[0]
     value_checks.equal(make_plan(dataset).maximum_calls, 43)
     value_checks.equal(make_plan(dataset, models=["qwen3.5:4b", "qwen2.5:7b"], max_model_calls=80).maximum_calls, 80)
+
+
+@title("Answer timing covers the chat request and is recorded in JUnit metadata")
+def test_chat_duration_is_measured(measured_chat):
+    chat, client, record_property, clock = measured_chat
+    result = chat("Leave?", "Reference")
+    value_checks.identical(result, client.chat.return_value)
+    mock_checks.called_once_with(record_property, "answer_request_seconds", ANSWER_DURATION_SECONDS)
+    value_checks.equal(clock.call_count, 2)
+
+
+@title("Benchmark reports descriptive answer timings independently of semantic scores")
+def test_answer_timing_summary(benchmark_data):
+    _, _, _, definition, calibration = benchmark_data
+    report = summarize(definition, timed_rows(), calibration)
+    check_answer_timing(report["summary"])
+    value_checks.contains(markdown(report), "Answer request timing")
+
+
+@pytest.mark.parametrize("duration", INVALID_ANSWER_DURATIONS)
+@title("Captured answer timing rejects invalid measurements [{param_id}]")
+def test_invalid_answer_duration(timed_sample, duration):
+    timed_sample.change_duration(duration)
+    errors.rejects(timed_sample.load, expected=ValueError, match="finite positive")
+
+
+@title("Older benchmarks report unavailable timing rather than inventing latency")
+def test_legacy_timing_remains_unavailable(benchmark_data):
+    _, _, _, definition, calibration = benchmark_data
+    report = summarize(definition, [_row()], calibration)
+    value_checks.equal(report["summary"]["answer_timing"]["unavailable"], 2)
+    value_checks.identical(report["summary"]["answer_timing"]["mean_seconds"], None)
 
 
 @pytest.mark.parametrize("options", INVALID_PLAN_OPTIONS_CASES)

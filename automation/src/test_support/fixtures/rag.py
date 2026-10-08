@@ -5,6 +5,7 @@ import json
 from collections.abc import Callable
 from copy import deepcopy
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
@@ -99,7 +100,10 @@ def rag_chat(
         generation_model_digest: str, workspace_configuration: dict[str,
         Any], policy_file: Path, record_property: Callable[[str, object], None]) -> Callable[[str, str], Response]:
     def chat(question: str, reference: str) -> Response:
+        started = perf_counter()
         response = authenticated_anythingllm_api.chat(indexed_workspace["slug"], question, timeout=settings.llm_timeout)
+        answer_request_seconds = perf_counter() - started
+        record_property("answer_request_seconds", answer_request_seconds)
         if capture_id:
             root = automation_root.parent
             files = list((root / ".runtime" / "ollama-capture").glob(f"{capture_id}-*.json"))
@@ -116,6 +120,7 @@ def rag_chat(
                     "policy_sha256": hashlib.sha256(policy_file.read_bytes()).hexdigest(),
                     "workspace_configuration": workspace_configuration,
                     "rag_iteration": rag_iteration,
+                    "answer_request_seconds": answer_request_seconds,
                     "thinking_mode": "Ollama/model default; not explicitly controlled"}
             sample["metadata"].update((name, value) for name, value in request.node.user_properties
                     if name.startswith(("golden_", "prompt_", "adversarial_", "bias_", "qualification_")) or name in (

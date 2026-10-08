@@ -3,9 +3,11 @@
 import copy
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import Mock
 
+from llm_testkit.datasets.golden import GoldenCase, GoldenDataset
 from llm_testkit.evaluation import benchmark as evaluation
 from llm_testkit.observation.evaluation_sample import build_sample, write_sample
 from llm_testkit.reporting.gates import METRICS
@@ -263,3 +265,24 @@ def make_judge_model_catalog():
 def make_forged_saved_report(definition):
     """Build input for test_forged_top_level_summary."""
     return {"manifest": definition, "results": [], "calibration": {"status": "error"}, "status": "checks_passed"}
+
+
+def timed_rows():
+    first, second = _row(), _row("gym_missing", "missing_information")
+    first["answer_request_seconds"], second["answer_request_seconds"] = 10.0, 20.0
+    return [first, second]
+
+
+@dataclass
+class TimedSample:
+    path: Path
+    dataset: GoldenDataset
+    case: GoldenCase
+
+    def load(self):
+        return evaluation.check_sample(self.path, self.dataset, self.case, "qwen3.5:4b")
+
+    def change_duration(self, value):
+        sample = json.loads(self.path.read_text())
+        sample["metadata"]["answer_request_seconds"] = value
+        self.path.write_text(json.dumps(sample))

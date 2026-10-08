@@ -1,6 +1,7 @@
 """Summarize the planned matrix, preserving missing results and judge failures."""
 
 import json
+import math
 from collections import Counter
 from statistics import mean
 
@@ -32,6 +33,24 @@ def _group(expected: list[dict], rows: dict[tuple[str, str], dict]) -> dict:
             "missing": outcomes["missing"],
             "pass_rate": outcomes["passed"] / len(expected),
             "metrics": {}}
+    durations = [
+            row["answer_request_seconds"] for row in selected if row is not None and "answer_request_seconds" in row]
+    if any(type(value) not in (int, float) or not math.isfinite(value) or value <= 0 for value in durations):
+        raise ValueError("Benchmark answer durations must be finite positive numbers")
+    summary["answer_timing"] = {
+            "measured":
+            len(durations),
+            "unavailable":
+            len(expected) - len(durations),
+            "mean_seconds":
+            mean(durations) if durations else None,
+            "minimum_seconds":
+            min(durations) if durations else None,
+            "maximum_seconds":
+            max(durations) if durations else None,
+            "scope":
+            "Completed chat API request, including retrieval/model loading/generation; excludes fixture setup, judge calls and cleanup"
+    }
     for metric in sorted(METRICS):
         eligible = [r for r in expected if r["category"] != "missing_information"]
         dimensions = [
@@ -142,6 +161,19 @@ def markdown(report: dict) -> str:
                 f"| {model} | {summary['planned']} | {summary['passed']} | {summary['failed']} | {summary['errors']} | {summary['missing']} | {summary['pass_rate']:.1%} |"
         )
     lines.extend([
+            "", "## Answer request timing", "",
+            "Descriptive timings include retrieval, model loading and generation. They exclude fixture setup, judge calls and cleanup. One observation per case is not a latency SLO or a statistically reliable speed ranking.",
+            "", "| Model | Measured / planned | Unavailable | Mean seconds | Min seconds | Max seconds |",
+            "| --- | ---: | ---: | ---: | ---: | ---: |"])
+    for model, summary in report["models"].items():
+        timing = summary["answer_timing"]
+        values = [
+                "N/A" if timing[key] is None else f"{timing[key]:.3f}"
+                for key in ("mean_seconds", "minimum_seconds", "maximum_seconds")]
+        lines.append(
+                f"| {model} | {timing['measured']} / {summary['planned']} | {timing['unavailable']} | "
+                f"{' | '.join(values)} |")
+    lines.extend([
             "", "## Semantic metrics by model", "",
             "Means cover available measurements only. Check unavailable counts before comparing.", "",
             "| Model | Metric | Mean | Minimum | Measured / eligible | Unavailable | Below threshold | N/A |",
@@ -166,6 +198,8 @@ def markdown(report: dict) -> str:
             "", "## Case diagnostics", ""])
     for row in report["results"]:
         lines.extend([f"### {row['case_id']} / {row['model']}", "", f"Status: {row_status(row)}", ""])
+        if "answer_request_seconds" in row:
+            lines.append(f"Answer request: {row['answer_request_seconds']:.3f} seconds.\n")
         if row.get("error"):
             lines.extend([str(row["error"]), ""])
         for d in row.get("dimensions", []):

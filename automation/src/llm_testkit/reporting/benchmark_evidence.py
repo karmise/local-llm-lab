@@ -78,6 +78,12 @@ def load_saved_benchmark(path: Path) -> dict:
         checksum = hashlib.sha256((directory / "sample.json").read_bytes()).hexdigest()
         if checksum != row["sample_sha256"] or sample["response"] != row["answer"]:
             raise ValueError("Benchmark sample/answer checksum mismatch")
+        duration = sample["metadata"].get("answer_request_seconds")
+        if row.get("answer_request_seconds") != duration:
+            raise ValueError("Benchmark timing differs from captured sample metadata")
+        if duration is not None and next(iter(
+                junit.cases.values())).properties.get("answer_request_seconds") != str(duration):
+            raise ValueError("Benchmark timing differs from generation JUnit")
         if row["dimensions"][:2] != acceptance_dimensions(sample, case):
             raise ValueError("Benchmark answer/source checks differ from actual inputs")
         if case.category == "missing_information":

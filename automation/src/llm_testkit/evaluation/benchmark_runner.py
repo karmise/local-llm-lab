@@ -50,6 +50,9 @@ def generate_sample(root: Path, directory: Path, case_id: str, model: str) -> di
     if sample_path.resolve().parent != allowed or not sample_path.is_file():
         raise ValueError(f"Generation has no captured sample; JUnit status={result.status}")
     sample, _ = load_sample(sample_path)
+    duration = sample.get("metadata", {}).get("answer_request_seconds")
+    if duration is not None and result.properties.get("answer_request_seconds") != str(duration):
+        raise ValueError("Answer request duration differs between sample and generation JUnit")
     write_sample(directory / "sample.json", sample)
     return {
             "generation_status": result.status,

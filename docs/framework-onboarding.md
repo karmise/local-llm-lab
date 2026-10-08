@@ -491,6 +491,7 @@ Follow these guides after the basic paid-leave walkthrough:
 - [Adversarial inputs](step-26-adversarial-inputs.md): reuse golden expectations for poisoned questions and document notes; confirm actual document-attack exposure.
 - [Quality gates](step-27-quality-gates.md): apply explicit experimental thresholds to validated saved evidence, and enforce framework coverage in CI.
 - [Judge suitability](step-36-judge-validation.md): compare all four metrics against source-bound engineering labels and inspect reference/judge disagreements before proposing release criteria.
+- [Real two-model comparison](step-37-two-model-benchmark.md): inspect the executed eight-case matrix, answer request timings and preserved semantic failures.
 
 Keep the distinction between measurement, a scoped acceptance pass and statistical validation. Full matrices remain opt-in. Gate thresholds are illustrative; a saved paid-leave gate does not establish dataset-wide or clinical quality.
 

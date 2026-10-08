@@ -222,6 +222,8 @@ requires re-indexing: vectors from different models are not interchangeable.
   experiments, all four RAG metrics, per-model/category diagnostics and human review.
 - [Judge suitability and disagreement review](docs/step-36-judge-validation.md):
   source-bound positive/negative controls and preserved reference-scope disagreements.
+- [Real two-model comparison](docs/step-37-two-model-benchmark.md): the same four
+  questions on both models, independent quality dimensions and answer request timings.
 - [Metric history and explicit baselines](docs/step-28-metric-history.md)
 - [Bounded performance checks](docs/step-29-performance.md)
 - [Counterfactual bias regression](docs/step-30-bias.md)
