@@ -490,6 +490,7 @@ Follow these guides after the basic paid-leave walkthrough:
 - [Prompt regression](step-25-prompt-regression.md): compare versioned prompts while holding reviewed acceptance criteria and other configuration fixed.
 - [Adversarial inputs](step-26-adversarial-inputs.md): reuse golden expectations for poisoned questions and document notes; confirm actual document-attack exposure.
 - [Quality gates](step-27-quality-gates.md): apply explicit experimental thresholds to validated saved evidence, and enforce framework coverage in CI.
+- [Judge suitability](step-36-judge-validation.md): compare all four metrics against source-bound engineering labels and inspect reference/judge disagreements before proposing release criteria.
 
 Keep the distinction between measurement, a scoped acceptance pass and statistical validation. Full matrices remain opt-in. Gate thresholds are illustrative; a saved paid-leave gate does not establish dataset-wide or clinical quality.
 

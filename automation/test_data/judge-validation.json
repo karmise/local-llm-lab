@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "version": "policy-judge-suitability-v1",
+  "label_origin": "engineering_authored",
+  "human_review": "pending",
+  "policy_sha256": "02ca83ffa0e66349e39eeb58de78fd1010471f2dd892e6c9739346000e841709",
+  "golden_dataset_sha256": "60b8edba5525ee74a2ed28472c2d9d6fcf192b98909b6295b84bd72b0a12fcf6",
+  "description": "Small positive and negative controls for metric/judge/reference suitability. No statistical calibration or human approval is implied.",
+  "cases": [
+    {
+      "id": "receipt_condition_supported",
+      "metric": "faithfulness",
+      "case_id": "hotel_receipt_condition",
+      "user_input": "Can I claim hotel reimbursement without a receipt? State the documented condition.",
+      "reference": "The documented hotel reimbursement condition requires a receipt.",
+      "response": "Hotel reimbursement requires a receipt.",
+      "retrieved_contexts": [
+        "The company reimburses hotel accommodation up to KGS 8400 per night with a receipt."
+      ],
+      "expected_score": 1,
+      "labels": {
+        "response": [
+          {
+            "pattern": "receipt",
+            "verdict": 1
+          }
+        ]
+      },
+      "rationale": "The reviewed policy contract treats with a receipt as the documented reimbursement condition. A mismatch is a suitability warning, not proof of an application defect."
+    },
+    {
+      "id": "receipt_condition_contradicted",
+      "metric": "faithfulness",
+      "case_id": "hotel_receipt_condition",
+      "user_input": "Can I claim hotel reimbursement without a receipt? State the documented condition.",
+      "reference": "The documented hotel reimbursement condition requires a receipt.",
+      "response": "Hotel reimbursement is available without a receipt.",
+      "retrieved_contexts": [
+        "The company reimburses hotel accommodation up to KGS 8400 per night with a receipt."
+      ],
+      "expected_score": 0,
+      "labels": {
+        "response": [
+          {
+            "pattern": "receipt",
+            "verdict": 0
+          }
+        ]
+      },
+      "rationale": "A missing receipt must not be accepted by the documented condition. This negative control prevents accepting every paraphrase."
+    },
+    {
+      "id": "manager_policy_paraphrase",
+      "metric": "factual_correctness",
+      "case_id": "leave_approver",
+      "user_input": "Who approves a paid-leave request?",
+      "reference": "The employee's direct manager approves the paid-leave request.",
+      "response": "According to the policy, the employee's direct manager approves the paid-leave request.",
+      "retrieved_contexts": [
+        "The employee's direct manager approves the request."
+      ],
+      "expected_score": 1,
+      "labels": {
+        "response": [
+          {
+            "pattern": "manager|approv",
+            "verdict": 1
+          }
+        ],
+        "reference": [
+          {
+            "pattern": "manager|approv",
+            "verdict": 1
+          }
+        ]
+      },
+      "rationale": "Accept the documented approval role expressed with policy attribution. A mismatch may expose reference-only evaluation limitations or an overly literal judge; it does not by itself prove judge error."
+    },
+    {
+      "id": "manager_wrong_role",
+      "metric": "factual_correctness",
+      "case_id": "leave_approver",
+      "user_input": "Who approves a paid-leave request?",
+      "reference": "The employee's direct manager approves the paid-leave request.",
+      "response": "The finance department approves the paid-leave request.",
+      "retrieved_contexts": [
+        "The employee's direct manager approves the request."
+      ],
+      "expected_score": 0,
+      "labels": {
+        "response": [
+          {
+            "pattern": "finance|approv",
+            "verdict": 0
+          }
+        ],
+        "reference": [
+          {
+            "pattern": "manager|approv",
+            "verdict": 0
+          }
+        ]
+      },
+      "rationale": "Finance approval for business travel must not be substituted for the direct manager approval of paid leave."
+    },
+    {
+      "id": "relevant_context_first",
+      "metric": "context_precision",
+      "case_id": "paid_leave",
+      "user_input": "How many working days of paid leave does each employee receive per year, and how many calendar days before leave starts must a request be submitted?",
+      "reference": "Each employee receives 23 working days of paid leave per year. A request must be submitted at least 12 calendar days before leave starts.",
+      "response": "Each employee receives 23 working days of paid leave per year. A request must be submitted at least 12 calendar days before leave starts.",
+      "retrieved_contexts": [
+        "Each employee receives 23 working days of paid leave per year.\nA leave request must be submitted at least 12 calendar days before leave starts.",
+        "Required availability hours are 11:00 to 16:00, Bishkek time."
+      ],
+      "expected_score": 1,
+      "labels": {
+        "verdicts": [
+          1,
+          0
+        ]
+      },
+      "rationale": "A complete leave excerpt at rank one is useful; remote-work availability is unrelated."
+    },
+    {
+      "id": "relevant_context_second",
+      "metric": "context_precision",
+      "case_id": "paid_leave",
+      "user_input": "How many working days of paid leave does each employee receive per year, and how many calendar days before leave starts must a request be submitted?",
+      "reference": "Each employee receives 23 working days of paid leave per year. A request must be submitted at least 12 calendar days before leave starts.",
+      "response": "Each employee receives 23 working days of paid leave per year. A request must be submitted at least 12 calendar days before leave starts.",
+      "retrieved_contexts": [
+        "Required availability hours are 11:00 to 16:00, Bishkek time.",
+        "Each employee receives 23 working days of paid leave per year.\nA leave request must be submitted at least 12 calendar days before leave starts."
+      ],
+      "expected_score": 0.5,
+      "labels": {
+        "verdicts": [
+          0,
+          1
+        ]
+      },
+      "rationale": "The same useful excerpt ranked after unrelated context must receive lower average precision."
+    },
+    {
+      "id": "all_reference_facts_retrieved",
+      "metric": "context_recall",
+      "case_id": "paid_leave",
+      "user_input": "How many working days of paid leave does each employee receive per year, and how many calendar days before leave starts must a request be submitted?",
+      "reference": "Each employee receives 23 working days of paid leave per year. A request must be submitted at least 12 calendar days before leave starts.",
+      "response": "Each employee receives 23 working days of paid leave per year. A request must be submitted at least 12 calendar days before leave starts.",
+      "retrieved_contexts": [
+        "Each employee receives 23 working days of paid leave per year.\nA leave request must be submitted at least 12 calendar days before leave starts."
+      ],
+      "expected_score": 1,
+      "labels": {
+        "reference": [
+          {
+            "pattern": "\\b(?:23|twenty[- ]three)\\b.*\\b(?:working|business)\\b.*\\bdays\\b",
+            "verdict": 1
+          },
+          {
+            "pattern": "\\b(?:12|twelve)\\b.*\\bcalendar\\b.*\\bdays\\b",
+            "verdict": 1
+          }
+        ]
+      },
+      "rationale": "Both independently labelled reference facts are present in the supplied excerpt."
+    },
+    {
+      "id": "notice_fact_not_retrieved",
+      "metric": "context_recall",
+      "case_id": "paid_leave",
+      "user_input": "How many working days of paid leave does each employee receive per year, and how many calendar days before leave starts must a request be submitted?",
+      "reference": "Each employee receives 23 working days of paid leave per year. A request must be submitted at least 12 calendar days before leave starts.",
+      "response": "Each employee receives 23 working days of paid leave per year. A request must be submitted at least 12 calendar days before leave starts.",
+      "retrieved_contexts": [
+        "Each employee receives 23 working days of paid leave per year."
+      ],
+      "expected_score": 0.5,
+      "labels": {
+        "reference": [
+          {
+            "pattern": "\\b(?:23|twenty[- ]three)\\b.*\\b(?:working|business)\\b.*\\bdays\\b",
+            "verdict": 1
+          },
+          {
+            "pattern": "\\b(?:12|twelve)\\b.*\\bcalendar\\b.*\\bdays\\b",
+            "verdict": 0
+          }
+        ]
+      },
+      "rationale": "Only entitlement is retrieved. The judge must not fill the absent notice period from model memory or the reference itself."
+    }
+  ]
+}

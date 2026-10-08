@@ -193,6 +193,8 @@ Reference-based retrieval evaluation is described in [Context precision and reca
 
 [Quality gates and coverage](../docs/step-27-quality-gates.md) adds a 75% framework coverage floor in CI and opt-in experimental thresholds for all four saved semantic metrics. A reusable/manual workflow validates a producer's evidence artifact without model calls; local generation is not automatically available on hosted runners.
 
+[Judge suitability and disagreement review](../docs/step-36-judge-validation.md) adds eight source-bound controls for all four metrics, a serial 18-call judge experiment, and offline diagnostics for verified saved benchmarks. The observed reference-attribution mismatch keeps release suitability unestablished; thresholds remain experimental.
+
 [Metric history and baseline monitoring](../docs/step-28-metric-history.md) records immutable, provenance-bound measurements and compares new evidence to an explicit baseline without model calls.
 
 [Performance checks](../docs/step-29-performance.md) provide explicitly selected health or RAG batches, bounded concurrency, individual timing/error evidence and declared latency gates. They do not run model load on ordinary CI pushes.
