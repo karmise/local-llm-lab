@@ -42,11 +42,8 @@ def prompt_variant() -> PromptVariant | None:
 
 @pytest.fixture
 def workspace_configuration(
-    workspace_template: dict[str, Any],
-    generation_model: str,
-    capture_id: str | None,
-    prompt_variant: PromptVariant | None,
-) -> dict[str, Any]:
+        workspace_template: dict[str, Any], generation_model: str, capture_id: str | None,
+        prompt_variant: PromptVariant | None) -> dict[str, Any]:
     configuration = {**deepcopy(workspace_template), "chatModel": generation_model}
     if prompt_variant is not None:
         configuration["openAiPrompt"] = prompt_variant.prompt
@@ -70,33 +67,18 @@ def generation_model_digest(generation_model: str, ollama_models: list[dict[str,
 
 @pytest.fixture
 def rag_environment(
-    generation_model: str,
-    rag_iteration: int,
-    prompt_variant: PromptVariant | None,
-    automation_root: Path,
-    workspace_template: dict[str, Any],
-    generation_model_digest: str,
-    authenticated_anythingllm_api: AnythingLLMClient,
-    indexed_workspace: dict[str, Any],
-    workspace_configuration: dict[str, Any],
-    policy_file: Path,
-    record_property: Callable[[str, object], None],
-) -> None:
+        generation_model: str, rag_iteration: int, prompt_variant: PromptVariant | None, automation_root: Path,
+        workspace_template: dict[str, Any], generation_model_digest: str,
+        authenticated_anythingllm_api: AnythingLLMClient, indexed_workspace: dict[str,
+        Any], workspace_configuration: dict[str, Any], policy_file: Path, record_property: Callable[[str, object],
+        None]) -> None:
     response = authenticated_anythingllm_api.get_workspace(indexed_workspace["slug"])
-    assertions.assert_workspace_matches(
-        response, slug=indexed_workspace["slug"], configuration=workspace_configuration
-    )
+    assertions.assert_workspace_matches(response, slug=indexed_workspace["slug"], configuration=workspace_configuration)
     if prompt_variant is not None:
         catalog = load_prompt_catalog(automation_root / "test_data/prompt-variants.json")
         baseline = next(v for v in catalog.variants if v.id == catalog.baseline)
-        if (
-            baseline.prompt != workspace_template["openAiPrompt"]
-            or prompt_variant not in catalog.variants
-        ):
-            pytest.fail(
-                "Prompt catalog differs from collected variants or workspace baseline",
-                pytrace=False,
-            )
+        if (baseline.prompt != workspace_template["openAiPrompt"] or prompt_variant not in catalog.variants):
+            pytest.fail("Prompt catalog differs from collected variants or workspace baseline", pytrace=False)
         record_property("prompt_id", prompt_variant.id)
         record_property("prompt_version", prompt_variant.version)
         record_property("prompt_sha256", prompt_variant.sha256)
@@ -111,26 +93,13 @@ def rag_environment(
 
 @pytest.fixture
 def rag_chat(
-    request: pytest.FixtureRequest,
-    rag_environment: None,
-    automation_root: Path,
-    authenticated_anythingllm_api: AnythingLLMClient,
-    indexed_workspace: dict[str, Any],
-    settings: Settings,
-    capture_id: str | None,
-    generation_model: str,
-    rag_iteration: int,
-    generation_model_digest: str,
-    workspace_configuration: dict[str, Any],
-    policy_file: Path,
-    record_property: Callable[[str, object], None],
-) -> Callable[[str, str], Response]:
+        request: pytest.FixtureRequest, rag_environment: None, automation_root: Path,
+        authenticated_anythingllm_api: AnythingLLMClient, indexed_workspace: dict[str,
+        Any], settings: Settings, capture_id: str | None, generation_model: str, rag_iteration: int,
+        generation_model_digest: str, workspace_configuration: dict[str,
+        Any], policy_file: Path, record_property: Callable[[str, object], None]) -> Callable[[str, str], Response]:
     def chat(question: str, reference: str) -> Response:
-        response = authenticated_anythingllm_api.chat(
-            indexed_workspace["slug"],
-            question,
-            timeout=settings.llm_timeout,
-        )
+        response = authenticated_anythingllm_api.chat(indexed_workspace["slug"], question, timeout=settings.llm_timeout)
         if capture_id:
             root = automation_root.parent
             files = list((root / ".runtime" / "ollama-capture").glob(f"{capture_id}-*.json"))
@@ -138,36 +107,19 @@ def rag_chat(
             capture = json.loads(files[0].read_text(encoding="utf-8"))
             payload, answer = assertions.assert_completed_answer(response)
             sample = build_sample(
-                capture,
-                question=question,
-                answer=answer,
-                reference=reference,
-                expected_model=generation_model,
-                capture_id=capture_id,
-            )
+                    capture, question=question, answer=answer, reference=reference, expected_model=generation_model,
+                    capture_id=capture_id)
             sample["response_sources"] = payload.get("sources", [])
             sample["metadata"] = {
-                "workspace_slug": indexed_workspace["slug"],
-                "model_digest": generation_model_digest,
-                "policy_sha256": hashlib.sha256(policy_file.read_bytes()).hexdigest(),
-                "workspace_configuration": workspace_configuration,
-                "rag_iteration": rag_iteration,
-                "thinking_mode": "Ollama/model default; not explicitly controlled",
-            }
-            sample["metadata"].update(
-                (name, value)
-                for name, value in request.node.user_properties
-                if name.startswith(
-                    ("golden_", "prompt_", "adversarial_", "bias_", "qualification_")
-                )
-                or name
-                in (
-                    "requirement_ids",
-                    "test_node_id",
-                    "test_source_sha256",
-                    "framework_source_sha256",
-                )
-            )
+                    "workspace_slug": indexed_workspace["slug"],
+                    "model_digest": generation_model_digest,
+                    "policy_sha256": hashlib.sha256(policy_file.read_bytes()).hexdigest(),
+                    "workspace_configuration": workspace_configuration,
+                    "rag_iteration": rag_iteration,
+                    "thinking_mode": "Ollama/model default; not explicitly controlled"}
+            sample["metadata"].update((name, value) for name, value in request.node.user_properties
+                    if name.startswith(("golden_", "prompt_", "adversarial_", "bias_", "qualification_")) or name in (
+                    "requirement_ids", "test_node_id", "test_source_sha256", "framework_source_sha256"))
             path = automation_root / "reports" / "rag-samples" / f"{capture_id}.json"
             write_sample(path, sample)
             record_property("evaluation_sample", str(path))

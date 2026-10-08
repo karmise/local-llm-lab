@@ -13,37 +13,18 @@ from test_support.assertions import pytest_runs
 from test_support.assertions import values as value_checks
 from test_support.assertions.qualification import check_trace_outcomes_outcome
 from test_support.builders.qualification import (
-    make_change_after_parsing_stub,
-    make_teardown_entries,
-    prepare_conflicting_inline_provenance_cannot_pass_case,
-    prepare_invalid_manifest_case,
-    prepare_invalid_package_inputs_case,
-    prepare_invalid_plan_case,
-    prepare_package_verification_binds_outcomes_to_inputs_case,
-    prepare_plan_rejects_ambiguous_paths_and_phase_types_case,
-    prepare_trace_outcomes_case,
-    write_junit,
-)
+        make_change_after_parsing_stub, make_teardown_entries, prepare_conflicting_inline_provenance_cannot_pass_case,
+        prepare_invalid_manifest_case, prepare_invalid_package_inputs_case, prepare_invalid_plan_case,
+        prepare_package_verification_binds_outcomes_to_inputs_case,
+        prepare_plan_rejects_ambiguous_paths_and_phase_types_case, prepare_trace_outcomes_case, write_junit)
 from test_support.data import common as case_data
 from test_support.data.qualification import (
-    CHANGED_INPUTS_CHANGE_CASES,
-    CONFLICTING_INLINE_PROVENANCE_CANNOT_PASS_STALE_FIRST_CASES,
-    FINAL_OUTCOME_STATUSES,
-    INCOMPLETE_OUTCOME_STATUSES,
-    INVALID_MANIFEST_CHANGE_CASES,
-    INVALID_PACKAGE_INPUTS_CHANGE_CASES,
-    INVALID_PLAN_CHANGE_CASES,
-    MATCHING_GOLDEN_CASE_METADATA,
-    OTHER_GOLDEN_CASE_METADATA,
-    PACKAGE_VERIFICATION_BINDS_OUTCOMES_TO_INPUTS_CHANGE_CASES,
-    PHASE_SCOPE_PHASES_CASES,
-    PLAN_REJECTS_AMBIGUOUS_PATHS_AND_PHASE_TYPES_CHANGE_CASES,
-    ROOT,
-    SELECTOR,
-    TEARDOWN_ENTRIES_CHANGE_CASES,
-    TRACE_OUTCOMES_STATUS_CASES,
-    UNBOUND_RESULTS_METADATA_CASES,
-)
+        CHANGED_INPUTS_CHANGE_CASES, CONFLICTING_INLINE_PROVENANCE_CANNOT_PASS_STALE_FIRST_CASES,
+        FINAL_OUTCOME_STATUSES, INCOMPLETE_OUTCOME_STATUSES, INVALID_MANIFEST_CHANGE_CASES,
+        INVALID_PACKAGE_INPUTS_CHANGE_CASES, INVALID_PLAN_CHANGE_CASES, MATCHING_GOLDEN_CASE_METADATA,
+        OTHER_GOLDEN_CASE_METADATA, PACKAGE_VERIFICATION_BINDS_OUTCOMES_TO_INPUTS_CHANGE_CASES,
+        PHASE_SCOPE_PHASES_CASES, PLAN_REJECTS_AMBIGUOUS_PATHS_AND_PHASE_TYPES_CHANGE_CASES, ROOT, SELECTOR,
+        TEARDOWN_ENTRIES_CHANGE_CASES, TRACE_OUTCOMES_STATUS_CASES, UNBOUND_RESULTS_METADATA_CASES)
 from test_support.fixtures.unit_qualification import evidence_lab as evidence_lab
 
 pytestmark = pytest.mark.unit
@@ -64,19 +45,12 @@ def test_committed_plan_matches_real_tests():
 def test_matching_requirements(evidence_lab):
     _, _, plan = evidence_lab
     value_checks.truthy(matching_requirements(plan, SELECTOR + "[first]"))
-    value_checks.truthy(
-        matching_requirements(plan, SELECTOR, case_data.fresh(MATCHING_GOLDEN_CASE_METADATA))
-    )
-    value_checks.falsy(
-        matching_requirements(plan, SELECTOR, case_data.fresh(OTHER_GOLDEN_CASE_METADATA))
-    )
+    value_checks.truthy(matching_requirements(plan, SELECTOR, case_data.fresh(MATCHING_GOLDEN_CASE_METADATA)))
+    value_checks.falsy(matching_requirements(plan, SELECTOR, case_data.fresh(OTHER_GOLDEN_CASE_METADATA)))
     value_checks.falsy(matching_requirements(plan, "tests/other.py::test_other"))
 
 
-@pytest.mark.parametrize(
-    "change",
-    INVALID_PLAN_CHANGE_CASES,
-)
+@pytest.mark.parametrize("change", INVALID_PLAN_CHANGE_CASES)
 @title("Qualification plans reject malformed, stale or unsafe mappings [{param_id}]")
 def test_invalid_plan(evidence_lab, change):
     root, path, _ = evidence_lab
@@ -94,33 +68,21 @@ def test_trace_outcomes(evidence_lab, status):
     rows = [("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT))]
     prepare_trace_outcomes_case(rows, status)
     trace = package.trace_results(plan, [write_junit(root, plan, rows)], ["OQ"])
-    value_checks.equal(
-        trace["status"], case_data.fresh(FINAL_OUTCOME_STATUSES).get(status, "incomplete")
-    )
+    value_checks.equal(trace["status"], case_data.fresh(FINAL_OUTCOME_STATUSES).get(status, "incomplete"))
     value_checks.equal(trace["review_status"], "pending human review")
     value_checks.identical(trace["compliance_claim"], False)
     value_checks.equal(
-        trace["requirements"][0]["cells"][1]["status"],
-        case_data.fresh(INCOMPLETE_OUTCOME_STATUSES).get(status, status),
-    )
+            trace["requirements"][0]["cells"][1]["status"],
+            case_data.fresh(INCOMPLETE_OUTCOME_STATUSES).get(status, status))
     check_trace_outcomes_outcome(status, trace)
 
 
-@pytest.mark.parametrize(
-    "metadata",
-    UNBOUND_RESULTS_METADATA_CASES,
-)
+@pytest.mark.parametrize("metadata", UNBOUND_RESULTS_METADATA_CASES)
 @title("Qualification evidence cannot pass with stale or malformed provenance [{param_id}]")
 def test_unbound_results(evidence_lab, metadata):
     root, _, plan = evidence_lab
     junit = write_junit(
-        root,
-        plan,
-        [
-            ("first", "passed", metadata),
-            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-        ],
-    )
+            root, plan, [("first", "passed", metadata), ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT))])
     trace = package.trace_results(plan, [junit], ["OQ"])
     value_checks.equal(trace["status"], "incomplete")
     value_checks.equal(trace["deviations"][0]["status"], "unbound")
@@ -129,36 +91,21 @@ def test_unbound_results(evidence_lab, metadata):
 @title("A later passing run does not erase a prior qualification failure")
 def test_later_pass_preserves_failure(evidence_lab):
     root, _, plan = evidence_lab
-    earlier = write_junit(
-        root, plan, [("first", "failed", case_data.fresh(case_data.EMPTY_OBJECT))], "earlier.xml"
-    )
+    earlier = write_junit(root, plan, [("first", "failed", case_data.fresh(case_data.EMPTY_OBJECT))], "earlier.xml")
     later = write_junit(
-        root,
-        plan,
-        [
-            ("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-        ],
-    )
+            root, plan, [("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
+            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT))])
     value_checks.equal(package.trace_results(plan, [earlier, later], ["OQ"])["status"], "failed")
 
 
 @pytest.mark.parametrize("change", TEARDOWN_ENTRIES_CHANGE_CASES)
-@title(
-    "Duplicate JUnit testcase entries preserve cleanup errors and conflicting metadata [{param_id}]"
-)
+@title("Duplicate JUnit testcase entries preserve cleanup errors and conflicting metadata [{param_id}]")
 def test_teardown_entries(evidence_lab, change):
     root, _, plan = evidence_lab
     duplicate = make_teardown_entries(change)
     junit = write_junit(
-        root,
-        plan,
-        [
-            ("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-            duplicate,
-            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-        ],
-    )
+            root, plan, [("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)), duplicate,
+            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT))])
     trace = package.trace_results(plan, [junit], ["OQ"])
     value_checks.equal(trace["status"], "incomplete")
     value_checks.truthy(trace["deviations"])
@@ -183,32 +130,21 @@ def test_legacy_results(evidence_lab):
 def test_package_integrity(evidence_lab):
     root, path, plan = evidence_lab
     junit = write_junit(
-        root,
-        plan,
-        [
-            ("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-        ],
-    )
+            root, plan, [("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
+            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT))])
     attachment = root / "reports/metrics.json"
     attachment.write_text('{"measured": 0.9}')
     output = root / "reports/package"
-    args = dict(
-        root=root, plan_path=path, junit_files=[junit], phases=["OQ"], attachments=[attachment]
-    )
+    args = dict(root=root, plan_path=path, junit_files=[junit], phases=["OQ"], attachments=[attachment])
     trace = package.build_package(output, **args)
     value_checks.equal(trace["status"], "passed")
     package.verify_package(output)
     value_checks.equal((output / "definitions/src/runtime.py").read_bytes(), b"VERSION = 1\n")
     value_checks.equal((output / "definitions/data/policy.txt").read_bytes(), b"Six days\n")
     value_checks.equal((output / "junit/0-results.xml").read_bytes(), junit.read_bytes())
-    value_checks.equal(
-        (output / "attachments/0-metrics.json").read_bytes(), attachment.read_bytes()
-    )
+    value_checks.equal((output / "attachments/0-metrics.json").read_bytes(), attachment.read_bytes())
     value_checks.contains((output / "summary.md").read_text(), "REQ-EXAMPLE | OQ | high | passed")
-    errors.rejects(
-        lambda: package.build_package(output, **args), expected=ValueError, match="already exists"
-    )
+    errors.rejects(lambda: package.build_package(output, **args), expected=ValueError, match="already exists")
     (output / "summary.md").write_text("changed")
     errors.rejects(lambda: package.verify_package(output), expected=ValueError, match="checksum")
 
@@ -227,15 +163,11 @@ def test_invalid_package_inputs(evidence_lab, change):
 
 
 @pytest.mark.parametrize("change", INVALID_MANIFEST_CHANGE_CASES)
-@title(
-    "Evidence verification rejects unsafe paths, duplicate entries and absent definitions [{param_id}]"
-)
+@title("Evidence verification rejects unsafe paths, duplicate entries and absent definitions [{param_id}]")
 def test_invalid_manifest(evidence_lab, change):
     root, path, plan = evidence_lab
     output = root / "reports/package"
-    package.build_package(
-        output, root=root, plan_path=path, junit_files=[write_junit(root, plan, [])], phases=["OQ"]
-    )
+    package.build_package(output, root=root, plan_path=path, junit_files=[write_junit(root, plan, [])], phases=["OQ"])
     manifest_path = output / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
     prepare_invalid_manifest_case(change, manifest)
@@ -249,22 +181,12 @@ def test_cli_incomplete(evidence_lab, monkeypatch, capsys):
     output = root / "reports/package"
     junit = write_junit(root, plan, [("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT))])
     monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "qualification",
-            "--root",
-            str(root),
-            "--plan",
-            str(path),
-            "--junit",
-            str(junit),
-            "--phase",
-            "OQ",
-            "--output",
-            str(output),
-        ],
-    )
+            sys, "argv", [
+            "qualification", "--root",
+            str(root), "--plan",
+            str(path), "--junit",
+            str(junit), "--phase", "OQ", "--output",
+            str(output)])
     value_checks.equal(package.main(), 1)
     value_checks.contains(capsys.readouterr().out, "incomplete")
     package.verify_package(output)
@@ -275,13 +197,8 @@ def test_cli_incomplete(evidence_lab, monkeypatch, capsys):
 def test_changed_inputs(evidence_lab, monkeypatch, change):
     root, path, plan = evidence_lab
     junit = write_junit(
-        root,
-        plan,
-        [
-            ("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-        ],
-    )
+            root, plan, [("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
+            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT))])
     original_trace = package.trace_results
 
     change_after_parsing = make_change_after_parsing_stub(change, junit, original_trace, path, root)
@@ -289,12 +206,8 @@ def test_changed_inputs(evidence_lab, monkeypatch, change):
     monkeypatch.setattr(package, "trace_results", change_after_parsing)
     output = root / "reports/package"
     errors.rejects(
-        lambda: package.build_package(
-            output, root=root, plan_path=path, junit_files=[junit], phases=["OQ"]
-        ),
-        expected=ValueError,
-        match="changed during packaging",
-    )
+            lambda: package.build_package(output, root=root, plan_path=path, junit_files=[junit], phases=["OQ"]),
+            expected=ValueError, match="changed during packaging")
     value_checks.falsy(output.exists())
     value_checks.falsy(list(output.parent.glob("qualification-*")))
 
@@ -313,39 +226,25 @@ def test_pytest_traceability(framework_pytester, evidence_lab):
     framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.evidence"]')
     result = framework_pytester.runpytest_subprocess("-q", "--junitxml=results.xml")
     pytest_runs.outcomes(result, passed=1)
-    properties = {
-        p.attrib["name"]: p.attrib["value"]
-        for p in ET.parse(child / "results.xml").findall(".//property")
-    }
+    properties = {p.attrib["name"]: p.attrib["value"] for p in ET.parse(child / "results.xml").findall(".//property")}
     value_checks.equal(properties["test_node_id"], SELECTOR)
     value_checks.equal(json.loads(properties["requirement_ids"]), ["REQ-EXAMPLE"])
     value_checks.equal(json.loads(properties["qualification_phases"]), ["OQ"])
     value_checks.equal(
-        package.trace_results(
-            load_plan(child / "test_data/qualification-plan.json", child),
-            [child / "results.xml"],
-            ["OQ"],
-        )["status"],
-        "passed",
-    )
+            package.trace_results(
+            load_plan(child / "test_data/qualification-plan.json", child), [child / "results.xml"], ["OQ"])["status"],
+            "passed")
     plan["requirements"][0]["tests"] = ["tests/test_example.py::test_unknown"]
     (child / "test_data/qualification-plan.json").write_text(json.dumps(plan))
-    value_checks.equal(
-        framework_pytester.runpytest_subprocess("-q").ret, pytest.ExitCode.USAGE_ERROR
-    )
+    value_checks.equal(framework_pytester.runpytest_subprocess("-q").ret, pytest.ExitCode.USAGE_ERROR)
 
 
 @pytest.mark.parametrize("stale_first", CONFLICTING_INLINE_PROVENANCE_CANNOT_PASS_STALE_FIRST_CASES)
 def test_conflicting_inline_provenance_cannot_pass(evidence_lab, stale_first, xml_element_factory):
     root, _, plan = evidence_lab
     junit = write_junit(
-        root,
-        plan,
-        [
-            ("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-        ],
-    )
+            root, plan, [("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
+            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT))])
     tree = ET.parse(junit)
     props = tree.getroot().find(".//properties")
     duplicate = xml_element_factory("property", name="qualification_plan_sha256", value="stale")
@@ -358,9 +257,7 @@ def test_conflicting_inline_provenance_cannot_pass(evidence_lab, stale_first, xm
 def test_package_verification_binds_outcomes_to_inputs(evidence_lab, change):
     root, path, plan = evidence_lab
     output = root / "reports/package"
-    package.build_package(
-        output, root=root, plan_path=path, junit_files=[write_junit(root, plan, [])], phases=["OQ"]
-    )
+    package.build_package(output, root=root, plan_path=path, junit_files=[write_junit(root, plan, [])], phases=["OQ"])
     manifest_path = output / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
     prepare_package_verification_binds_outcomes_to_inputs_case(change, manifest, output)
@@ -390,21 +287,10 @@ def test_package_verification_is_independent_of_original_directory(evidence_lab)
     root, path, plan = evidence_lab
     output = root / "reports/package"
     package.build_package(
-        output,
-        root=root,
-        plan_path=path,
-        junit_files=[
+            output, root=root, plan_path=path, junit_files=[
             write_junit(
-                root,
-                plan,
-                [
-                    ("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-                    ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
-                ],
-            )
-        ],
-        phases=["OQ"],
-    )
+            root, plan, [("first", "passed", case_data.fresh(case_data.EMPTY_OBJECT)),
+            ("second", "passed", case_data.fresh(case_data.EMPTY_OBJECT))])], phases=["OQ"])
     moved = root.parent / "archived-evidence"
     shutil.move(output, moved)
     shutil.rmtree(root)

@@ -1,3 +1,7 @@
-# Static checks and coverage dependency profile, 2026-10-06.
+# Static checks, compact formatting and coverage dependency profile, 2026-10-08.
 ruff==0.16.9
+yapf==0.43.0
+isort==9.0.2
+platformdirs==4.12.4
+mypy-extensions==1.1.0
 coverage==7.16.2

@@ -25,32 +25,28 @@ def _group(expected: list[dict], rows: dict[tuple[str, str], dict]) -> dict:
     selected = [rows.get((r["case_id"], r["model"])) for r in expected]
     outcomes = Counter(row_status(row) if row is not None else "missing" for row in selected)
     summary = {
-        "planned": len(expected),
-        "passed": outcomes["passed"],
-        "failed": outcomes["failed"],
-        "errors": outcomes["error"],
-        "missing": outcomes["missing"],
-        "pass_rate": outcomes["passed"] / len(expected),
-        "metrics": {},
-    }
+            "planned": len(expected),
+            "passed": outcomes["passed"],
+            "failed": outcomes["failed"],
+            "errors": outcomes["error"],
+            "missing": outcomes["missing"],
+            "pass_rate": outcomes["passed"] / len(expected),
+            "metrics": {}}
     for metric in sorted(METRICS):
         eligible = [r for r in expected if r["category"] != "missing_information"]
         dimensions = [
-            d
-            for planned in eligible
-            for d in rows.get((planned["case_id"], planned["model"]), {}).get("dimensions", [])
-            if d.get("metric") == metric and d["status"] in ("passed", "failed")
-        ]
+                d for planned in eligible
+                for d in rows.get((planned["case_id"], planned["model"]), {}).get("dimensions", [])
+                if d.get("metric") == metric and d["status"] in ("passed", "failed")]
         values = [d["value"] for d in dimensions]
         summary["metrics"][metric] = {
-            "eligible": len(eligible),
-            "measured": len(values),
-            "unavailable": len(eligible) - len(values),
-            "not_applicable": len(expected) - len(eligible),
-            "below_minimum": sum(d["status"] == "failed" for d in dimensions),
-            "mean": mean(values) if values else None,
-            "minimum": min(values) if values else None,
-        }
+                "eligible": len(eligible),
+                "measured": len(values),
+                "unavailable": len(eligible) - len(values),
+                "not_applicable": len(expected) - len(eligible),
+                "below_minimum": sum(d["status"] == "failed" for d in dimensions),
+                "mean": mean(values) if values else None,
+                "minimum": min(values) if values else None}
     return summary
 
 
@@ -107,105 +103,69 @@ def summarize(manifest: dict, results: list[dict], calibration: dict) -> dict:
         configurations[model], digests[model] = configuration, digest
     summary = _group(expected, rows)
     calibration_ok = (
-        calibration.get("status") == "matched"
-        and calibration.get("judge_model") == manifest["judge_model"]
-        and calibration.get("controls_sha256") == manifest["controls_sha256"]
-        and calibration.get("control_ids") == manifest["control_ids"]
-        and bool(calibration.get("judge_model_digest"))
-        and len(calibration.get("results", [])) == len(manifest["control_ids"])
-        and all(r.get("status") == "matched" for r in calibration["results"])
-    )
+            calibration.get("status") == "matched" and calibration.get("judge_model") == manifest["judge_model"]
+            and calibration.get("controls_sha256") == manifest["controls_sha256"]
+            and calibration.get("control_ids") == manifest["control_ids"]
+            and bool(calibration.get("judge_model_digest"))
+            and len(calibration.get("results", [])) == len(manifest["control_ids"])
+            and all(r.get("status") == "matched" for r in calibration["results"]))
     status = (
-        "error"
-        if summary["errors"] or summary["missing"] or not calibration_ok
-        else "failed"
-        if summary["failed"]
-        else "checks_passed"
-    )
+            "error" if summary["errors"] or summary["missing"] or not calibration_ok else
+            "failed" if summary["failed"] else "checks_passed")
     return {
-        "schema_version": 1,
-        "status": status,
-        "manifest": manifest,
-        "interpretation": "Experimental thresholds and a curated sample; human review pending. A mean cannot hide failed, missing or invalid cases. No population accuracy or clinical validity claim.",
-        "summary": summary,
-        "models": {
+            "schema_version": 1,
+            "status": status,
+            "manifest": manifest,
+            "interpretation":
+            "Experimental thresholds and a curated sample; human review pending. A mean cannot hide failed, missing or invalid cases. No population accuracy or clinical validity claim.",
+            "summary": summary,
+            "models": {
             model: _group([r for r in expected if r["model"] == model], rows)
-            for model in dict.fromkeys(r["model"] for r in expected)
-        },
-        "categories": {
+            for model in dict.fromkeys(r["model"] for r in expected)},
+            "categories": {
             category: _group([r for r in expected if r["category"] == category], rows)
-            for category in dict.fromkeys(r["category"] for r in expected)
-        },
-        "calibration": calibration,
-        "judge_controls_matched": calibration_ok,
-        "results": results,
-        "missing_rows": [r for key, r in identities.items() if key not in rows],
-    }
+            for category in dict.fromkeys(r["category"] for r in expected)},
+            "calibration": calibration,
+            "judge_controls_matched": calibration_ok,
+            "results": results,
+            "missing_rows": [r for key, r in identities.items() if key not in rows]}
 
 
 def markdown(report: dict) -> str:
     lines = [
-        "# Policy quality benchmark",
-        "",
-        f"Status: **{report['status']}**",
-        "",
-        report["interpretation"],
-        "",
-        "## Results by generation model",
-        "",
-        "| Model | Planned | Passed | Failed | Errors | Missing | Pass rate |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
-    ]
+            "# Policy quality benchmark", "", f"Status: **{report['status']}**", "", report["interpretation"], "",
+            "## Results by generation model", "",
+            "| Model | Planned | Passed | Failed | Errors | Missing | Pass rate |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"]
     for model, summary in report["models"].items():
         lines.append(
-            f"| {model} | {summary['planned']} | {summary['passed']} | {summary['failed']} | {summary['errors']} | {summary['missing']} | {summary['pass_rate']:.1%} |"
+                f"| {model} | {summary['planned']} | {summary['passed']} | {summary['failed']} | {summary['errors']} | {summary['missing']} | {summary['pass_rate']:.1%} |"
         )
-    lines.extend(
-        [
-            "",
-            "## Semantic metrics by model",
-            "",
-            "Means cover available measurements only. Check unavailable counts before comparing.",
-            "",
+    lines.extend([
+            "", "## Semantic metrics by model", "",
+            "Means cover available measurements only. Check unavailable counts before comparing.", "",
             "| Model | Metric | Mean | Minimum | Measured / eligible | Unavailable | Below threshold | N/A |",
-            "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
-        ]
-    )
+            "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |"])
     for model, summary in report["models"].items():
         for metric, values in summary["metrics"].items():
             avg = "N/A" if values["mean"] is None else f"{values['mean']:.3f}"
             minimum = "N/A" if values["minimum"] is None else f"{values['minimum']:.3f}"
             lines.append(
-                f"| {model} | {metric} | {avg} | {minimum} | {values['measured']} / {values['eligible']} | {values['unavailable']} | {values['below_minimum']} | {values['not_applicable']} |"
+                    f"| {model} | {metric} | {avg} | {minimum} | {values['measured']} / {values['eligible']} | {values['unavailable']} | {values['below_minimum']} | {values['not_applicable']} |"
             )
-    lines.extend(
-        [
-            "",
-            "## Results by question category",
-            "",
-            "| Category | Planned | Passed | Failed | Errors | Missing |",
-            "| --- | ---: | ---: | ---: | ---: | ---: |",
-        ]
-    )
+    lines.extend([
+            "", "## Results by question category", "", "| Category | Planned | Passed | Failed | Errors | Missing |",
+            "| --- | ---: | ---: | ---: | ---: | ---: |"])
     for category, values in report["categories"].items():
         lines.append(
-            f"| {category} | {values['planned']} | {values['passed']} | {values['failed']} | {values['errors']} | {values['missing']} |"
+                f"| {category} | {values['planned']} | {values['passed']} | {values['failed']} | {values['errors']} | {values['missing']} |"
         )
-    lines.extend(
-        [
-            "",
-            "## Judge control check",
-            "",
+    lines.extend([
+            "", "## Judge control check", "",
             f"Status: {report['calibration'].get('status', 'unavailable')}. This is a small hand-labelled faithfulness sanity check, not statistical calibration of all four metrics.",
-            "",
-            "## Case diagnostics",
-            "",
-        ]
-    )
+            "", "## Case diagnostics", ""])
     for row in report["results"]:
-        lines.extend(
-            [f"### {row['case_id']} / {row['model']}", "", f"Status: {row_status(row)}", ""]
-        )
+        lines.extend([f"### {row['case_id']} / {row['model']}", "", f"Status: {row_status(row)}", ""])
         if row.get("error"):
             lines.extend([str(row["error"]), ""])
         for d in row.get("dimensions", []):
@@ -217,32 +177,33 @@ def markdown(report: dict) -> str:
 
 def review_worksheet(report: dict) -> dict:
     return {
-        "schema_version": 1,
-        "status": "pending_human_review",
-        "instruction": "Review answers against references and captured contexts. Record acceptable/incorrect/incomplete/unsupported and judge disagreements before proposing thresholds. Keep this run's evidence immutable; save a separate reviewed copy.",
-        "rows": [
-            {
-                "case_id": r["case_id"],
-                "model": r["model"],
-                "question": r.get("question"),
-                "reference": r.get("reference"),
-                "answer": r.get("answer"),
-                "human_verdict": None,
-                "review_flags": ["semantic_disagreement_candidate"]
-                if not r.get("error")
-                and all(d["status"] == "passed" for d in r.get("dimensions", [])[:2])
-                and any(
-                    d.get("metric") and d["status"] in ("failed", "error")
-                    for d in r.get("dimensions", [])
-                )
-                else [],
-                "judge_disagreements": [],
-                "reviewer": None,
-                "notes": None,
-            }
-            for r in report["results"]
-        ],
-    }
+            "schema_version":
+            1,
+            "status":
+            "pending_human_review",
+            "instruction":
+            "Review answers against references and captured contexts. Record acceptable/incorrect/incomplete/unsupported and judge disagreements before proposing thresholds. Keep this run's evidence immutable; save a separate reviewed copy.",
+            "rows": [{
+            "case_id":
+            r["case_id"],
+            "model":
+            r["model"],
+            "question":
+            r.get("question"),
+            "reference":
+            r.get("reference"),
+            "answer":
+            r.get("answer"),
+            "human_verdict":
+            None,
+            "review_flags": ["semantic_disagreement_candidate"]
+            if not r.get("error") and all(d["status"] == "passed" for d in r.get("dimensions", [])[:2])
+            and any(d.get("metric") and d["status"] in ("failed", "error") for d in r.get("dimensions", [])) else [],
+            "judge_disagreements": [],
+            "reviewer":
+            None,
+            "notes":
+            None} for r in report["results"]]}
 
 
 @step("Check: complete policy benchmark meets its experimental acceptance criteria")

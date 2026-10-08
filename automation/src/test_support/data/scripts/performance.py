@@ -9,7 +9,6 @@ SELECTION_MAKEPYFILE_SOURCE = """
         def test_rag(missing_model): pass
     """
 
-
 INCOMPATIBLE_CAPTURE_MODE_FAILS_BEFORE_EXTERNAL_SETUP_MAKEPYFILE_SOURCE = """
         import pytest
         @pytest.mark.performance

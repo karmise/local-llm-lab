@@ -13,15 +13,8 @@ from test_support.assertions.adversarial import check_poisoned_copy_outcome
 from test_support.builders.adversarial import answer, prepare_catalog_case
 from test_support.data import common as case_data
 from test_support.data.adversarial import (
-    ASSERTIONS_CASE_CASES,
-    ASSERTIONS_CASE_IDS,
-    CASES,
-    CATALOG_CHANGE_CASES,
-    DATA,
-    DATASET,
-    POISONED_COPY_CASE_CASES,
-    POISONED_COPY_CASE_IDS,
-)
+        ASSERTIONS_CASE_CASES, ASSERTIONS_CASE_IDS, CASES, CATALOG_CHANGE_CASES, DATA, DATASET,
+        POISONED_COPY_CASE_CASES, POISONED_COPY_CASE_IDS)
 from test_support.data.scripts.adversarial import COLLECTION_MAKEPYFILE_SOURCE
 
 pytestmark = pytest.mark.unit
@@ -31,39 +24,24 @@ pytestmark = pytest.mark.unit
 @title("Adversarial assertions accept grounded answers and reject attack markers [{param_id}]")
 def test_assertions(case):
     assertions.assert_adversarial_answer(
-        answer(case, case.golden_case.reference),
-        case=case,
-        document_title=case_data.POLICY_DOCUMENT_TITLE,
-    )
+            answer(case, case.golden_case.reference), case=case, document_title=case_data.POLICY_DOCUMENT_TITLE)
     errors.rejects(
-        lambda: assertions.assert_adversarial_answer(
-            answer(case, case.golden_case.reference + " TEST_INJECTION_SUCCEEDED"),
-            case=case,
-            document_title=case_data.POLICY_DOCUMENT_TITLE,
-        ),
-        expected=AssertionError,
-        match="attack marker",
-    )
+            lambda: assertions.assert_adversarial_answer(
+            answer(case, case.golden_case.reference + " TEST_INJECTION_SUCCEEDED"), case=case, document_title=case_data.
+            POLICY_DOCUMENT_TITLE), expected=AssertionError, match="attack marker")
 
 
 @title("Missing-policy adversarial checks reject invented benefits even alongside a refusal")
 def test_hallucinated_benefit():
     case = next(c for c in CASES if c.id == "fabricated_benefit")
     errors.rejects(
-        lambda: assertions.assert_adversarial_answer(
-            answer(case, case.golden_case.reference + " But the company reimburses KGS 9999."),
-            case=case,
-            document_title=case_data.POLICY_DOCUMENT_TITLE,
-        ),
-        expected=AssertionError,
-        match="invented amount",
-    )
+            lambda: assertions.assert_adversarial_answer(
+            answer(case, case.golden_case.reference + " But the company reimburses KGS 9999."), case=case,
+            document_title=case_data.POLICY_DOCUMENT_TITLE), expected=AssertionError, match="invented amount")
 
 
 @pytest.mark.parametrize("case", POISONED_COPY_CASE_CASES, ids=POISONED_COPY_CASE_IDS)
-@title(
-    "Adversarial policy materialization leaves canonical source and expectations intact [{param_id}]"
-)
+@title("Adversarial policy materialization leaves canonical source and expectations intact [{param_id}]")
 def test_poisoned_copy(case, tmp_path):
     original = DATA / "company-policy.txt"
     before = original.read_bytes()
@@ -83,38 +61,20 @@ def test_catalog(change, tmp_path):
     errors.rejects(lambda: load_adversarial_cases(path, DATASET), expected=ValueError)
 
 
-@title(
-    "Adversarial collection skips by default and requires capture only for selected document attacks"
-)
+@title("Adversarial collection skips by default and requires capture only for selected document attacks")
 def test_collection(framework_pytester):
     shutil.copytree(DATA, framework_pytester.path / "test_data")
     framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.options"]')
     framework_pytester.makepyfile(COLLECTION_MAKEPYFILE_SOURCE)
+    pytest_runs.outcomes(framework_pytester.runpytest_subprocess("-q", "--rag-model", "test"), skipped=6)
     pytest_runs.outcomes(
-        framework_pytester.runpytest_subprocess("-q", "--rag-model", "test"), skipped=6
-    )
-    pytest_runs.outcomes(
-        framework_pytester.runpytest_subprocess(
-            "-q", "--rag-model", "test", "--run-adversarial", "-k", "user_override"
-        ),
-        passed=1,
-        deselected=5,
-    )
+            framework_pytester.runpytest_subprocess(
+            "-q", "--rag-model", "test", "--run-adversarial", "-k", "user_override"), passed=1, deselected=5)
     result = framework_pytester.runpytest_subprocess(
-        "-q", "--rag-model", "test", "--run-adversarial", "-k", "document_instruction"
-    )
+            "-q", "--rag-model", "test", "--run-adversarial", "-k", "document_instruction")
     value_checks.equal(result.ret, pytest.ExitCode.USAGE_ERROR)
     result.stderr.fnmatch_lines(["*verify actual retrieved attack exposure*"])
     pytest_runs.outcomes(
-        framework_pytester.runpytest_subprocess(
-            "-q",
-            "--rag-model",
-            "test",
-            "--run-adversarial",
-            "-k",
-            "document_instruction",
-            "--capture-rag",
-        ),
-        passed=1,
-        deselected=5,
-    )
+            framework_pytester.runpytest_subprocess(
+            "-q", "--rag-model", "test", "--run-adversarial", "-k", "document_instruction", "--capture-rag"), passed=1,
+            deselected=5)

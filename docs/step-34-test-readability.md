@@ -112,7 +112,8 @@ Run from `automation` with the appropriate dependencies installed:
 
 ```bash
 python -m ruff check src tests
-python -m ruff format --check src tests
+python -m isort --check-only --diff src tests
+python -m yapf --diff --recursive src tests
 python -m pytest tests/unit -q
 python -m pytest tests/browser --run-ui -q
 python -m pytest tests/test_golden_rag.py --collect-only -q

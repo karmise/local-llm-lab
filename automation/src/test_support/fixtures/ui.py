@@ -15,11 +15,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def workspace_page(
-    rag_environment: None,
-    page: "Page",
-    settings: "Settings",
-    indexed_workspace: dict[str, Any],
-) -> "WorkspacePage":
+        rag_environment: None, page: "Page", settings: "Settings", indexed_workspace: dict[str,
+        Any]) -> "WorkspacePage":
     from llm_testkit.pages.workspace_page import WorkspacePage
 
     workspace = WorkspacePage(page, base_url=settings.base_url, timeout=settings.llm_timeout)

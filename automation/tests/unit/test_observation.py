@@ -12,20 +12,13 @@ from test_support.assertions import errors as errors
 from test_support.assertions import values as value_checks
 from test_support.assertions.observation import check_capture_hook_results
 from test_support.builders.observation import (
-    _capture,
-    _sample,
-    make_fail_stub,
-    make_publish_stub,
-    make_unserializable_capture_payload,
-    prepare_sample_rejects_mismatched_or_ambiguous_observations_case,
-    prepare_sdk_hook_preserves_request_return_values_streams_and_errors_case,
-)
+        _capture, _sample, make_fail_stub, make_publish_stub, make_unserializable_capture_payload,
+        prepare_sample_rejects_mismatched_or_ambiguous_observations_case,
+        prepare_sdk_hook_preserves_request_return_values_streams_and_errors_case)
 from test_support.data import common as case_data
 from test_support.data.observation import (
-    INVALID_EVIDENCE_NEVER_LEAVES_PARTIAL_OUTPUT_VALUE_CASES,
-    SAMPLE_REJECTS_MISMATCHED_OR_AMBIGUOUS_OBSERVATIONS_CHANGE_CASES,
-    SERIALIZABLE_CAPTURE_PAYLOAD,
-)
+        INVALID_EVIDENCE_NEVER_LEAVES_PARTIAL_OUTPUT_VALUE_CASES,
+        SAMPLE_REJECTS_MISMATCHED_OR_AMBIGUOUS_OBSERVATIONS_CHANGE_CASES, SERIALIZABLE_CAPTURE_PAYLOAD)
 from test_support.paths import AUTOMATION_ROOT
 
 pytestmark = pytest.mark.unit
@@ -86,12 +79,8 @@ try { client.chat({ messages: [], fail: true }); } catch (caught) { sameError = 
 console.log(JSON.stringify({ sameRequest, sameReturn: returned === response, sameStream, sameError,
   files: fs.readdirSync(process.argv[2]).length }));
 """
-    result = subprocess.run(
-        [node, "-e", script, str(hook), str(tmp_path), json.dumps(_capture()["request"])],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    result = subprocess.run([node, "-e", script,
+            str(hook), str(tmp_path), json.dumps(_capture()["request"])], check=True, capture_output=True, text=True)
     actual = json.loads(result.stdout)
     check_capture_hook_results(actual)
     value_checks.equal(actual["files"], 1)
@@ -103,9 +92,7 @@ console.log(JSON.stringify({ sameRequest, sameReturn: returned === response, sam
 def test_invalid_evidence_never_leaves_partial_output(tmp_path, value):
     path = tmp_path / case_data.SAMPLE_FILE_NAME
     errors.rejects(
-        lambda: write_sample(path, make_unserializable_capture_payload(value)),
-        expected=(ValueError, TypeError),
-    )
+            lambda: write_sample(path, make_unserializable_capture_payload(value)), expected=(ValueError, TypeError))
     value_checks.falsy(list(tmp_path.iterdir()))
 
 
@@ -128,10 +115,6 @@ def test_publication_failure_removes_temporary_evidence(tmp_path, monkeypatch):
 
     monkeypatch.setattr("llm_testkit.observation.evaluation_sample.os.link", fail)
     errors.rejects(
-        lambda: write_sample(
-            tmp_path / case_data.SAMPLE_FILE_NAME, case_data.fresh(SERIALIZABLE_CAPTURE_PAYLOAD)
-        ),
-        expected=OSError,
-        match="publication unavailable",
-    )
+            lambda: write_sample(tmp_path / case_data.SAMPLE_FILE_NAME, case_data.fresh(SERIALIZABLE_CAPTURE_PAYLOAD)),
+            expected=OSError, match="publication unavailable")
     value_checks.falsy(list(tmp_path.iterdir()))

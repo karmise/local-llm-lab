@@ -18,10 +18,7 @@ class Settings:
     workspace_slug: str = "company-policy-lab"
 
     def __post_init__(self) -> None:
-        for address, variable in (
-            (self.base_url, "ANYTHINGLLM_BASE_URL"),
-            (self.ollama_base_url, "OLLAMA_BASE_URL"),
-        ):
+        for address, variable in ((self.base_url, "ANYTHINGLLM_BASE_URL"), (self.ollama_base_url, "OLLAMA_BASE_URL")):
             try:
                 url = urlsplit(address)
                 port = url.port
@@ -51,11 +48,9 @@ class Settings:
             elif key_file:
                 raise ValueError("ANYTHINGLLM_API_KEY_FILE does not point to an existing file")
         return cls(
-            base_url=os.getenv("ANYTHINGLLM_BASE_URL", "http://127.0.0.1:3001").rstrip("/"),
-            ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/"),
-            http_timeout=float(os.getenv("ANYTHINGLLM_HTTP_TIMEOUT", "5")),
-            document_timeout=float(os.getenv("ANYTHINGLLM_DOCUMENT_TIMEOUT", "180")),
-            llm_timeout=float(os.getenv("ANYTHINGLLM_LLM_TIMEOUT", "300")),
-            api_key=api_key,
-            workspace_slug=os.getenv("ANYTHINGLLM_WORKSPACE_SLUG", "company-policy-lab"),
-        )
+                base_url=os.getenv("ANYTHINGLLM_BASE_URL", "http://127.0.0.1:3001").rstrip("/"),
+                ollama_base_url=os.getenv("OLLAMA_BASE_URL",
+                "http://127.0.0.1:11434").rstrip("/"), http_timeout=float(os.getenv("ANYTHINGLLM_HTTP_TIMEOUT",
+                "5")), document_timeout=float(os.getenv("ANYTHINGLLM_DOCUMENT_TIMEOUT",
+                "180")), llm_timeout=float(os.getenv("ANYTHINGLLM_LLM_TIMEOUT",
+                "300")), api_key=api_key, workspace_slug=os.getenv("ANYTHINGLLM_WORKSPACE_SLUG", "company-policy-lab"))

@@ -9,10 +9,13 @@ Use Python 3.12 from this directory. The project separates HTTP transport, API
 operations, browser actions, assertions, pytest fixtures and reporting. Test
 functions describe a scenario; setup and cleanup belong to fixtures.
 
-Test signatures use one line when they fit within 100 characters. Longer signatures
-group parameters on continuation lines, with the closing parenthesis on the last
-parameter line. A local `# fmt: skip` preserves these compact headers while Ruff
-continues formatting test bodies and the rest of the framework.
+Python code uses a compact style with a 120-character line limit. Imports, decorators,
+signatures and calls stay on one line when they fit; longer argument lists wrap
+without placing each argument or closing parenthesis on its own line. Optional
+trailing commas are omitted; commas required for singleton tuples are preserved.
+YAPF formats code, isort orders imports, and Ruff checks Python errors and style.
+The shared configuration is in `pyproject.toml`; local formatter exceptions are
+not needed.
 
 ## Install
 
@@ -34,13 +37,24 @@ Run commands from `automation` with its virtual environment activated.
 | --- | --- | --- |
 | Framework unit tests | `python -m pytest tests/unit -q` | No running services; Node for the capture-hook test |
 | Static checks | `python -m ruff check src tests` | Development dependencies |
-| Formatting check | `python -m ruff format --check src tests` | Development dependencies |
+| Import order check | `python -m isort --check-only --diff src tests` | Development dependencies |
+| Formatting check | `python -m yapf --diff --recursive src tests` | Development dependencies |
 | Offline Page Object regressions | `python -m pytest tests/browser --run-ui` | Chromium; no application/models |
 | Application health and API | `python -m pytest -m 'smoke or api'` | AnythingLLM; API key; embedding model for indexing |
 | RAG answers | `python -m pytest tests/test_rag.py --rag-model qwen3.5:4b` | AnythingLLM, API key, generation and embedding models |
 | Golden policy dataset (one case) | `python -m pytest tests/test_golden_rag.py --run-golden --rag-model qwen3.5:4b -k carryover_limit` | Same as RAG; broader catalog is opt-in |
 | Application UI | `python -m pytest tests/ui --run-ui` | Same as RAG, plus Chromium |
 | Conversational assistant | `python -m pytest tests/conversation --run-conversation --rag-model qwen3.5:4b` | AnythingLLM, API key, generation and embedding models; five sequential generations |
+
+To apply the shared formatting rules locally:
+
+```bash
+python -m isort src tests
+python -m yapf --in-place --recursive src tests
+```
+
+Use YAPF for automatic formatting in the editor as well; running `ruff format`
+would apply a different layout. Ruff remains the linter.
 
 `python -m pytest` retains the existing behavior: it includes live API and RAG
 tests. Use `tests/unit` or `-m unit` for an offline run. Browser, golden and live-quality

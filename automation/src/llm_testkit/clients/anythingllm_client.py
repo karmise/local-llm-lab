@@ -30,14 +30,10 @@ class AnythingLLMClient:
 
     @step("API: update workspace settings")
     def update_workspace(self, slug: str, configuration: Mapping[str, Any]) -> Response:
-        return self._developer_request(
-            "POST", f"workspace/{quote(slug, safe='')}/update", json=dict(configuration)
-        )
+        return self._developer_request("POST", f"workspace/{quote(slug, safe='')}/update", json=dict(configuration))
 
     @step("API: create workspace")
-    def create_workspace(
-        self, name: str, configuration: Mapping[str, Any] | None = None
-    ) -> Response:
+    def create_workspace(self, name: str, configuration: Mapping[str, Any] | None = None) -> Response:
         payload = {**(configuration or {}), "name": name}
         return self._developer_request("POST", "workspace/new", json=payload)
 
@@ -50,60 +46,39 @@ class AnythingLLMClient:
 
     @step("API: delete test document folder")
     def delete_document_folder(self, name: str, *, timeout: float = 180) -> Response:
-        return self._developer_request(
-            "DELETE", "document/remove-folder", json={"name": name}, timeout=timeout
-        )
+        return self._developer_request("DELETE", "document/remove-folder", json={"name": name}, timeout=timeout)
 
     def get_document_folder(self, name: str) -> Response:
         return self._developer_request("GET", f"documents/folder/{quote(name, safe='')}")
 
     @step("API: upload document")
     def upload_document(
-        self, path: Path, folder: str, *, filename: str | None = None, timeout: float = 180
-    ) -> Response:
+            self, path: Path, folder: str, *, filename: str | None = None, timeout: float = 180) -> Response:
         with path.open("rb") as document:
             return self._developer_request(
-                "POST",
-                f"document/upload/{quote(folder, safe='')}",
-                files={"file": (filename or path.name, document, "text/plain")},
-                timeout=timeout,
-            )
+                    "POST", f"document/upload/{quote(folder, safe='')}",
+                    files={"file": (filename or path.name, document, "text/plain")}, timeout=timeout)
 
     @step("API: index workspace documents")
-    def add_workspace_documents(
-        self, slug: str, locations: list[str], *, timeout: float = 180
-    ) -> Response:
+    def add_workspace_documents(self, slug: str, locations: list[str], *, timeout: float = 180) -> Response:
         return self._developer_request(
-            "POST",
-            f"workspace/{quote(slug, safe='')}/update-embeddings",
-            json={"adds": locations, "deletes": []},
-            timeout=timeout,
-        )
+                "POST", f"workspace/{quote(slug, safe='')}/update-embeddings", json={
+                "adds": locations,
+                "deletes": []}, timeout=timeout)
 
     @step("API: search workspace documents")
     def search_workspace(
-        self,
-        slug: str,
-        query: str,
-        *,
-        top_n: int = 4,
-        score_threshold: float = 0.25,
-        timeout: float = 180,
-    ) -> Response:
+            self, slug: str, query: str, *, top_n: int = 4, score_threshold: float = 0.25,
+            timeout: float = 180) -> Response:
         return self._developer_request(
-            "POST",
-            f"workspace/{quote(slug, safe='')}/vector-search",
-            json={"query": query, "topN": top_n, "scoreThreshold": score_threshold},
-            timeout=timeout,
-        )
+                "POST", f"workspace/{quote(slug, safe='')}/vector-search", json={
+                "query": query,
+                "topN": top_n,
+                "scoreThreshold": score_threshold}, timeout=timeout)
 
     @step("API: generate workspace answer")
-    def chat(
-        self, slug: str, message: str, *, mode: str = "query", timeout: float = 300
-    ) -> Response:
+    def chat(self, slug: str, message: str, *, mode: str = "query", timeout: float = 300) -> Response:
         return self._developer_request(
-            "POST",
-            f"workspace/{quote(slug, safe='')}/chat",
-            json={"message": message, "mode": mode},
-            timeout=timeout,
-        )
+                "POST", f"workspace/{quote(slug, safe='')}/chat", json={
+                "message": message,
+                "mode": mode}, timeout=timeout)

@@ -9,14 +9,8 @@ from typing import Any
 
 
 def build_sample(
-    capture: dict[str, Any],
-    *,
-    question: str,
-    answer: str,
-    reference: str,
-    expected_model: str,
-    capture_id: str,
-) -> dict[str, Any]:
+        capture: dict[str, Any], *, question: str, answer: str, reference: str, expected_model: str,
+        capture_id: str) -> dict[str, Any]:
     if capture.get("schema_version") != 1 or capture.get("boundary") != "ollama-sdk-chat":
         raise ValueError("Unsupported observation boundary or schema")
     request = capture["request"]
@@ -43,15 +37,14 @@ def build_sample(
     if any(not context.strip() for context in contexts):
         raise ValueError("Empty document context")
     return {
-        "schema_version": 1,
-        "user_input": question,
-        "retrieved_contexts": contexts,
-        "response": answer,
-        "reference": reference,
-        "observation": capture,
-        "capture_id": capture_id,
-        "context_parser": "anythingllm-1.16.2-ollama",
-    }
+            "schema_version": 1,
+            "user_input": question,
+            "retrieved_contexts": contexts,
+            "response": answer,
+            "reference": reference,
+            "observation": capture,
+            "capture_id": capture_id,
+            "context_parser": "anythingllm-1.16.2-ollama"}
 
 
 def write_sample(path: Path, sample: dict[str, Any]) -> None:
@@ -59,13 +52,7 @@ def write_sample(path: Path, sample: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     # Publish complete bytes atomically and exclusively; concurrent readers never see a partial JSON.
     output = NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        dir=path.parent,
-        prefix=".evidence-",
-        suffix=".tmp",
-        delete=False,
-    )
+            mode="w", encoding="utf-8", dir=path.parent, prefix=".evidence-", suffix=".tmp", delete=False)
     temporary = Path(output.name)
     try:
         with output:

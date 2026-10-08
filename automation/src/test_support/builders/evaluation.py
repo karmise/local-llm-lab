@@ -12,29 +12,24 @@ from test_support.data import common as case_data
 def _sample() -> dict:
     capture_id = "a" * 32
     capture = {
-        "schema_version": 1,
-        "boundary": "ollama-sdk-chat",
-        "request": {
-            "model": case_data.TEST_MODEL,
-            "stream": False,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": f"[LLM_TESTKIT_CAPTURE:{capture_id}]\n"
-                    "[CONTEXT 0]:\nEmployees receive 23 working days.\n[END CONTEXT 0]",
-                },
-                {"role": "user", "content": "How much leave?"},
-            ],
-        },
-    }
+            "schema_version": 1,
+            "boundary": "ollama-sdk-chat",
+            "request": {
+            "model":
+            case_data.TEST_MODEL,
+            "stream":
+            False,
+            "messages": [{
+            "role":
+            "system",
+            "content":
+            f"[LLM_TESTKIT_CAPTURE:{capture_id}]\n"
+            "[CONTEXT 0]:\nEmployees receive 23 working days.\n[END CONTEXT 0]"}, {
+            "role": "user",
+            "content": "How much leave?"}]}}
     return build_sample(
-        capture,
-        question="How much leave?",
-        answer="Employees receive 23 working days.",
-        reference="23 working days.",
-        expected_model=case_data.TEST_MODEL,
-        capture_id=capture_id,
-    )
+            capture, question="How much leave?", answer="Employees receive 23 working days.",
+            reference="23 working days.", expected_model=case_data.TEST_MODEL, capture_id=capture_id)
 
 
 def _judge_class():
@@ -47,14 +42,12 @@ def _judge_class():
 def _response(output: dict, *, done_reason: str = "stop") -> Response:
     response = Response()
     response.status_code = 200
-    response._content = json.dumps(
-        {
+    response._content = json.dumps({
             "model": case_data.TEST_MODEL,
             "done": True,
             "done_reason": done_reason,
-            "message": {"content": json.dumps(output)},
-        }
-    ).encode()
+            "message": {
+            "content": json.dumps(output)}}).encode()
     return response
 
 

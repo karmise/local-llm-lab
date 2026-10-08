@@ -17,11 +17,8 @@ from llm_testkit.reporting.gates import apply_quality_gates
 
 
 def check_faithfulness_evidence(evidence: dict[str, Any], checksum: str) -> dict[str, Any]:
-    if (
-        type(evidence.get("schema_version")) is not int
-        or evidence["schema_version"] != 1
-        or evidence.get("metric") != "faithfulness"
-    ):
+    if (type(evidence.get("schema_version")) is not int or evidence["schema_version"] != 1
+                or evidence.get("metric") != "faithfulness"):
         raise ValueError("Unsupported faithfulness report")
     if evidence.get("sample_sha256") != checksum:
         raise ValueError("Faithfulness evidence belongs to a different sample")
@@ -32,24 +29,19 @@ def check_faithfulness_evidence(evidence: dict[str, Any], checksum: str) -> dict
     # Older saved reports may omit raw calls; when present, summaries must match them.
     if "judge_calls" in evidence:
         calls = evidence["judge_calls"]
-        if (
-            not isinstance(calls, list)
-            or len(calls) != 2
-            or calls[0]["output"]["statements"] != statements
-            or calls[1]["output"]["statements"] != verdicts
-        ):
+        if (not isinstance(calls, list) or len(calls) != 2 or calls[0]["output"]["statements"] != statements
+                    or calls[1]["output"]["statements"] != verdicts):
             raise ValueError("Faithfulness summary differs from raw judge calls")
     return {
-        "value": result["value"],
-        "statements": statements,
-        "verdicts": verdicts,
-        "judge_model": evidence["judge_model"],
-        "judge_model_digest": evidence["judge_model_digest"],
-        "judge_configuration": evidence["judge_configuration"],
-        "ragas_version": evidence["ragas_version"],
-        "evaluated_at": evidence["created_at"],
-        "threshold": None,
-    }
+            "value": result["value"],
+            "statements": statements,
+            "verdicts": verdicts,
+            "judge_model": evidence["judge_model"],
+            "judge_model_digest": evidence["judge_model_digest"],
+            "judge_configuration": evidence["judge_configuration"],
+            "ragas_version": evidence["ragas_version"],
+            "evaluated_at": evidence["created_at"],
+            "threshold": None}
 
 
 def _dimension(name: str, check: Callable[[], Any], *, measured: bool = False) -> dict[str, Any]:
@@ -67,16 +59,9 @@ def _dimension(name: str, check: Callable[[], Any], *, measured: bool = False) -
 
 
 def build_quality_report(
-    sample_path: Path,
-    evidence_path: Path,
-    profile_path: Path,
-    *,
-    correctness_path: Path | None = None,
-    relevance_path: Path | None = None,
-    golden_dataset_path: Path | None = None,
-    policy_file: Path | None = None,
-    gates_path: Path | None = None,
-) -> dict[str, Any]:
+        sample_path: Path, evidence_path: Path, profile_path: Path, *, correctness_path: Path | None = None,
+        relevance_path: Path | None = None, golden_dataset_path: Path | None = None, policy_file: Path | None = None,
+        gates_path: Path | None = None) -> dict[str, Any]:
     sample, checksum = load_sample(sample_path)
     profile_bytes = profile_path.read_bytes()
     profile = json.loads(profile_bytes)
@@ -95,9 +80,7 @@ def build_quality_report(
         # Resolve the expected document from observed context, not response citations.
         titles = set()
         for context in sample["retrieved_contexts"]:
-            metadata = re.match(
-                r"<document_metadata>\n(.*?)\n</document_metadata>", context, re.DOTALL
-            )
+            metadata = re.match(r"<document_metadata>\n(.*?)\n</document_metadata>", context, re.DOTALL)
             if metadata:
                 title = re.search(r"^sourceDocument: (.+)$", metadata[1], re.MULTILINE)
                 if title and re.fullmatch(profile["document_title_pattern"], title[1]):
@@ -105,11 +88,8 @@ def build_quality_report(
         if len(titles) != 1:
             raise ValueError("Expected exactly one policy document in captured context metadata")
         title = titles.pop()
-        assertions.assert_document_sources(
-            {"sources": sample.get("response_sources")},
-            document_title=title,
-            fragments=profile["source_fragments"],
-        )
+        assertions.assert_document_sources({"sources": sample.get("response_sources")}, document_title=title,
+                fragments=profile["source_fragments"])
         return {"expected_document_title": title}
 
     def faithfulness_check() -> dict[str, Any]:
@@ -117,26 +97,18 @@ def build_quality_report(
         return check_faithfulness_evidence(evidence, checksum)
 
     dimensions = [
-        _dimension(
+            _dimension(
             "Required answer facts",
-            lambda: assertions.assert_required_facts(
-                sample["response"],
-                fact_patterns=profile["fact_patterns"],
-            ),
-        ),
-        _dimension("Document sources", source_check),
-        _dimension(
-            "Faithfulness measurement (no quality threshold)", faithfulness_check, measured=True
-        ),
-    ]
+            lambda: assertions.assert_required_facts(sample["response"], fact_patterns=profile["fact_patterns"])),
+            _dimension("Document sources", source_check),
+            _dimension("Faithfulness measurement (no quality threshold)", faithfulness_check, measured=True)]
 
     @cache
     def dataset():
         nonlocal dataset_sha256
         loaded = load_golden_dataset(
-            golden_dataset_path or profile_path.parent / "golden-policy.json",
-            policy_file or profile_path.parent / "company-policy.txt",
-        )
+                golden_dataset_path or profile_path.parent / "golden-policy.json", policy_file
+                or profile_path.parent / "company-policy.txt")
         dataset_sha256 = loaded.sha256
         return loaded
 
@@ -144,40 +116,23 @@ def build_quality_report(
 
         def correctness_check() -> dict[str, Any]:
             return check_correctness_evidence(
-                json.loads(evidence_bytes("correctness", correctness_path)),
-                checksum,
-                sample,
-                dataset(),
-            )
+                    json.loads(evidence_bytes("correctness", correctness_path)), checksum, sample, dataset())
 
         dimensions.append(
-            _dimension(
-                "Factual correctness measurement (no quality threshold)",
-                correctness_check,
-                measured=True,
-            )
-        )
+                _dimension("Factual correctness measurement (no quality threshold)", correctness_check, measured=True))
     if relevance_path is not None:
 
         @cache
         def checked_relevance() -> dict[str, Any]:
             return check_relevance_evidence(
-                json.loads(evidence_bytes("relevance", relevance_path)), checksum, sample, dataset()
-            )
+                    json.loads(evidence_bytes("relevance", relevance_path)), checksum, sample, dataset())
 
         def relevance_check(metric: str) -> dict[str, Any]:
             result = checked_relevance()
-            return {
-                "value": result[metric],
-                "threshold": None,
-                "metric": metric,
-                "evidence": result,
-            }
+            return {"value": result[metric], "threshold": None, "metric": metric, "evidence": result}
 
         for metric in ("context_precision", "context_recall"):
-            dimensions.append(
-                _dimension(metric, lambda metric=metric: relevance_check(metric), measured=True)
-            )
+            dimensions.append(_dimension(metric, lambda metric=metric: relevance_check(metric), measured=True))
     dimensions[2]["metric"] = "faithfulness"
     if correctness_path is not None:
         dimensions[3]["metric"] = "factual_correctness"
@@ -186,29 +141,25 @@ def build_quality_report(
             dimension["metric"] = dimension["name"]
     statuses = [dimension["status"] for dimension in dimensions]
     report = {
-        "schema_version": 1,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "scenario": profile["id"],
-        "sample_sha256": checksum,
-        "golden_dataset_sha256": dataset_sha256,
-        "evidence_sha256": evidence_sha256,
-        "profile_sha256": hashlib.sha256(profile_bytes).hexdigest(),
-        "faithfulness_report_path": str(evidence_path.resolve()),
-        "relevance_report_path": str(relevance_path.resolve()) if relevance_path else None,
-        "correctness_report_path": str(correctness_path.resolve()) if correctness_path else None,
-        "status": "error"
-        if "error" in statuses
-        else "failed"
-        if "failed" in statuses
-        else "checks_passed",
-        "interpretation": "Required facts and source checks; judge metrics are recorded measurements, not calibrated quality gates",
-        "generation_model": sample["observation"]["request"]["model"],
-        "question": sample["user_input"],
-        "answer": sample["response"],
-        "contexts": sample["retrieved_contexts"],
-        "sources": sample.get("response_sources", []),
-        "metadata": sample.get("metadata", {}),
-        "dimensions": dimensions,
-    }
+            "schema_version": 1,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "scenario": profile["id"],
+            "sample_sha256": checksum,
+            "golden_dataset_sha256": dataset_sha256,
+            "evidence_sha256": evidence_sha256,
+            "profile_sha256": hashlib.sha256(profile_bytes).hexdigest(),
+            "faithfulness_report_path": str(evidence_path.resolve()),
+            "relevance_report_path": str(relevance_path.resolve()) if relevance_path else None,
+            "correctness_report_path": str(correctness_path.resolve()) if correctness_path else None,
+            "status": "error" if "error" in statuses else "failed" if "failed" in statuses else "checks_passed",
+            "interpretation":
+            "Required facts and source checks; judge metrics are recorded measurements, not calibrated quality gates",
+            "generation_model": sample["observation"]["request"]["model"],
+            "question": sample["user_input"],
+            "answer": sample["response"],
+            "contexts": sample["retrieved_contexts"],
+            "sources": sample.get("response_sources", []),
+            "metadata": sample.get("metadata", {}),
+            "dimensions": dimensions}
 
     return apply_quality_gates(report, gates_path) if gates_path is not None else report

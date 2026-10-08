@@ -19,16 +19,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     for item in items:
         rows = matching_requirements(plan, item.nodeid)
         if rows:
-            item.user_properties.extend(
-                [
-                    ("requirement_ids", json.dumps([r["id"] for r in rows])),
-                    ("qualification_phases", json.dumps(sorted({r["phase"] for r in rows}))),
-                    ("qualification_plan_sha256", plan["sha256"]),
-                    ("test_node_id", item.nodeid),
-                    (
-                        "test_source_sha256",
-                        plan["test_source_sha256"][item.nodeid.split("[", 1)[0]],
-                    ),
-                    ("framework_source_sha256", plan["framework_source_sha256"]),
-                ]
-            )
+            item.user_properties.extend([("requirement_ids", json.dumps([r["id"] for r in rows])),
+                    ("qualification_phases", json.dumps(sorted({r["phase"]
+                    for r in rows}))), ("qualification_plan_sha256", plan["sha256"]), ("test_node_id", item.nodeid),
+                    ("test_source_sha256", plan["test_source_sha256"][item.nodeid.split("[", 1)[0]]),
+                    ("framework_source_sha256", plan["framework_source_sha256"])])

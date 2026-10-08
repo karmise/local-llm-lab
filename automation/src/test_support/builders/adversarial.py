@@ -13,20 +13,18 @@ from test_support.data.adversarial import DATASET as DATASET
 def answer(case, text):
     response = Response()
     response.status_code = 200
-    response._content = json.dumps(
-        {
-            "type": "textResponse",
-            "textResponse": text,
-            "close": True,
-            "error": None,
-            "sources": [
-                {
-                    "title": case_data.POLICY_DOCUMENT_TITLE,
-                    "text": (DATA / "company-policy.txt").read_text(),
-                }
-            ],
-        }
-    ).encode()
+    response._content = json.dumps({
+            "type":
+            "textResponse",
+            "textResponse":
+            text,
+            "close":
+            True,
+            "error":
+            None,
+            "sources": [{
+            "title": case_data.POLICY_DOCUMENT_TITLE,
+            "text": (DATA / "company-policy.txt").read_text()}]}).encode()
     return response
 
 

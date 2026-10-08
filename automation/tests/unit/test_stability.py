@@ -6,26 +6,14 @@ import pytest
 from llm_testkit.reporting.stability import summarize_report
 from llm_testkit.reporting.steps import title
 from test_support.assertions import values as value_checks
-from test_support.assertions.stability import (
-    check_conversation_summary_outcome,
-    check_golden_summary_outcome,
-)
+from test_support.assertions.stability import check_conversation_summary_outcome, check_golden_summary_outcome
 from test_support.builders.stability import (
-    _report,
-    add_bias_group_metadata,
-    add_configuration_metadata,
-    add_conversation_metadata,
-    add_golden_case_metadata,
-    add_prompt_variant_metadata,
-)
+        _report, add_bias_group_metadata, add_configuration_metadata, add_conversation_metadata,
+        add_golden_case_metadata, add_prompt_variant_metadata)
 from test_support.data import common as case_data
 from test_support.data.stability import (
-    CLASSNAME_NAME_TEST_EXAMPLE_QWEN_RUN_1_INPUT,
-    CONFIGURATION_METADATA_CHANGE_CASES,
-    CONVERSATION_SUMMARY_CHANGE_CASES,
-    GOLDEN_SUMMARY_SAME_CASE_CASES,
-    GOLDEN_SUMMARY_SAME_CASE_IDS,
-)
+        CLASSNAME_NAME_TEST_EXAMPLE_QWEN_RUN_1_INPUT, CONFIGURATION_METADATA_CHANGE_CASES,
+        CONVERSATION_SUMMARY_CHANGE_CASES, GOLDEN_SUMMARY_SAME_CASE_CASES, GOLDEN_SUMMARY_SAME_CASE_IDS)
 
 pytestmark = pytest.mark.unit
 
@@ -62,16 +50,11 @@ def test_setup_error_without_metadata_is_not_a_model_failure(tmp_path: Path) -> 
 
 
 @title("Stability summary counts call and teardown entries as one run")
-def test_duplicate_call_and_teardown_entries_count_as_one_run(
-        tmp_path: Path, xml_property_factory) -> None:  # fmt: skip
+def test_duplicate_call_and_teardown_entries_count_as_one_run(tmp_path: Path, xml_property_factory) -> None:
     path = _report(tmp_path, ["failure"])
     tree = ET.parse(path)
     suite = tree.getroot().find("testsuite")
-    duplicate = xml_property_factory(
-        suite,
-        "testcase",
-        case_data.fresh(CLASSNAME_NAME_TEST_EXAMPLE_QWEN_RUN_1_INPUT),
-    )
+    duplicate = xml_property_factory(suite, "testcase", case_data.fresh(CLASSNAME_NAME_TEST_EXAMPLE_QWEN_RUN_1_INPUT))
     xml_property_factory(duplicate, "error")
     tree.write(path)
     row = summarize_report(path)[0]
@@ -80,14 +63,9 @@ def test_duplicate_call_and_teardown_entries_count_as_one_run(
     value_checks.equal(row["errored"], 1)
 
 
-@pytest.mark.parametrize(
-    "same_case",
-    GOLDEN_SUMMARY_SAME_CASE_CASES,
-    ids=GOLDEN_SUMMARY_SAME_CASE_IDS,
-)
+@pytest.mark.parametrize("same_case", GOLDEN_SUMMARY_SAME_CASE_CASES, ids=GOLDEN_SUMMARY_SAME_CASE_IDS)
 @title("Golden stability preserves scenario identity and expectation fingerprints [{param_id}]")
-def test_golden_summary_preserves_case_and_dataset_identity(tmp_path: Path,
-                                                            same_case: bool) -> None:  # fmt: skip
+def test_golden_summary_preserves_case_and_dataset_identity(tmp_path: Path, same_case: bool) -> None:
     path = _report(tmp_path, ["passed", "failure"])
     tree = ET.parse(path)
     add_golden_case_metadata(same_case, tree)

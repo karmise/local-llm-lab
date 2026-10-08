@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["ruff==0.16.9", "coverage==7.16.2"]
+dev = ["ruff==0.16.9", "yapf==0.43.0", "isort==9.0.2", "coverage==7.16.2"]
 ui = ["pytest-playwright==0.9.0", "playwright==1.63.0"]
 reporting = ["allure-pytest==2.16.2"]
 evaluation = [
@@ -58,10 +58,33 @@ markers = [
 
 [tool.ruff]
 target-version = "py312"
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "I", "B"]
+select = ["E4", "E7", "E9", "F", "B", "COM819"]
+
+[tool.yapf]
+based_on_style = "pep8"
+column_limit = 120
+split_before_first_argument = true
+split_before_named_assigns = false
+split_arguments_when_comma_terminated = false
+disable_ending_comma_heuristic = true
+dedent_closing_brackets = false
+indent_closing_brackets = false
+split_before_closing_bracket = false
+coalesce_brackets = true
+continuation_align_style = "FIXED"
+continuation_indent_width = 8
+blank_line_before_nested_class_or_def = false
+
+[tool.isort]
+line_length = 120
+multi_line_output = 4
+indent = "        "
+include_trailing_comma = false
+use_parentheses = true
+known_first_party = ["llm_testkit", "test_support"]
 
 [tool.coverage.run]
 branch = true

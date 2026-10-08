@@ -18,9 +18,7 @@ def load_quality_gates(path: Path) -> dict[str, Any]:
         raise ValueError("Unsupported quality gates schema")
     if data.get("calibration") != "experimental":
         raise ValueError("This lab supports explicitly experimental gates only")
-    if any(
-        not isinstance(data.get(k), str) or not data[k].strip() for k in ("version", "rationale")
-    ):
+    if any(not isinstance(data.get(k), str) or not data[k].strip() for k in ("version", "rationale")):
         raise ValueError("Quality gates require version and rationale")
     minima = data.get("minimum_scores")
     if not isinstance(minima, dict) or set(minima) != METRICS:
@@ -56,16 +54,11 @@ def apply_quality_gates(report: dict[str, Any], path: Path) -> dict[str, Any]:
         elif dimension["status"] not in ("failed", "error"):
             dimension.update(status="error", error="Gate requires validated measured evidence")
     for missing in sorted(METRICS - seen):
-        gated["dimensions"].append(
-            {
+        gated["dimensions"].append({
                 "name": f"{missing} gate",
                 "metric": missing,
                 "status": "error",
-                "error": "Required metric evidence was not supplied",
-            }
-        )
+                "error": "Required metric evidence was not supplied"})
     statuses = {d["status"] for d in gated["dimensions"]}
-    gated["status"] = (
-        "error" if "error" in statuses else "failed" if "failed" in statuses else "checks_passed"
-    )
+    gated["status"] = ("error" if "error" in statuses else "failed" if "failed" in statuses else "checks_passed")
     return gated

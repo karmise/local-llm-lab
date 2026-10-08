@@ -5,47 +5,26 @@ import pytest
 
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.observation.evaluation_sample import build_sample
-from llm_testkit.reporting.drift import (
-    compare_snapshots,
-    record_snapshot,
-    seal_snapshot,
-    validate_snapshot,
-)
+from llm_testkit.reporting.drift import compare_snapshots, record_snapshot, seal_snapshot, validate_snapshot
 from llm_testkit.reporting.gates import METRICS
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
 from test_support.assertions import values as value_checks
 from test_support.assertions.drift import check_snapshot_assembly_outcome
 from test_support.builders.drift import (
-    make_judge_identity,
-    make_snapshot_capture,
-    make_snapshot_metadata,
-    make_snapshot_sources,
-    mutate_snapshot_evidence,
-    prepare_comparison_case,
-    prepare_invalid_snapshot_case,
-    prepare_resealed_history_case,
-    prepare_snapshot_assembly_case,
-    prepare_snapshot_assembly_case_2,
-    snapshot,
-)
+        make_judge_identity, make_snapshot_capture, make_snapshot_metadata, make_snapshot_sources,
+        mutate_snapshot_evidence, prepare_comparison_case, prepare_invalid_snapshot_case, prepare_resealed_history_case,
+        prepare_snapshot_assembly_case, prepare_snapshot_assembly_case_2, snapshot)
 from test_support.data import common as case_data
 from test_support.data.drift import (
-    COMPARISON_CHANGE_STATUS_CASES,
-    HISTORY_ID_CANNOT_ESCAPE_DESTINATION_RUN_ID_CASES,
-    INVALID_SNAPSHOT_CHANGE_CASES,
-    RESEALED_HISTORY_FIELD_CASES,
-    SNAPSHOT_ASSEMBLY_CHANGE_CASES,
-)
+        COMPARISON_CHANGE_STATUS_CASES, HISTORY_ID_CANNOT_ESCAPE_DESTINATION_RUN_ID_CASES,
+        INVALID_SNAPSHOT_CHANGE_CASES, RESEALED_HISTORY_FIELD_CASES, SNAPSHOT_ASSEMBLY_CHANGE_CASES)
 from test_support.paths import AUTOMATION_ROOT
 
 pytestmark = pytest.mark.unit
 
 
-@pytest.mark.parametrize(
-    ("change", "status"),
-    COMPARISON_CHANGE_STATUS_CASES,
-)
+@pytest.mark.parametrize(("change", "status"), COMPARISON_CHANGE_STATUS_CASES)
 @title("Baseline history separates quality drops from changed evaluation conditions [{param_id}]")
 def test_comparison(change, status):
     base = snapshot()
@@ -62,10 +41,7 @@ def test_duplicate_and_integrity(tmp_path):
     path = record_snapshot(tmp_path, base)
     value_checks.truthy(path.exists())
     errors.rejects(
-        lambda: record_snapshot(tmp_path, snapshot(run_id="other")),
-        expected=ValueError,
-        match="already recorded",
-    )
+            lambda: record_snapshot(tmp_path, snapshot(run_id="other")), expected=ValueError, match="already recorded")
     value_checks.equal(compare_snapshots(base, base)["status"], "duplicate")
     edited = deepcopy(base)
     edited["metrics"]["faithfulness"] = 0.0
@@ -78,31 +54,19 @@ def test_invalid_snapshot(change):
     row = snapshot()
     row.pop("snapshot_sha256")
     prepare_invalid_snapshot_case(change, row)
-    errors.rejects(
-        lambda: validate_snapshot(seal_snapshot(row)), expected=(ValueError, AssertionError)
-    )
+    errors.rejects(lambda: validate_snapshot(seal_snapshot(row)), expected=(ValueError, AssertionError))
 
 
 @title("Allowed metric-drop boundary passes without rounding small regressions away")
 def test_drop_boundary():
     base = snapshot()
+    value_checks.equal(compare_snapshots(base, snapshot("b", metrics=dict.fromkeys(METRICS, 0.95)))["status"], "passed")
     value_checks.equal(
-        compare_snapshots(base, snapshot("b", metrics=dict.fromkeys(METRICS, 0.95)))["status"],
-        "passed",
-    )
-    value_checks.equal(
-        compare_snapshots(base, snapshot("b", metrics=dict.fromkeys(METRICS, 0.949)))["status"],
-        "regression",
-    )
+            compare_snapshots(base, snapshot("b", metrics=dict.fromkeys(METRICS, 0.949)))["status"], "regression")
 
 
-@pytest.mark.parametrize(
-    "change",
-    SNAPSHOT_ASSEMBLY_CHANGE_CASES,
-)
-@title(
-    "Snapshot assembly binds measured evidence to captured configuration and reviewed policy [{param_id}]"
-)
+@pytest.mark.parametrize("change", SNAPSHOT_ASSEMBLY_CHANGE_CASES)
+@title("Snapshot assembly binds measured evidence to captured configuration and reviewed policy [{param_id}]")
 def test_snapshot_assembly(tmp_path, monkeypatch, change):
 
     root = AUTOMATION_ROOT / "test_data"
@@ -110,13 +74,8 @@ def test_snapshot_assembly(tmp_path, monkeypatch, change):
     case = next(c for c in dataset.cases if c.id == "paid_leave")
     identifier = "a" * 32
     sample = build_sample(
-        make_snapshot_capture(case, identifier),
-        question=case.question,
-        answer=case.reference,
-        reference=case.reference,
-        expected_model="model",
-        capture_id=identifier,
-    )
+            make_snapshot_capture(case, identifier), question=case.question, answer=case.reference,
+            reference=case.reference, expected_model="model", capture_id=identifier)
     sample["metadata"] = make_snapshot_metadata(dataset, identifier)
     prepare_snapshot_assembly_case(change, sample)
     path = tmp_path / case_data.SAMPLE_FILE_NAME
@@ -124,9 +83,7 @@ def test_snapshot_assembly(tmp_path, monkeypatch, change):
     evidence = tmp_path / "judge.json"
     evidence.write_text(json.dumps(make_judge_identity()))
     quality = mutate_snapshot_evidence(change, dataset, evidence, path)
-    monkeypatch.setattr(
-        "llm_testkit.reporting.drift.build_quality_report", lambda *args, **kwargs: quality
-    )
+    monkeypatch.setattr("llm_testkit.reporting.drift.build_quality_report", lambda *args, **kwargs: quality)
     arguments = make_snapshot_sources(evidence, root, case)
     prepare_snapshot_assembly_case_2(change, evidence, path, quality, sample)
     check_snapshot_assembly_outcome(arguments, case, change, path)
@@ -134,9 +91,7 @@ def test_snapshot_assembly(tmp_path, monkeypatch, change):
 
 @pytest.mark.parametrize("run_id", HISTORY_ID_CANNOT_ESCAPE_DESTINATION_RUN_ID_CASES)
 def test_history_id_cannot_escape_destination(tmp_path, run_id):
-    errors.rejects(
-        lambda: record_snapshot(tmp_path / "history", snapshot(run_id=run_id)), expected=ValueError
-    )
+    errors.rejects(lambda: record_snapshot(tmp_path / "history", snapshot(run_id=run_id)), expected=ValueError)
     value_checks.falsy((tmp_path / "escaped.json").exists())
 
 

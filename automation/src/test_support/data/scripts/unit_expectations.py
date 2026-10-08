@@ -25,8 +25,4 @@ EXPECTATION_FAILURE_SOURCE = """
         assert caught.value.code == 2
 """
 
-EXPECTED_FAILURE_MESSAGES = [
-    "*Expected 0.9, got 0.2*",
-    "*RuntimeError: budget*",
-    "*Regex pattern did not match*",
-]
+EXPECTED_FAILURE_MESSAGES = ["*Expected 0.9, got 0.2*", "*RuntimeError: budget*", "*Regex pattern did not match*"]

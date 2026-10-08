@@ -13,9 +13,8 @@ from llm_testkit.datasets.golden import load_golden_dataset
 @pytest.fixture
 def performance_budget(pytestconfig):
     return {
-        "requests": pytestconfig.getoption("performance_requests"),
-        "users": pytestconfig.getoption("performance_users"),
-    }
+            "requests": pytestconfig.getoption("performance_requests"),
+            "users": pytestconfig.getoption("performance_users")}
 
 
 @pytest.fixture
@@ -35,11 +34,11 @@ def health_workload(settings):
 @pytest.fixture
 def health_performance_context(settings, pytestconfig):
     return {
-        "base_url": settings.base_url,
-        "timeout": settings.http_timeout,
-        "maximum_p95": pytestconfig.getoption("performance_p95"),
-        "metadata": {"workload": "health"},
-    }
+            "base_url": settings.base_url,
+            "timeout": settings.http_timeout,
+            "maximum_p95": pytestconfig.getoption("performance_p95"),
+            "metadata": {
+            "workload": "health"}}
 
 
 @pytest.fixture
@@ -49,44 +48,32 @@ def performance_case(automation_root, policy_file):
 
 
 @pytest.fixture
-def rag_workload(
-    settings, rag_environment, indexed_workspace, uploaded_policy_document, performance_case
-):
+def rag_workload(settings, rag_environment, indexed_workspace, uploaded_policy_document, performance_case):
     def request_answer():
         # Concurrent requests own their transport; setup/indexing is outside timing.
         with HttpClient(settings.base_url, settings.http_timeout) as http:
             response = AnythingLLMClient(http, settings.api_key).chat(
-                indexed_workspace["slug"], performance_case.question, timeout=settings.llm_timeout
-            )
+                    indexed_workspace["slug"], performance_case.question, timeout=settings.llm_timeout)
             assertions.assert_golden_answer(
-                response, case=performance_case, document_title=uploaded_policy_document["title"]
-            )
+                    response, case=performance_case, document_title=uploaded_policy_document["title"])
 
     return request_answer
 
 
 @pytest.fixture
 def rag_performance_context(
-    settings,
-    pytestconfig,
-    automation_root,
-    generation_model,
-    generation_model_digest,
-    workspace_configuration,
-    policy_file,
-):
+        settings, pytestconfig, automation_root, generation_model, generation_model_digest, workspace_configuration,
+        policy_file):
     dataset = load_golden_dataset(automation_root / "test_data/golden-policy.json", policy_file)
     return {
-        "base_url": settings.base_url,
-        "timeout": settings.llm_timeout,
-        "maximum_p95": pytestconfig.getoption("performance_p95"),
-        "metadata": {
+            "base_url": settings.base_url,
+            "timeout": settings.llm_timeout,
+            "maximum_p95": pytestconfig.getoption("performance_p95"),
+            "metadata": {
             "workload": "rag",
             "generation_model": generation_model,
             "model_digest": generation_model_digest,
             "configuration": workspace_configuration,
             "policy_sha256": hashlib.sha256(policy_file.read_bytes()).hexdigest(),
             "golden_dataset_sha256": dataset.sha256,
-            "case_id": "carryover_limit",
-        },
-    }
+            "case_id": "carryover_limit"}}

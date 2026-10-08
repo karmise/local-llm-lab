@@ -16,11 +16,7 @@ class HttpClient:
         kwargs.setdefault("timeout", self._timeout)
         # A redirect is part of the observed API contract, not a successful response.
         kwargs.setdefault("allow_redirects", False)
-        return self._session.request(
-            method=method,
-            url=f"{self._base_url}/{path.lstrip('/')}",
-            **kwargs,
-        )
+        return self._session.request(method=method, url=f"{self._base_url}/{path.lstrip('/')}", **kwargs)
 
     def close(self) -> None:
         self._session.close()
@@ -29,9 +25,6 @@ class HttpClient:
         return self
 
     def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
+            self, exc_type: type[BaseException] | None, exc_value: BaseException | None,
+            traceback: TracebackType | None) -> None:
         self.close()

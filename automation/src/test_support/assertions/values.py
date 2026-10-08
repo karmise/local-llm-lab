@@ -40,9 +40,7 @@ def excludes(container: Container, item: object, *, message: str | None = None) 
     assert item not in container, message or f"Unexpected {item!r} in {container!r}"
 
 
-def instance_of(
-    actual: object, expected: type | tuple[type, ...], *, message: str | None = None
-) -> None:
+def instance_of(actual: object, expected: type | tuple[type, ...], *, message: str | None = None) -> None:
     assert isinstance(actual, expected), message or f"Expected {expected!r}, got {type(actual)!r}"
 
 

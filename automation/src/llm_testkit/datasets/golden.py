@@ -38,9 +38,7 @@ def load_golden_dataset(path: Path, policy_file: Path) -> GoldenDataset:
     policy_text = policy.decode("utf-8")
     policy_sha256 = hashlib.sha256(policy).hexdigest()
     if data.get("policy_sha256") != policy_sha256:
-        raise ValueError(
-            "Golden dataset policy checksum mismatch; review expectations before updating"
-        )
+        raise ValueError("Golden dataset policy checksum mismatch; review expectations before updating")
     rows = data.get("cases")
     if not isinstance(rows, list) or not rows:
         raise ValueError("Golden dataset must contain cases")
@@ -76,15 +74,5 @@ def load_golden_dataset(path: Path, policy_file: Path) -> GoldenDataset:
             if re.search(pattern, normalized, flags=re.IGNORECASE):
                 raise ValueError(f"{identifier}: reference violates forbidden rule: {label}")
         cases.append(
-            GoldenCase(
-                identifier,
-                category,
-                question,
-                reference,
-                rationale,
-                required,
-                forbidden,
-                tuple(fragments),
-            )
-        )
+                GoldenCase(identifier, category, question, reference, rationale, required, forbidden, tuple(fragments)))
     return GoldenDataset(version, hashlib.sha256(raw).hexdigest(), policy_sha256, tuple(cases))

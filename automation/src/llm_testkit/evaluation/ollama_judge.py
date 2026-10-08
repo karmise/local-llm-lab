@@ -13,9 +13,7 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class OllamaJudge(InstructorBaseRagasLLM):
-    def __init__(
-        self, client: OllamaClient, model: str, timeout: float = 300, *, max_calls: int = 2
-    ) -> None:
+    def __init__(self, client: OllamaClient, model: str, timeout: float = 300, *, max_calls: int = 2) -> None:
         if type(max_calls) is not int or not 1 <= max_calls <= 4:
             raise ValueError("Judge budget must be an integer between one and four")
         self.max_calls = max_calls
@@ -33,12 +31,7 @@ class OllamaJudge(InstructorBaseRagasLLM):
         call: dict[str, Any] = {"response_schema": response_model.__name__, "prompt": full_prompt}
         self.calls.append(call)
         response = self.client.structured_chat(
-            model=self.model,
-            prompt=full_prompt,
-            schema=schema,
-            options=self.options,
-            timeout=self.timeout,
-        )
+                model=self.model, prompt=full_prompt, schema=schema, options=self.options, timeout=self.timeout)
         response.raise_for_status()
         payload = response.json()
         call["ollama_response"] = payload

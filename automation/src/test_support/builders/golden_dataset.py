@@ -10,25 +10,21 @@ from test_support.data.golden_dataset import DATA_ROOT as DATA_ROOT
 from test_support.data.golden_dataset import DATASET as DATASET
 
 
-def _response(
-    answer: str, *, source: str | None = None, document: str = case_data.POLICY_DOCUMENT_TITLE
-) -> Response:
+def _response(answer: str, *, source: str | None = None, document: str = case_data.POLICY_DOCUMENT_TITLE) -> Response:
     response = Response()
     response.status_code = 200
-    response._content = json.dumps(
-        {
-            "type": "textResponse",
-            "error": None,
-            "close": True,
-            "textResponse": answer,
-            "sources": [
-                {
-                    "title": document,
-                    "text": source or (DATA_ROOT / "company-policy.txt").read_text(),
-                }
-            ],
-        }
-    ).encode()
+    response._content = json.dumps({
+            "type":
+            "textResponse",
+            "error":
+            None,
+            "close":
+            True,
+            "textResponse":
+            answer,
+            "sources": [{
+            "title": document,
+            "text": source or (DATA_ROOT / "company-policy.txt").read_text()}]}).encode()
     return response
 
 
@@ -57,9 +53,7 @@ def prepare_invalid_catalog_is_rejected_case(case, data, mutation):
 
 def invent_missing_benefit(case_id):
     invented = (
-        " An allowance of KGS 500 is available."
-        if case_id != "parental_leave_missing"
-        else " Employees receive 30 days."
-    )
+            " An allowance of KGS 500 is available."
+            if case_id != "parental_leave_missing" else " Employees receive 30 days.")
 
     return invented

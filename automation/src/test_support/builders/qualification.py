@@ -17,20 +17,17 @@ def write_junit(root, plan, rows, name="results.xml"):
         row = ET.SubElement(suite, "testcase", name=node)
         props = ET.SubElement(row, "properties")
         metadata = {
-            "test_node_id": node,
-            "golden_case_id": axis,
-            "requirement_ids": json.dumps(["REQ-EXAMPLE"]),
-            "qualification_plan_sha256": plan["sha256"],
-            "test_source_sha256": plan["test_source_sha256"][SELECTOR],
-            "framework_source_sha256": plan["framework_source_sha256"],
-            **changes,
-        }
+                "test_node_id": node,
+                "golden_case_id": axis,
+                "requirement_ids": json.dumps(["REQ-EXAMPLE"]),
+                "qualification_plan_sha256": plan["sha256"],
+                "test_source_sha256": plan["test_source_sha256"][SELECTOR],
+                "framework_source_sha256": plan["framework_source_sha256"],
+                **changes}
         for key, value in metadata.items():
             ET.SubElement(props, "property", name=key, value=value)
         if status != "passed":
-            ET.SubElement(
-                row, {"failed": "failure"}.get(status, status), message="deviation"
-            ).text = "original detail"
+            ET.SubElement(row, {"failed": "failure"}.get(status, status), message="deviation").text = "original detail"
     path = root / "reports" / name
     path.parent.mkdir(exist_ok=True)
     ET.ElementTree(suite).write(path, encoding="utf-8")
@@ -105,12 +102,11 @@ def make_change_after_parsing_stub(change, junit, original_trace, path, root):
     def change_after_parsing(*args, **kwargs):
         trace = original_trace(*args, **kwargs)
         target = {
-            "plan": path,
-            "junit": junit,
-            "framework": root / "src/runtime.py",
-            "test": root / "tests/test_example.py",
-            "data": root / "test_data/policy.txt",
-        }[change]
+                "plan": path,
+                "junit": junit,
+                "framework": root / "src/runtime.py",
+                "test": root / "tests/test_example.py",
+                "data": root / "test_data/policy.txt"}[change]
         target.write_bytes(target.read_bytes() + b"\nchanged\n")
         return trace
 
@@ -133,10 +129,7 @@ def prepare_package_verification_binds_outcomes_to_inputs_case(change, manifest,
         trace["schema_version"] = True
         trace_path.write_text(json.dumps(trace))
         row = next(r for r in manifest["files"] if r["path"] == "traceability.json")
-        row.update(
-            sha256=hashlib.sha256(trace_path.read_bytes()).hexdigest(),
-            size=trace_path.stat().st_size,
-        )
+        row.update(sha256=hashlib.sha256(trace_path.read_bytes()).hexdigest(), size=trace_path.stat().st_size)
     elif change == "plan":
         manifest["plan_sha256"] = "0" * 64
     else:
@@ -147,10 +140,7 @@ def prepare_package_verification_binds_outcomes_to_inputs_case(change, manifest,
             trace["status"] = "passed"
             trace_path.write_text(json.dumps(trace))
             row = next(r for r in manifest["files"] if r["path"] == "traceability.json")
-            row.update(
-                sha256=hashlib.sha256(trace_path.read_bytes()).hexdigest(),
-                size=trace_path.stat().st_size,
-            )
+            row.update(sha256=hashlib.sha256(trace_path.read_bytes()).hexdigest(), size=trace_path.stat().st_size)
 
 
 def prepare_plan_rejects_ambiguous_paths_and_phase_types_case(change, data):
@@ -164,14 +154,6 @@ def prepare_plan_rejects_ambiguous_paths_and_phase_types_case(change, data):
 
 
 def make_teardown_entries(change):
-    duplicate = (
-        ("first", "error", {})
-        if change == "error"
-        else (
-            "first",
-            "passed",
-            {"requirement_ids": "[]"},
-        )
-    )
+    duplicate = (("first", "error", {}) if change == "error" else ("first", "passed", {"requirement_ids": "[]"}))
 
     return duplicate

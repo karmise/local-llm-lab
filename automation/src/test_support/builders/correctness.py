@@ -16,95 +16,84 @@ from test_support.data import common as case_data
 from test_support.data.correctness import CASE as CASE
 from test_support.data.correctness import DATASET as DATASET
 from test_support.data.correctness import (
-    EDITED_RAW_CLAIMS,
-    EVIDENCE_MUTATION_FIELDS,
-    INCOMPLETE_REFERENCE_CLAIMS,
-    MODIFIED_EVIDENCE_VALUE,
-)
+        EDITED_RAW_CLAIMS, EVIDENCE_MUTATION_FIELDS, INCOMPLETE_REFERENCE_CLAIMS, MODIFIED_EVIDENCE_VALUE)
 from test_support.data.correctness import ROOT as ROOT
 
 
 def _verdicts(claims, values):
-    return [
-        {"statement": claim, "verdict": value, "reason": "Test label"}
-        for claim, value in zip(claims, values, strict=True)
-    ]
+    return [{
+            "statement": claim,
+            "verdict": value,
+            "reason": "Test label"} for claim, value in zip(claims, values, strict=True)]
 
 
 def _result(response_values=(1, 1), reference_values=(1, 1), value=1.0):
     response = [f"Response claim {i}" for i in range(len(response_values))]
     reference = [f"Reference claim {i}" for i in range(len(reference_values))]
     return {
-        "value": value,
-        "response_claims": response,
-        "reference_claims": reference,
-        "response_verdicts": _verdicts(response, response_values),
-        "reference_verdicts": _verdicts(reference, reference_values),
-    }
+            "value": value,
+            "response_claims": response,
+            "reference_claims": reference,
+            "response_verdicts": _verdicts(response, response_values),
+            "reference_verdicts": _verdicts(reference, reference_values)}
 
 
 def _sample():
     identifier = "a" * 32
     name = f"automation-{identifier}-company-policy.txt"
     context = (
-        f"<document_metadata>\nsourceDocument: {name}\n</document_metadata>\n"
-        + (ROOT / "company-policy.txt").read_text()
-    )
+            f"<document_metadata>\nsourceDocument: {name}\n</document_metadata>\n" +
+            (ROOT / "company-policy.txt").read_text())
     observation = {
-        "schema_version": 1,
-        "boundary": "ollama-sdk-chat",
-        "request": {
-            "model": case_data.TEST_MODEL,
-            "stream": False,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": f"[LLM_TESTKIT_CAPTURE:{identifier}]\n[CONTEXT 0]:\n{context}\n[END CONTEXT 0]",
-                },
-                {"role": "user", "content": CASE.question},
-            ],
-        },
-    }
+            "schema_version": 1,
+            "boundary": "ollama-sdk-chat",
+            "request": {
+            "model":
+            case_data.TEST_MODEL,
+            "stream":
+            False,
+            "messages": [{
+            "role": "system",
+            "content": f"[LLM_TESTKIT_CAPTURE:{identifier}]\n[CONTEXT 0]:\n{context}\n[END CONTEXT 0]"}, {
+            "role": "user",
+            "content": CASE.question}]}}
     sample = build_sample(
-        observation,
-        question=CASE.question,
-        answer=CASE.reference,
-        reference=CASE.reference,
-        expected_model=case_data.TEST_MODEL,
-        capture_id=identifier,
-    )
+            observation, question=CASE.question, answer=CASE.reference, reference=CASE.reference,
+            expected_model=case_data.TEST_MODEL, capture_id=identifier)
     sample["response_sources"] = [{"title": name, "text": context}]
     return sample
 
 
 def _calls(result):
-    return [
-        {"output": {"claims": result["response_claims"]}},
-        {"output": {"statements": result["response_verdicts"]}},
-        {"output": {"claims": result["reference_claims"]}},
-        {"output": {"statements": result["reference_verdicts"]}},
-    ]
+    return [{
+            "output": {
+            "claims": result["response_claims"]}}, {
+            "output": {
+            "statements": result["response_verdicts"]}}, {
+            "output": {
+            "claims": result["reference_claims"]}}, {
+            "output": {
+            "statements": result["reference_verdicts"]}}]
 
 
 def _evidence(sample, checksum="sample"):
     return {
-        "schema_version": 1,
-        "metric": "factual_correctness",
-        "status": "completed",
-        "sample_sha256": checksum,
-        "golden_dataset_sha256": DATASET.sha256,
-        "golden_case_id": CASE.id,
-        "reference_sha256": hashlib.sha256(CASE.reference.encode()).hexdigest(),
-        "response_origin": "application_sample",
-        "question": CASE.question,
-        "reference": CASE.reference,
-        "response": sample["response"],
-        "metric_configuration": deepcopy(METRIC_CONFIGURATION),
-        "result": _result(),
-        "judge_calls": _calls(_result()),
-        "judge_model": case_data.TEST_MODEL,
-        "judge_model_digest": case_data.MODEL_DIGEST,
-    }
+            "schema_version": 1,
+            "metric": "factual_correctness",
+            "status": "completed",
+            "sample_sha256": checksum,
+            "golden_dataset_sha256": DATASET.sha256,
+            "golden_case_id": CASE.id,
+            "reference_sha256": hashlib.sha256(CASE.reference.encode()).hexdigest(),
+            "response_origin": "application_sample",
+            "question": CASE.question,
+            "reference": CASE.reference,
+            "response": sample["response"],
+            "metric_configuration": deepcopy(METRIC_CONFIGURATION),
+            "result": _result(),
+            "judge_calls": _calls(_result()),
+            "judge_model": case_data.TEST_MODEL,
+            "judge_model_digest": case_data.MODEL_DIGEST}
 
 
 def prepare_invalid_claim_evidence_is_rejected_case(change, result):
@@ -135,35 +124,33 @@ def append_judge_responses(outputs, responses):
     for output in outputs:
         response = Response()
         response.status_code = 200
-        response._content = json.dumps(
-            {
+        response._content = json.dumps({
                 "model": case_data.TEST_MODEL,
                 "done": True,
                 "done_reason": "stop",
-                "message": {"content": json.dumps(output)},
-            }
-        ).encode()
+                "message": {
+                "content": json.dumps(output)}}).encode()
         responses.append(response)
 
 
 def make_valid_faithfulness_evidence(checksum):
     """Build input for test_quality_report_adds_independent_correctness_measurement."""
     return {
-        "schema_version": 1,
-        "metric": "faithfulness",
-        "status": "completed",
-        "sample_sha256": checksum,
-        "result": {
+            "schema_version": 1,
+            "metric": "faithfulness",
+            "status": "completed",
+            "sample_sha256": checksum,
+            "result": {
             "value": 1.0,
             "statements": ["Claim"],
-            "verdicts": [{"statement": "Claim", "verdict": 1}],
-        },
-        "judge_model": "judge",
-        "judge_model_digest": case_data.MODEL_DIGEST,
-        "judge_configuration": {},
-        "ragas_version": "test",
-        "created_at": "now",
-    }
+            "verdicts": [{
+            "statement": "Claim",
+            "verdict": 1}]},
+            "judge_model": "judge",
+            "judge_model_digest": case_data.MODEL_DIGEST,
+            "judge_configuration": {},
+            "ragas_version": "test",
+            "created_at": "now"}
 
 
 @dataclass
@@ -187,11 +174,8 @@ class CorrectnessQualityScenario:
 
     def build_report(self) -> dict[str, Any]:
         return build_quality_report(
-            self.sample_path,
-            self.faithfulness_path,
-            ROOT / "quality-paid-leave.json",
-            correctness_path=self.correctness_path,
-        )
+                self.sample_path, self.faithfulness_path, ROOT / "quality-paid-leave.json",
+                correctness_path=self.correctness_path)
 
     def invalidate_sample_checksum(self) -> None:
         self.correctness["sample_sha256"] = "other"

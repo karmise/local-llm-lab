@@ -3,11 +3,7 @@
 from collections.abc import Mapping
 from typing import Any
 
-from llm_testkit.evaluation.correctness import (
-    check_control,
-    check_correctness_evidence,
-    validate_control,
-)
+from llm_testkit.evaluation.correctness import check_control, check_correctness_evidence, validate_control
 from test_support.assertions import errors, values
 from test_support.builders.correctness import CorrectnessEvidenceScenario, IncompleteControlScenario
 from test_support.data.correctness import CASE as CASE
@@ -24,9 +20,8 @@ def check_control_expectations(cases):
 
 def rejects_unbound_evidence(scenario: CorrectnessEvidenceScenario) -> None:
     errors.rejects(
-        lambda: check_correctness_evidence(scenario.evidence, "sample", scenario.sample, DATASET),
-        expected=ValueError,
-    )
+            lambda: check_correctness_evidence(scenario.evidence, "sample", scenario.sample, DATASET),
+            expected=ValueError)
 
 
 def low_score_remains_a_measurement(report: Mapping[str, Any]) -> None:

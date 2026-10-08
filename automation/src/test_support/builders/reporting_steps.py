@@ -48,21 +48,13 @@ def make_missing_transitive_dependency_stub():
     return missing_transitive_dependency
 
 
-def make_reporting_backend(
-    reporting_installed,
-):
+def make_reporting_backend(reporting_installed):
     backend = Mock() if reporting_installed else None
 
     return backend
 
 
-def expected_reporting_events(
-    reporting_installed,
-):
-    expected = (
-        ["API: upload document", "API: upload document", "failure recorded"]
-        if reporting_installed
-        else []
-    )
+def expected_reporting_events(reporting_installed):
+    expected = (["API: upload document", "API: upload document", "failure recorded"] if reporting_installed else [])
 
     return expected

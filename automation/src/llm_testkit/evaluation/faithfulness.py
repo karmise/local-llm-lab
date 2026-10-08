@@ -24,17 +24,10 @@ def load_sample(path: Path) -> tuple[dict[str, Any], str]:
     sample = json.loads(raw)
     # Rebuild from the saved observation to reject edited or unrelated contexts.
     rebuilt = build_sample(
-        sample["observation"],
-        question=sample["user_input"],
-        answer=sample["response"],
-        reference=sample["reference"],
-        expected_model=sample["observation"]["request"]["model"],
-        capture_id=sample["capture_id"],
-    )
-    if (
-        sample.get("schema_version") != 1
-        or sample["retrieved_contexts"] != rebuilt["retrieved_contexts"]
-    ):
+            sample["observation"], question=sample["user_input"], answer=sample["response"],
+            reference=sample["reference"], expected_model=sample["observation"]["request"]["model"],
+            capture_id=sample["capture_id"])
+    if (sample.get("schema_version") != 1 or sample["retrieved_contexts"] != rebuilt["retrieved_contexts"]):
         raise ValueError("Evaluation contexts do not match the saved observation")
     for field in ("user_input", "response", "reference"):
         if not isinstance(sample[field], str) or not sample[field].strip():
@@ -45,18 +38,12 @@ def load_sample(path: Path) -> tuple[dict[str, Any], str]:
 def validate_result(result: dict[str, Any]) -> dict[str, Any]:
     assertions.assert_quality_score(result["value"])
     statements, verdicts = result.get("statements"), result.get("verdicts")
-    if (
-        not isinstance(statements, list)
-        or not statements
-        or any(not isinstance(s, str) or not s.strip() for s in statements)
-        or not isinstance(verdicts, list)
-        or any(not isinstance(v, dict) or not isinstance(v.get("statement"), str) for v in verdicts)
-        or Counter(statements) != Counter(item["statement"] for item in verdicts)
-    ):
+    if (not isinstance(statements, list) or not statements or any(not isinstance(s, str) or not s.strip()
+            for s in statements) or not isinstance(verdicts, list)
+                or any(not isinstance(v, dict) or not isinstance(v.get("statement"), str) for v in verdicts)
+                or Counter(statements) != Counter(item["statement"] for item in verdicts)):
         raise ValueError("Judge verdicts must cover every extracted statement exactly once")
-    if any(
-        type(item.get("verdict")) is not int or item["verdict"] not in (0, 1) for item in verdicts
-    ):
+    if any(type(item.get("verdict")) is not int or item["verdict"] not in (0, 1) for item in verdicts):
         raise ValueError("Judge verdict must be 0 or 1")
     recomputed = sum(item["verdict"] for item in verdicts) / len(verdicts)
     if not math.isclose(result["value"], recomputed, rel_tol=0, abs_tol=1e-9):
@@ -68,41 +55,30 @@ async def score_sample(sample: dict[str, Any], judge: Any) -> dict[str, Any]:
     from ragas.metrics.collections import Faithfulness
 
     result = await Faithfulness(llm=judge).ascore(
-        user_input=sample["user_input"],
-        response=sample["response"],
-        retrieved_contexts=sample["retrieved_contexts"],
-    )
+            user_input=sample["user_input"], response=sample["response"],
+            retrieved_contexts=sample["retrieved_contexts"])
     if len(judge.calls) != 2:
         raise ValueError("Expected statement extraction and claim verification")
-    return validate_result(
-        {
+    return validate_result({
             "value": result.value,
             "statements": judge.calls[0]["output"]["statements"],
-            "verdicts": judge.calls[1]["output"]["statements"],
-        }
-    )
+            "verdicts": judge.calls[1]["output"]["statements"]})
 
 
-def evaluate_sample_report(
-    sample_path: Path,
-    *,
-    settings: Settings,
-    judge_model: str = "qwen3.5:4b",
-) -> dict[str, Any]:
+def evaluate_sample_report(sample_path: Path, *, settings: Settings, judge_model: str = "qwen3.5:4b") -> dict[str, Any]:
     """Run at most two judge calls and preserve completed or failed evidence."""
     from llm_testkit.evaluation.ollama_judge import OllamaJudge
 
     report: dict[str, Any] = {
-        "schema_version": 1,
-        "metric": "faithfulness",
-        "status": "error",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "sample_path": str(sample_path.resolve()),
-        "ragas_version": version("ragas"),
-        "judge_model": judge_model,
-        "threshold": None,
-        "interpretation": "Exploratory judge result; not a calibrated quality gate",
-    }
+            "schema_version": 1,
+            "metric": "faithfulness",
+            "status": "error",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "sample_path": str(sample_path.resolve()),
+            "ragas_version": version("ragas"),
+            "judge_model": judge_model,
+            "threshold": None,
+            "interpretation": "Exploratory judge result; not a calibrated quality gate"}
     judge = None
     http = None
     try:
@@ -114,9 +90,7 @@ def evaluate_sample_report(
         client = OllamaClient(http)
         catalog = client.list_models()
         assertions.assert_status_code(catalog, 200, context="Judge model catalog")
-        report["judge_model_digest"] = assertions.assert_model_available(
-            catalog.json()["models"], judge_model
-        )
+        report["judge_model_digest"] = assertions.assert_model_available(catalog.json()["models"], judge_model)
         judge = OllamaJudge(client, judge_model, settings.llm_timeout)
         report["judge_configuration"] = {"options": judge.options, "think": False, "retries": 0}
         report["result"] = asyncio.run(score_sample(sample, judge))
@@ -143,9 +117,7 @@ def main() -> int:
         import_module("llm_testkit.evaluation.ollama_judge")
     except ImportError:
         parser.error('Install evaluation dependencies: python -m pip install -e ".[evaluation]"')
-    report = evaluate_sample_report(
-        args.sample, settings=Settings.from_env(), judge_model=args.judge_model
-    )
+    report = evaluate_sample_report(args.sample, settings=Settings.from_env(), judge_model=args.judge_model)
     write_sample(args.output, report)
     if report["status"] != "completed":
         print(f"Evaluation failed; details saved to {args.output}")

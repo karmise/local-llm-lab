@@ -16,9 +16,7 @@ def validate_budget(requests: Any, users: Any) -> None:
         raise ValueError("Use one to four users, not exceeding request count")
 
 
-def run_batch(
-    operation: Callable[[], None], *, requests: int = 1, users: int = 1
-) -> dict[str, Any]:
+def run_batch(operation: Callable[[], None], *, requests: int = 1, users: int = 1) -> dict[str, Any]:
     validate_budget(requests, users)
 
     def attempt(index: int) -> dict[str, Any]:
@@ -38,41 +36,43 @@ def run_batch(
     values = sorted(row["elapsed_seconds"] for row in attempts)
     completed = sum(row["status"] == "passed" for row in attempts)
     return {
-        "schema_version": 1,
-        "kind": "performance_batch",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "requests": requests,
-        "users": users,
-        "attempts": attempts,
-        "failed": requests - completed,
-        "wall_seconds": elapsed,
-        "completed_requests_per_second": completed / elapsed,
-        "latency_seconds": {
+            "schema_version":
+            1,
+            "kind":
+            "performance_batch",
+            "created_at":
+            datetime.now(timezone.utc).isoformat(),
+            "requests":
+            requests,
+            "users":
+            users,
+            "attempts":
+            attempts,
+            "failed":
+            requests - completed,
+            "wall_seconds":
+            elapsed,
+            "completed_requests_per_second":
+            completed / elapsed,
+            "latency_seconds": {
             "minimum": values[0],
             "median": median(values),
             "p95": values[math.ceil(0.95 * requests) - 1],
-            "maximum": values[-1],
-        },
-        "interpretation": "Bounded closed-loop batch; end-to-end non-streaming HTTP latency including validation; not TTFT or server-only inference time",
+            "maximum": values[-1]},
+            "interpretation":
+            "Bounded closed-loop batch; end-to-end non-streaming HTTP latency including validation; not TTFT or server-only inference time"
     }
 
 
 def validate_batch(report: dict[str, Any]) -> None:
-    if (
-        not isinstance(report, dict)
-        or type(report.get("schema_version")) is not int
-        or report["schema_version"] != 1
-        or report.get("kind") != "performance_batch"
-    ):
+    if (not isinstance(report, dict) or type(report.get("schema_version")) is not int or report["schema_version"] != 1
+                or report.get("kind") != "performance_batch"):
         raise ValueError("Unsupported performance evidence")
     validate_budget(report.get("requests"), report.get("users"))
     rows = report.get("attempts")
-    if (
-        not isinstance(rows, list)
-        or len(rows) != report["requests"]
-        or any(not isinstance(r, dict) or type(r.get("index")) is not int for r in rows)
-        or [r["index"] for r in rows] != list(range(report["requests"]))
-    ):
+    if (not isinstance(rows, list) or len(rows) != report["requests"]
+                or any(not isinstance(r, dict) or type(r.get("index")) is not int for r in rows)
+                or [r["index"] for r in rows] != list(range(report["requests"]))):
         raise ValueError("Incomplete or duplicate performance attempts")
     if any(r.get("status") not in ("passed", "failed") for r in rows):
         raise ValueError("Invalid performance outcome")
@@ -89,17 +89,13 @@ def validate_batch(report: dict[str, Any]) -> None:
     if type(report.get("failed")) is not int or report["failed"] != failed:
         raise ValueError("Performance failure count mismatch")
     expected = {
-        "minimum": values[0],
-        "median": median(values),
-        "p95": values[math.ceil(0.95 * len(values)) - 1],
-        "maximum": values[-1],
-    }
+            "minimum": values[0],
+            "median": median(values),
+            "p95": values[math.ceil(0.95 * len(values)) - 1],
+            "maximum": values[-1]}
     summary = report.get("latency_seconds")
-    if (
-        not isinstance(summary, dict)
-        or any(type(v) not in (int, float) for v in summary.values())
-        or summary != expected
-    ):
+    if (not isinstance(summary, dict) or any(type(v) not in (int, float) for v in summary.values())
+                or summary != expected):
         raise ValueError("Latency summary differs from individual attempts")
     rps = (len(rows) - failed) / wall
     actual_rps = report.get("completed_requests_per_second")

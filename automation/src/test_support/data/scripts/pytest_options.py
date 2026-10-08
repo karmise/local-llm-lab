@@ -14,7 +14,6 @@ OPT_IN_SCENARIOS_SKIP_BEFORE_RESOLVING_EXTERNAL_FIXTURES_MAKEPYFILE_SOURCE = """
         def test_conversation(missing_model): pass
     """
 
-
 GOLDEN_COLLECTION_FORMS_CASE_MODEL_REPEAT_MATRIX_MAKEPYFILE_SOURCE = """
         import pytest
         @pytest.mark.rag
@@ -24,7 +23,6 @@ GOLDEN_COLLECTION_FORMS_CASE_MODEL_REPEAT_MATRIX_MAKEPYFILE_SOURCE = """
             assert generation_model in {'model-a', 'model-b'}
             assert rag_iteration in {1, 2}
     """
-
 
 DESELECTED_LIVE_TESTS_DO_NOT_VALIDATE_LIVE_OPTIONS_MAKEPYFILE_SOURCE = """
         import pytest
@@ -36,7 +34,6 @@ DESELECTED_LIVE_TESTS_DO_NOT_VALIDATE_LIVE_OPTIONS_MAKEPYFILE_SOURCE = """
         def test_live(missing_judge): pass
     """
 
-
 MODEL_MATRIX_DEDUPLICATES_NAMES_AND_RETAINS_INDEPENDENT_REPETITIONS_MAKEPYFILE_SOURCE = """
         import pytest
         @pytest.mark.rag
@@ -45,14 +42,12 @@ MODEL_MATRIX_DEDUPLICATES_NAMES_AND_RETAINS_INDEPENDENT_REPETITIONS_MAKEPYFILE_S
             assert rag_iteration in {1, 2}
     """
 
-
 LIVE_QUALITY_BUDGET_APPLIES_TO_SELECTED_MATRIX_MAKEPYFILE_SOURCE = """
         import pytest
         @pytest.mark.rag
         @pytest.mark.live_quality
         def test_live(generation_model, rag_iteration): pass
     """
-
 
 MODEL_MATRIX_DOES_NOT_REQUIRE_AN_UNUSED_ITERATION_FIXTURE_MAKEPYFILE_SOURCE = """
         import pytest

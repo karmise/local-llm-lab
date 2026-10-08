@@ -12,31 +12,16 @@ from test_support.assertions import errors as errors
 from test_support.assertions import pytest_runs
 from test_support.assertions import values as value_checks
 from test_support.builders.performance import (
-    make_bounded_failure_workload,
-    make_rag_execution_metadata,
-    make_timeout_workload,
-    mutate_health_execution_conditions,
-    mutate_saved_attempt,
-    prepare_evidence_case,
-    prepare_performance_comparison_case,
-)
+        make_bounded_failure_workload, make_rag_execution_metadata, make_timeout_workload,
+        mutate_health_execution_conditions, mutate_saved_attempt, prepare_evidence_case,
+        prepare_performance_comparison_case)
 from test_support.data import common as case_data
 from test_support.data.performance import (
-    ALTERNATIVE_MACHINE_METADATA,
-    BUDGET_REQUESTS_USERS_CASES,
-    EVIDENCE_CHANGE_CASES,
-    HEALTH_BATCH_CONTEXT,
-    HEALTH_EXECUTION_CHANGES,
-    HEALTH_EXECUTION_METADATA,
-    INVALID_BATCH_FIELD_CASES,
-    INVALID_SAVED_ATTEMPT_CASES,
-    PERFORMANCE_COMPARISON_CASES,
-    RAG_PROVENANCE_FIELDS,
-)
+        ALTERNATIVE_MACHINE_METADATA, BUDGET_REQUESTS_USERS_CASES, EVIDENCE_CHANGE_CASES, HEALTH_BATCH_CONTEXT,
+        HEALTH_EXECUTION_CHANGES, HEALTH_EXECUTION_METADATA, INVALID_BATCH_FIELD_CASES, INVALID_SAVED_ATTEMPT_CASES,
+        PERFORMANCE_COMPARISON_CASES, RAG_PROVENANCE_FIELDS)
 from test_support.data.scripts.performance import (
-    INCOMPATIBLE_CAPTURE_MODE_FAILS_BEFORE_EXTERNAL_SETUP_MAKEPYFILE_SOURCE,
-    SELECTION_MAKEPYFILE_SOURCE,
-)
+        INCOMPATIBLE_CAPTURE_MODE_FAILS_BEFORE_EXTERNAL_SETUP_MAKEPYFILE_SOURCE, SELECTION_MAKEPYFILE_SOURCE)
 
 pytestmark = pytest.mark.unit
 
@@ -51,16 +36,11 @@ def test_bounded_batch(operation_lock):
     report = run_batch(operation, requests=4, users=2)
     value_checks.length(calls, 4)
     value_checks.equal(report["failed"], 1)
-    value_checks.equal(
-        next((r for r in report["attempts"] if r["status"] == "failed"))["error_type"],
-        "TimeoutError",
-    )
+    value_checks.equal(next((r for r in report["attempts"] if r["status"] == "failed"))["error_type"], "TimeoutError")
     validate_batch(report)
     errors.rejects(
-        lambda: assertions.assert_performance_batch(report, maximum_p95=10),
-        expected=AssertionError,
-        match="failure rate",
-    )
+            lambda: assertions.assert_performance_batch(report, maximum_p95=10), expected=AssertionError,
+            match="failure rate")
     assertions.assert_performance_batch(report, maximum_p95=10, maximum_failure_rate=0.25)
 
 
@@ -68,17 +48,12 @@ def test_bounded_batch(operation_lock):
 @title("Invalid load budgets fail before making requests [{param_id}]")
 def test_budget(requests, users):
     calls = []
-    errors.rejects(
-        lambda: run_batch(lambda: calls.append(1), requests=requests, users=users),
-        expected=ValueError,
-    )
+    errors.rejects(lambda: run_batch(lambda: calls.append(1), requests=requests, users=users), expected=ValueError)
     value_checks.falsy(calls)
 
 
 @pytest.mark.parametrize("change", EVIDENCE_CHANGE_CASES)
-@title(
-    "Performance summaries reject missing attempts and inconsistent or nonfinite measurements [{param_id}]"
-)
+@title("Performance summaries reject missing attempts and inconsistent or nonfinite measurements [{param_id}]")
 def test_evidence(change):
     report = run_batch(lambda: None, requests=2)
     altered = deepcopy(report)
@@ -92,32 +67,21 @@ def test_latency_gate():
     value = report["latency_seconds"]["p95"]
     assertions.assert_performance_batch(report, maximum_p95=value)
     errors.rejects(
-        lambda: assertions.assert_performance_batch(report, maximum_p95=value / 2),
-        expected=AssertionError,
-        match="p95 exceeds",
-    )
+            lambda: assertions.assert_performance_batch(report, maximum_p95=value / 2), expected=AssertionError,
+            match="p95 exceeds")
 
 
-@title(
-    "Performance scenarios are opt-in and reject oversized selected batches before fixture setup"
-)
+@title("Performance scenarios are opt-in and reject oversized selected batches before fixture setup")
 def test_selection(framework_pytester):
     framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.options"]')
     framework_pytester.makepyfile(SELECTION_MAKEPYFILE_SOURCE)
     pytest_runs.outcomes(framework_pytester.runpytest_subprocess("-q"), skipped=2)
-    result = framework_pytester.runpytest_subprocess(
-        "--run-performance", "--performance-requests", "21", "-q"
-    )
+    result = framework_pytester.runpytest_subprocess("--run-performance", "--performance-requests", "21", "-q")
     value_checks.equal(result.ret, pytest.ExitCode.USAGE_ERROR)
 
 
-@pytest.mark.parametrize(
-    ("change", "expected"),
-    PERFORMANCE_COMPARISON_CASES,
-)
-@title(
-    "Performance baselines detect slowdown while rejecting changed or missing experiment metadata [{param_id}]"
-)
+@pytest.mark.parametrize(("change", "expected"), PERFORMANCE_COMPARISON_CASES)
+@title("Performance baselines detect slowdown while rejecting changed or missing experiment metadata [{param_id}]")
 def test_performance_comparison(change, expected):
 
     base = run_batch(lambda: None)
@@ -127,20 +91,14 @@ def test_performance_comparison(change, expected):
     value_checks.equal(compare_batches(base, current)["status"], expected)
 
 
-@pytest.mark.parametrize(
-    "field,value",
-    INVALID_BATCH_FIELD_CASES,
-)
+@pytest.mark.parametrize("field,value", INVALID_BATCH_FIELD_CASES)
 def test_saved_batch_revalidates_budget_and_numeric_types(field, value):
     report = run_batch(lambda: None)
     report[field] = value
     errors.rejects(lambda: validate_batch(report), expected=ValueError)
 
 
-@pytest.mark.parametrize(
-    "field",
-    RAG_PROVENANCE_FIELDS,
-)
+@pytest.mark.parametrize("field", RAG_PROVENANCE_FIELDS)
 def test_rag_comparison_requires_explicit_provenance(field):
 
     base = run_batch(lambda: None)
@@ -151,12 +109,9 @@ def test_rag_comparison_requires_explicit_provenance(field):
 
 def test_incompatible_capture_mode_fails_before_external_setup(framework_pytester):
     framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.options"]')
-    framework_pytester.makepyfile(
-        INCOMPATIBLE_CAPTURE_MODE_FAILS_BEFORE_EXTERNAL_SETUP_MAKEPYFILE_SOURCE
-    )
+    framework_pytester.makepyfile(INCOMPATIBLE_CAPTURE_MODE_FAILS_BEFORE_EXTERNAL_SETUP_MAKEPYFILE_SOURCE)
     result = framework_pytester.runpytest_subprocess(
-        "--run-performance", "--performance-mode=rag", "--capture-rag", "-q"
-    )
+            "--run-performance", "--performance-mode=rag", "--capture-rag", "-q")
     value_checks.equal(result.ret, pytest.ExitCode.USAGE_ERROR)
 
 
@@ -187,10 +142,8 @@ def test_completed_batches_retain_actual_timeout(tmp_path):
 def test_failed_batches_retain_attempt_evidence(tmp_path):
     report = run_batch(make_timeout_workload())
     errors.rejects(
-        lambda: record_batch(report, tmp_path, **HEALTH_BATCH_CONTEXT),
-        expected=AssertionError,
-        match="failure rate",
-    )
+            lambda: record_batch(report, tmp_path, **HEALTH_BATCH_CONTEXT), expected=AssertionError,
+            match="failure rate")
     paths = list(tmp_path.glob("*.json"))
     value_checks.length(paths, 1)
     saved = json.loads(paths[0].read_text())

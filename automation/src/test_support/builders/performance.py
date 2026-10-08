@@ -74,17 +74,18 @@ def mutate_saved_attempt(change, report):
 def make_rag_execution_metadata():
     """Build input for test_rag_comparison_requires_explicit_provenance."""
     return {
-        "workload": "rag",
-        "system": "test",
-        "machine": "test-machine",
-        "python": "3.12",
-        "base_url": "http://localhost",
-        "warmup_requests": 0,
-        "timeout": 60,
-        "policy_sha256": "a" * 64,
-        "golden_dataset_sha256": "b" * 64,
-        "case_id": "carryover_limit",
-        "model_digest": "c" * 64,
-        "generation_model": "model",
-        "configuration": {"chatModel": "model", "topN": 4},
-    }
+            "workload": "rag",
+            "system": "test",
+            "machine": "test-machine",
+            "python": "3.12",
+            "base_url": "http://localhost",
+            "warmup_requests": 0,
+            "timeout": 60,
+            "policy_sha256": "a" * 64,
+            "golden_dataset_sha256": "b" * 64,
+            "case_id": "carryover_limit",
+            "model_digest": "c" * 64,
+            "generation_model": "model",
+            "configuration": {
+            "chatModel": "model",
+            "topN": 4}}

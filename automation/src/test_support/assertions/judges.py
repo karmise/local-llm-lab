@@ -6,28 +6,20 @@ from typing import Any
 import pytest
 
 from test_support.assertions import errors, values
-from test_support.builders.judge_scenarios import (
-    FailedServiceScenario,
-    JudgeScenario,
-    RelevanceScenario,
-)
+from test_support.builders.judge_scenarios import FailedServiceScenario, JudgeScenario, RelevanceScenario
 
 
 def score_matches(scenario: JudgeScenario, result: Mapping[str, Any]) -> None:
     values.equal(result["value"], scenario.expected_score)
     values.equal(scenario.client.structured_chat.call_count, scenario.maximum_calls)
     if scenario.check_options:
-        values.equal(
-            scenario.client.structured_chat.call_args.kwargs["options"], scenario.judge.options
-        )
+        values.equal(scenario.client.structured_chat.call_args.kwargs["options"], scenario.judge.options)
 
 
 def budget_is_exhausted(scenario: JudgeScenario) -> None:
     errors.rejects(
-        lambda: scenario.judge.generate("An additional request must be rejected", object),
-        expected=ValueError,
-        match="budget",
-    )
+            lambda: scenario.judge.generate("An additional request must be rejected", object), expected=ValueError,
+            match="budget")
     # Budget rejection must happen before another transport call.
     values.equal(scenario.client.structured_chat.call_count, scenario.maximum_calls)
 
@@ -39,9 +31,7 @@ def relevance_matches(scenario: RelevanceScenario, result: Mapping[str, Any]) ->
     values.equal(result["context_precision"], pytest.approx(5 / 6))
 
 
-def failure_evidence_is_retained(
-    scenario: FailedServiceScenario, report: Mapping[str, Any]
-) -> None:
+def failure_evidence_is_retained(scenario: FailedServiceScenario, report: Mapping[str, Any]) -> None:
     values.equal(report["status"], "error")
     values.equal(scenario.transport.close.call_count, 1)
     if scenario.judge is not None:

@@ -15,25 +15,16 @@ class OllamaClient:
         return self._http.request("GET", "/api/tags")
 
     def structured_chat(
-        self,
-        *,
-        model: str,
-        prompt: str,
-        schema: dict[str, Any],
-        options: dict[str, Any],
-        timeout: float = 300,
-    ) -> Response:
+            self, *, model: str, prompt: str, schema: dict[str, Any], options: dict[str, Any],
+            timeout: float = 300) -> Response:
         return self._http.request(
-            "POST",
-            "/api/chat",
-            timeout=timeout,
-            json={
+                "POST", "/api/chat", timeout=timeout, json={
                 "model": model,
                 "stream": False,
                 "think": False,
                 "keep_alive": "1m",
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": [{
+                "role": "user",
+                "content": prompt}],
                 "format": schema,
-                "options": options,
-            },
-        )
+                "options": options})

@@ -5,36 +5,21 @@ from pathlib import Path
 import pytest
 
 from llm_testkit import assertions
-from llm_testkit.evaluation.faithfulness import (
-    load_sample,
-    main,
-    score_sample,
-)
+from llm_testkit.evaluation.faithfulness import load_sample, main, score_sample
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
 from test_support.assertions import judges as judge_checks
 from test_support.assertions import mocks as mock_checks
 from test_support.assertions import values as value_checks
-from test_support.builders.evaluation import (
-    _judge_class,
-    _sample,
-)
+from test_support.builders.evaluation import _judge_class, _sample
 from test_support.data import common as case_data
 from test_support.data.evaluation import (
-    DETERMINISTIC_JUDGE_OPTIONS,
-    EXTRACTED_CLAIM_RESPONSE,
-    OBJECT_RESPONSE_SCHEMA,
-    PIPELINE_REJECTS_MISSING_ALTERED_OR_INVALID_VERDICTS_OUTPUT_CASES,
-    QUALITY_SCORE_REJECTS_INVALID_RESULTS_VALUE_CASES,
-    UNSUPPORTED_CLAIM_VERDICT,
-)
-from test_support.fixtures.unit_evaluation import (
-    failed_evaluation_service as failed_evaluation_service,
-)
+        DETERMINISTIC_JUDGE_OPTIONS, EXTRACTED_CLAIM_RESPONSE, OBJECT_RESPONSE_SCHEMA,
+        PIPELINE_REJECTS_MISSING_ALTERED_OR_INVALID_VERDICTS_OUTPUT_CASES,
+        QUALITY_SCORE_REJECTS_INVALID_RESULTS_VALUE_CASES, UNSUPPORTED_CLAIM_VERDICT)
+from test_support.fixtures.unit_evaluation import failed_evaluation_service as failed_evaluation_service
 from test_support.fixtures.unit_evaluation import faithfulness_judge as faithfulness_judge
-from test_support.fixtures.unit_evaluation import (
-    invalid_faithfulness_judge as invalid_faithfulness_judge,
-)
+from test_support.fixtures.unit_evaluation import invalid_faithfulness_judge as invalid_faithfulness_judge
 from test_support.fixtures.unit_evaluation import truncated_judge as truncated_judge
 
 pytestmark = pytest.mark.unit
@@ -57,11 +42,7 @@ def test_quality_score_rejects_invalid_results(value: object) -> None:
 
 @title("Quality threshold rejects a score below the required minimum")
 def test_quality_threshold_rejects_low_score() -> None:
-    errors.rejects(
-        lambda: assertions.assert_quality_score(0.5, minimum=0.8),
-        expected=AssertionError,
-        match="below",
-    )
+    errors.rejects(lambda: assertions.assert_quality_score(0.5, minimum=0.8), expected=AssertionError, match="below")
 
 
 @title("RAGAS computes supported-claim ratio from mocked judge responses")
@@ -71,10 +52,7 @@ def test_real_ragas_pipeline_computes_supported_claim_ratio_without_network(fait
     judge_checks.budget_is_exhausted(faithfulness_judge)
 
 
-@pytest.mark.parametrize(
-    "output",
-    PIPELINE_REJECTS_MISSING_ALTERED_OR_INVALID_VERDICTS_OUTPUT_CASES,
-)
+@pytest.mark.parametrize("output", PIPELINE_REJECTS_MISSING_ALTERED_OR_INVALID_VERDICTS_OUTPUT_CASES)
 @title("Faithfulness pipeline rejects missing, altered or invalid claim verdicts [{param_id}]")
 def test_pipeline_rejects_missing_altered_or_invalid_verdicts(output, invalid_faithfulness_judge):
     errors.rejects(invalid_faithfulness_judge.evaluate, expected=(ValueError, AssertionError))
@@ -87,16 +65,12 @@ def test_judge_rejects_truncated_generation_without_retry(truncated_judge):
 
 
 @title("Native judge request disables thinking and includes the response schema")
-def test_native_judge_request_disables_thinking_and_passes_schema(
-        mock_factory, ollama_factory) -> None:  # fmt: skip
+def test_native_judge_request_disables_thinking_and_passes_schema(mock_factory, ollama_factory) -> None:
     http = mock_factory()
     schema = case_data.fresh(OBJECT_RESPONSE_SCHEMA)
     ollama_factory(http).structured_chat(
-        model=case_data.TEST_MODEL,
-        prompt="Judge this",
-        schema=schema,
-        options=case_data.fresh(DETERMINISTIC_JUDGE_OPTIONS),
-    )
+            model=case_data.TEST_MODEL, prompt="Judge this", schema=schema,
+            options=case_data.fresh(DETERMINISTIC_JUDGE_OPTIONS))
     payload = http.request.call_args.kwargs["json"]
     value_checks.identical(payload["think"], False)
     value_checks.identical(payload["stream"], False)
@@ -104,8 +78,7 @@ def test_native_judge_request_disables_thinking_and_passes_schema(
 
 
 @title("Faithfulness CLI preserves a failure in its error report")
-def test_cli_preserves_failure_as_error_report(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
+def test_cli_preserves_failure_as_error_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _judge_class()
 
     source = tmp_path / case_data.SAMPLE_FILE_NAME
@@ -119,8 +92,7 @@ def test_cli_preserves_failure_as_error_report(
 
 
 @title("Faithfulness CLI refuses to overwrite an existing report before model calls")
-def test_cli_refuses_to_overwrite_report_before_model_calls(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
+def test_cli_refuses_to_overwrite_report_before_model_calls(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     output = tmp_path / "report.json"
     output.write_text("existing")
     monkeypatch.setattr("sys.argv", ["faithfulness", "missing-sample", "--output", str(output)])
@@ -136,20 +108,12 @@ def test_evaluation_service_preserves_judge_failure_and_closes_transport(failed_
     value_checks.equal(report["error"]["type"], "ValueError")
 
 
-def test_live_faithfulness_rejects_score_inconsistent_with_verdicts(monkeypatch, async_mock_factory,
-                                                                    mock_factory):  # fmt: skip
+def test_live_faithfulness_rejects_score_inconsistent_with_verdicts(monkeypatch, async_mock_factory, mock_factory):
     collections = pytest.importorskip("ragas.metrics.collections")
 
     metric = mock_factory()
 
     metric.ascore = async_mock_factory(return_value=mock_factory(value=1.0))
     monkeypatch.setattr(collections, "Faithfulness", mock_factory(return_value=metric))
-    judge = mock_factory(
-        calls=[
-            case_data.fresh(EXTRACTED_CLAIM_RESPONSE),
-            case_data.fresh(UNSUPPORTED_CLAIM_VERDICT),
-        ]
-    )
-    errors.rejects(
-        lambda: asyncio.run(score_sample(_sample(), judge)), expected=ValueError, match="score"
-    )
+    judge = mock_factory(calls=[case_data.fresh(EXTRACTED_CLAIM_RESPONSE), case_data.fresh(UNSUPPORTED_CLAIM_VERDICT)])
+    errors.rejects(lambda: asyncio.run(score_sample(_sample(), judge)), expected=ValueError, match="score")

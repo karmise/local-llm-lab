@@ -40,10 +40,8 @@ def anythingllm_api(http_client: HttpClient) -> AnythingLLMClient:
 def authenticated_anythingllm_api(http_client: HttpClient, settings: Settings) -> AnythingLLMClient:
     if not settings.api_key:
         pytest.fail(
-            "Developer API key is missing. Configure ANYTHINGLLM_API_KEY or "
-            "ANYTHINGLLM_API_KEY_FILE; see docs/step-03-developer-api.md.",
-            pytrace=False,
-        )
+                "Developer API key is missing. Configure ANYTHINGLLM_API_KEY or "
+                "ANYTHINGLLM_API_KEY_FILE; see docs/step-03-developer-api.md.", pytrace=False)
     return AnythingLLMClient(http_client, api_key=settings.api_key)
 
 
@@ -76,16 +74,11 @@ def missing_policy_profile(automation_root: Path) -> dict[str, Any]:
 
 @pytest.fixture
 def golden_metadata(
-    automation_root: Path,
-    policy_file: Path,
-    golden_case: GoldenCase,
-    record_property: Callable[[str, object], None],
-) -> None:
+        automation_root: Path, policy_file: Path, golden_case: GoldenCase, record_property: Callable[[str, object],
+        None]) -> None:
     dataset = load_golden_dataset(automation_root / "test_data/golden-policy.json", policy_file)
     if golden_case not in dataset.cases:
-        pytest.fail(
-            "Golden dataset changed after collection; collect the suite again", pytrace=False
-        )
+        pytest.fail("Golden dataset changed after collection; collect the suite again", pytrace=False)
     record_property("golden_dataset_version", dataset.version)
     record_property("golden_dataset_sha256", dataset.sha256)
     record_property("golden_case_id", golden_case.id)

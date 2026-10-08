@@ -58,7 +58,9 @@ jobs:
 
       - name: Check Python formatting
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: python -m ruff format --check src tests | tee reports/ci/format.txt
+        run: |
+          python -m isort --check-only --diff src tests | tee reports/ci/imports.txt
+          python -m yapf --diff --recursive src tests | tee reports/ci/format.txt
 
       - name: Run unit tests with branch coverage
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}

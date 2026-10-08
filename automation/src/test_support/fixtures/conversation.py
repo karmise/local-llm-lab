@@ -16,14 +16,9 @@ from llm_testkit.reporting.steps import set_metadata
 
 @pytest.fixture
 def conversation_metadata(
-    automation_root: Path,
-    policy_file: Path,
-    conversation_case: ConversationCase,
-    record_property: Callable[[str, object], None],
-) -> None:
-    catalog = load_conversation_catalog(
-        automation_root / "test_data/conversation-policy.json", policy_file
-    )
+        automation_root: Path, policy_file: Path, conversation_case: ConversationCase,
+        record_property: Callable[[str, object], None]) -> None:
+    catalog = load_conversation_catalog(automation_root / "test_data/conversation-policy.json", policy_file)
     if conversation_case not in catalog.cases:
         pytest.fail("Conversation catalog changed after collection; collect again", pytrace=False)
     record_property("conversation_case_id", conversation_case.id)
@@ -35,17 +30,13 @@ def conversation_metadata(
 
 @pytest.fixture
 def conversation_chat(
-    rag_environment: None,
-    workspace_configuration: dict[str, Any],
-    authenticated_anythingllm_api: AnythingLLMClient,
-    indexed_workspace: dict[str, Any],
-    settings: Settings,
-) -> Callable[[str], Response]:
+        rag_environment: None, workspace_configuration: dict[str,
+        Any], authenticated_anythingllm_api: AnythingLLMClient, indexed_workspace: dict[str, Any],
+        settings: Settings) -> Callable[[str], Response]:
     assertions.assert_field_equals(workspace_configuration, "chatMode", "chat")
 
     def chat(question: str) -> Response:
         return authenticated_anythingllm_api.chat(
-            indexed_workspace["slug"], question, mode="chat", timeout=settings.llm_timeout
-        )
+                indexed_workspace["slug"], question, mode="chat", timeout=settings.llm_timeout)
 
     return chat

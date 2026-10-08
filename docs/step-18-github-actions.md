@@ -8,10 +8,11 @@ or Ollama, and require no API keys or repository secrets.
 ## What is checked
 
 Ruff uses the project's pinned version and an explicit configuration. Its initial
-rule set checks common Python errors, undefined names, unused imports, import
-ordering and Bugbear rules (`E4`, `E7`, `E9`, `F`, `I`, `B`). A separate step
-checks formatting. No import-order exception is needed because assertion
-registration precedes loading the fixture plugins.
+rule set checks common Python errors, undefined names, unused imports, Bugbear
+rules and unnecessary trailing commas (`E4`, `E7`, `E9`, `F`, `B`, `COM819`).
+The formatting step checks import order with isort and compact layout with YAPF,
+using the shared 120-character configuration. Assertion registration precedes
+loading the fixture plugins; no import-order exception is needed.
 
 The workflow selects `tests/unit` directly. Evaluation dependencies are installed
 so that the RAGAS adapter tests run instead of being skipped; those tests use
@@ -57,7 +58,8 @@ python -m pip install -r requirements.lock -r requirements-evaluation.lock -r re
 python -m pip install --no-deps -e .
 python -m pip check
 python -m ruff check src tests --config pyproject.toml
-python -m ruff format --check src tests
+python -m isort --check-only --diff src tests
+python -m yapf --diff --recursive src tests
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 RAGAS_DO_NOT_TRACK=true LANGCHAIN_TRACING_V2=false \
   python -m pytest tests/unit --junitxml=reports/ci/unit-tests.xml
 ```

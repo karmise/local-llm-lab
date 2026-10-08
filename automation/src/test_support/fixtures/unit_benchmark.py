@@ -10,18 +10,16 @@ from test_support.data.benchmark import ROOT
 
 @pytest.fixture
 def benchmark_data():
-    dataset = load_golden_dataset(
-        ROOT / "test_data/golden-policy.json", ROOT / "test_data/company-policy.txt"
-    )
+    dataset = load_golden_dataset(ROOT / "test_data/golden-policy.json", ROOT / "test_data/company-policy.txt")
     gates = load_quality_gates(ROOT / "test_data/quality-gates.json")
     plan = make_plan(dataset, case_ids=["paid_leave", "gym_missing"])
     definition = manifest(plan, dataset, gates, ROOT / "test_data/faithfulness-controls.json")
     calibration = {
-        "status": "matched",
-        "judge_model": plan.judge_model,
-        "judge_model_digest": "judge-digest",
-        "controls_sha256": definition["controls_sha256"],
-        "control_ids": definition["control_ids"],
-        "results": [{"status": "matched"} for _ in range(3)],
-    }
+            "status": "matched",
+            "judge_model": plan.judge_model,
+            "judge_model_digest": "judge-digest",
+            "controls_sha256": definition["controls_sha256"],
+            "control_ids": definition["control_ids"],
+            "results": [{
+            "status": "matched"} for _ in range(3)]}
     return dataset, gates, plan, definition, calibration

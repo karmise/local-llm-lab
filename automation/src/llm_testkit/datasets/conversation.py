@@ -51,9 +51,8 @@ def load_conversation_catalog(path: Path, policy_file: Path) -> ConversationCata
             raise ValueError(f"Invalid or duplicate conversation case id: {identifier}")
         identifiers.add(identifier)
         texts = {
-            name: require_text(row.get(name), f"{identifier}: {name}")
-            for name in ("title", "question", "reference", "rationale")
-        }
+                name: require_text(row.get(name), f"{identifier}: {name}")
+                for name in ("title", "question", "reference", "rationale")}
         required = validate_patterns(row.get("required_patterns"), identifier, required=True)
         forbidden = validate_patterns(row.get("forbidden_patterns"), identifier, required=False)
         max_words = row.get("max_words")
@@ -76,15 +75,7 @@ def load_conversation_catalog(path: Path, policy_file: Path) -> ConversationCata
             if re.search(pattern, reference, flags=re.IGNORECASE):
                 raise ValueError(f"{identifier}: reference violates forbidden rule: {label}")
         cases.append(
-            ConversationCase(
-                identifier,
-                **texts,
-                required_patterns=required,
-                forbidden_patterns=forbidden,
-                source_fragments=tuple(fragments),
-                max_words=max_words,
-            )
-        )
-    return ConversationCatalog(
-        version, hashlib.sha256(raw).hexdigest(), policy_sha256, tuple(cases)
-    )
+                ConversationCase(
+                identifier, **texts, required_patterns=required, forbidden_patterns=forbidden,
+                source_fragments=tuple(fragments), max_words=max_words))
+    return ConversationCatalog(version, hashlib.sha256(raw).hexdigest(), policy_sha256, tuple(cases))

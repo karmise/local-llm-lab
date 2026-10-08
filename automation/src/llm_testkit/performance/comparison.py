@@ -12,35 +12,26 @@ from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.performance.runner import validate_batch
 
 
-def compare_batches(
-    baseline: dict[str, Any], current: dict[str, Any], *, maximum_growth: float = 0.2
-) -> dict[str, Any]:
+def compare_batches(baseline: dict[str, Any], current: dict[str, Any], *, maximum_growth: float = 0.2) -> dict[str,
+        Any]:
     validate_batch(baseline)
     validate_batch(current)
-    if (
-        type(maximum_growth) not in (int, float)
-        or not math.isfinite(maximum_growth)
-        or not 0 <= maximum_growth <= 1
-    ):
+    if (type(maximum_growth) not in (int, float) or not math.isfinite(maximum_growth) or not 0 <= maximum_growth <= 1):
         raise ValueError("Latency growth must be a finite fraction between zero and one")
     metadata = [row.get("metadata") for row in (baseline, current)]
     metadata = [m if isinstance(m, dict) else {} for m in metadata]
     before, after = metadata
     differences = []
     for field in ("workload", "system", "machine", "python", "base_url"):
-        if any(
-            not isinstance(m.get(field), str) or not m[field].strip() for m in metadata
-        ) or before.get(field) != after.get(field):
+        if any(not isinstance(m.get(field), str) or not m[field].strip()
+                for m in metadata) or before.get(field) != after.get(field):
             differences.append(field)
     if any(m.get("workload") not in ("health", "rag") for m in metadata):
         differences.append("unsupported_workload")
     for field in ("warmup_requests", "timeout"):
         valid = all(
-            type(m.get(field)) is int and m[field] >= 0
-            if field == "warmup_requests"
-            else type(m.get(field)) in (int, float) and math.isfinite(m[field]) and m[field] > 0
-            for m in metadata
-        )
+                type(m.get(field)) is int and m[field] >= 0 if field == "warmup_requests" else type(m.get(field)) in (
+                int, float) and math.isfinite(m[field]) and m[field] > 0 for m in metadata)
         if not valid or before.get(field) != after.get(field):
             differences.append(field)
     for field in ("requests", "users"):
@@ -73,23 +64,27 @@ def compare_batches(
         differences.append("baseline_not_healthy")
     growth = current["latency_seconds"]["p95"] / base - 1 if base > 0 else None
     status = (
-        "incomparable"
-        if differences
-        else "regression"
-        if current["failed"] or growth > maximum_growth + 1e-12
-        else "passed"
-    )
+            "incomparable"
+            if differences else "regression" if current["failed"] or growth > maximum_growth + 1e-12 else "passed")
     return {
-        "schema_version": 1,
-        "status": status,
-        "maximum_growth": maximum_growth,
-        "p95_growth": growth,
-        "baseline_p95": base,
-        "current_p95": current["latency_seconds"]["p95"],
-        "incomparable_fields": differences,
-        "model_changed": (before.get("generation_model"), before.get("model_digest"))
-        != (after.get("generation_model"), after.get("model_digest")),
-        "interpretation": "Bounded performance regression signal for comparable workload/machine metadata, not a statistically significant capacity estimate",
+            "schema_version":
+            1,
+            "status":
+            status,
+            "maximum_growth":
+            maximum_growth,
+            "p95_growth":
+            growth,
+            "baseline_p95":
+            base,
+            "current_p95":
+            current["latency_seconds"]["p95"],
+            "incomparable_fields":
+            differences,
+            "model_changed": (before.get("generation_model"), before.get("model_digest"))
+            != (after.get("generation_model"), after.get("model_digest")),
+            "interpretation":
+            "Bounded performance regression signal for comparable workload/machine metadata, not a statistically significant capacity estimate"
     }
 
 
@@ -103,10 +98,8 @@ def main() -> int:
     if args.output.exists():
         parser.error("Output already exists")
     report = compare_batches(
-        json.loads(args.baseline.read_text()),
-        json.loads(args.current.read_text()),
-        maximum_growth=args.maximum_growth,
-    )
+            json.loads(args.baseline.read_text()), json.loads(args.current.read_text()),
+            maximum_growth=args.maximum_growth)
     write_sample(args.output, report)
     print(f"Performance comparison: {report['status']}")
     return 0 if report["status"] == "passed" else 1

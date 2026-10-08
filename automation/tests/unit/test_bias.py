@@ -11,44 +11,25 @@ from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
 from test_support.assertions import pytest_runs
 from test_support.assertions import values as value_checks
-from test_support.builders.bias import (
-    make_response_stub,
-    paired_report,
-    prepare_catalog_case,
-    prepare_comparison_case,
-)
+from test_support.builders.bias import make_response_stub, paired_report, prepare_catalog_case, prepare_comparison_case
 from test_support.data.bias import (
-    ANSWERS_CASE_CASES,
-    ANSWERS_CASE_IDS,
-    CATALOG_CHANGE_CASES,
-    COMPARISON_CHANGE_STATUS_OUTCOME_CASES,
-    DATA,
-    DATASET,
-)
+        ANSWERS_CASE_CASES, ANSWERS_CASE_IDS, CATALOG_CHANGE_CASES, COMPARISON_CHANGE_STATUS_OUTCOME_CASES, DATA,
+        DATASET)
 from test_support.data.scripts.bias import SELECTION_MAKEPYFILE_SOURCE
 
 pytestmark = pytest.mark.unit
 
 
 @pytest.mark.parametrize("case", ANSWERS_CASE_CASES, ids=ANSWERS_CASE_IDS)
-@title(
-    "Counterfactual answers share golden facts and reject unsupported eligibility restrictions [{param_id}]"
-)
+@title("Counterfactual answers share golden facts and reject unsupported eligibility restrictions [{param_id}]")
 def test_answers(case):
     response = make_response_stub()
 
-    assertions.assert_bias_answer(
-        response(case.golden_case.reference), case=case, document_title="policy"
-    )
+    assertions.assert_bias_answer(response(case.golden_case.reference), case=case, document_title="policy")
     errors.rejects(
-        lambda: assertions.assert_bias_answer(
-            response(case.golden_case.reference + " You are not eligible."),
-            case=case,
-            document_title="policy",
-        ),
-        expected=AssertionError,
-        match="eligibility",
-    )
+            lambda: assertions.assert_bias_answer(
+            response(case.golden_case.reference + " You are not eligible."), case=case, document_title="policy"),
+            expected=AssertionError, match="eligibility")
 
 
 @pytest.mark.parametrize("change", CATALOG_CHANGE_CASES)
@@ -62,13 +43,8 @@ def test_catalog(change, tmp_path):
     errors.rejects(lambda: load_bias_cases(path, DATASET), expected=ValueError)
 
 
-@pytest.mark.parametrize(
-    ("change", "status", "outcome"),
-    COMPARISON_CHANGE_STATUS_OUTCOME_CASES,
-)
-@title(
-    "Paired analysis distinguishes asymmetry, shared failures and incomplete evidence [{param_id}]"
-)
+@pytest.mark.parametrize(("change", "status", "outcome"), COMPARISON_CHANGE_STATUS_OUTCOME_CASES)
+@title("Paired analysis distinguishes asymmetry, shared failures and incomplete evidence [{param_id}]")
 def test_comparison(change, status, outcome, tmp_path):
     path = paired_report(tmp_path)
     tree = ET.parse(path)
@@ -77,13 +53,8 @@ def test_comparison(change, status, outcome, tmp_path):
     prepare_comparison_case(change, rows, suite)
     tree.write(path)
     report = compare_pairs(
-        path,
-        catalog=DATA / "bias-policy.json",
-        dataset_path=DATA / "golden-policy.json",
-        policy=DATA / "company-policy.txt",
-        pair_ids=["gender_carryover"],
-        models=["model"],
-    )
+            path, catalog=DATA / "bias-policy.json", dataset_path=DATA / "golden-policy.json",
+            policy=DATA / "company-policy.txt", pair_ids=["gender_carryover"], models=["model"])
     value_checks.equal(report["status"], status)
     value_checks.equal(report["comparisons"][0]["outcome"], outcome)
 
@@ -94,14 +65,8 @@ def test_selection(framework_pytester):
     framework_pytester.makeconftest('pytest_plugins=["llm_testkit.pytest_support.options"]')
     framework_pytester.makepyfile(SELECTION_MAKEPYFILE_SOURCE)
     pytest_runs.outcomes(
-        framework_pytester.runpytest_subprocess("-q", "--rag-model", "test", "-k", "gender"),
-        skipped=2,
-        deselected=4,
-    )
+            framework_pytester.runpytest_subprocess("-q", "--rag-model", "test", "-k", "gender"), skipped=2,
+            deselected=4)
     pytest_runs.outcomes(
-        framework_pytester.runpytest_subprocess(
-            "-q", "--rag-model", "test", "-k", "gender", "--run-bias"
-        ),
-        passed=2,
-        deselected=4,
-    )
+            framework_pytester.runpytest_subprocess("-q", "--rag-model", "test", "-k", "gender", "--run-bias"),
+            passed=2, deselected=4)

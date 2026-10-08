@@ -6,17 +6,15 @@ from llm_testkit.reporting.steps import title
 from test_support.assertions import pytest_runs
 from test_support.assertions import values as value_checks
 from test_support.data.pytest_options import (
-    DESELECTED_LIVE_TESTS_DO_NOT_VALIDATE_LIVE_OPTIONS_SELECTOR_CASES,
-    INVALID_MATRIX_OPTIONS_ARE_USAGE_ERRORS_ARGUMENTS_CASES,
-)
+        DESELECTED_LIVE_TESTS_DO_NOT_VALIDATE_LIVE_OPTIONS_SELECTOR_CASES,
+        INVALID_MATRIX_OPTIONS_ARE_USAGE_ERRORS_ARGUMENTS_CASES)
 from test_support.data.scripts.pytest_options import (
-    DESELECTED_LIVE_TESTS_DO_NOT_VALIDATE_LIVE_OPTIONS_MAKEPYFILE_SOURCE,
-    GOLDEN_COLLECTION_FORMS_CASE_MODEL_REPEAT_MATRIX_MAKEPYFILE_SOURCE,
-    LIVE_QUALITY_BUDGET_APPLIES_TO_SELECTED_MATRIX_MAKEPYFILE_SOURCE,
-    MODEL_MATRIX_DEDUPLICATES_NAMES_AND_RETAINS_INDEPENDENT_REPETITIONS_MAKEPYFILE_SOURCE,
-    MODEL_MATRIX_DOES_NOT_REQUIRE_AN_UNUSED_ITERATION_FIXTURE_MAKEPYFILE_SOURCE,
-    OPT_IN_SCENARIOS_SKIP_BEFORE_RESOLVING_EXTERNAL_FIXTURES_MAKEPYFILE_SOURCE,
-)
+        DESELECTED_LIVE_TESTS_DO_NOT_VALIDATE_LIVE_OPTIONS_MAKEPYFILE_SOURCE,
+        GOLDEN_COLLECTION_FORMS_CASE_MODEL_REPEAT_MATRIX_MAKEPYFILE_SOURCE,
+        LIVE_QUALITY_BUDGET_APPLIES_TO_SELECTED_MATRIX_MAKEPYFILE_SOURCE,
+        MODEL_MATRIX_DEDUPLICATES_NAMES_AND_RETAINS_INDEPENDENT_REPETITIONS_MAKEPYFILE_SOURCE,
+        MODEL_MATRIX_DOES_NOT_REQUIRE_AN_UNUSED_ITERATION_FIXTURE_MAKEPYFILE_SOURCE,
+        OPT_IN_SCENARIOS_SKIP_BEFORE_RESOLVING_EXTERNAL_FIXTURES_MAKEPYFILE_SOURCE)
 from test_support.fixtures.unit_pytest_options import runner as runner
 from test_support.paths import AUTOMATION_ROOT
 
@@ -45,61 +43,27 @@ def test_golden_collection_forms_case_model_repeat_matrix(runner: pytest.Pyteste
     shutil.copytree(source, runner.path / "test_data")
     runner.makepyfile(GOLDEN_COLLECTION_FORMS_CASE_MODEL_REPEAT_MATRIX_MAKEPYFILE_SOURCE)
     pytest_runs.outcomes(
-        runner.runpytest_subprocess(
-            "--run-golden",
-            "--rag-model",
-            "model-a",
-            "--rag-model",
-            "model-b",
-            "--rag-repeat",
-            "2",
-            "-k",
-            "travel_allowance",
-            "-q",
-        ),
-        passed=4,
-        deselected=60,
-    )
+            runner.runpytest_subprocess(
+            "--run-golden", "--rag-model", "model-a", "--rag-model", "model-b", "--rag-repeat", "2", "-k",
+            "travel_allowance", "-q"), passed=4, deselected=60)
 
 
-@pytest.mark.parametrize(
-    "selector", DESELECTED_LIVE_TESTS_DO_NOT_VALIDATE_LIVE_OPTIONS_SELECTOR_CASES
-)
-def test_deselected_live_tests_do_not_validate_live_options(
-        runner: pytest.Pytester, selector: tuple[str, str]) -> None:  # fmt: skip
+@pytest.mark.parametrize("selector", DESELECTED_LIVE_TESTS_DO_NOT_VALIDATE_LIVE_OPTIONS_SELECTOR_CASES)
+def test_deselected_live_tests_do_not_validate_live_options(runner: pytest.Pytester, selector: tuple[str, str]) -> None:
     runner.makepyfile(DESELECTED_LIVE_TESTS_DO_NOT_VALIDATE_LIVE_OPTIONS_MAKEPYFILE_SOURCE)
     pytest_runs.outcomes(
-        runner.runpytest_subprocess("-q", *selector, "--run-ui", "--run-live-quality"),
-        passed=1,
-        deselected=2,
-    )
+            runner.runpytest_subprocess("-q", *selector, "--run-ui", "--run-live-quality"), passed=1, deselected=2)
 
 
-def test_model_matrix_deduplicates_names_and_retains_independent_repetitions(
-        runner: pytest.Pytester) -> None:  # fmt: skip
-    runner.makepyfile(
-        MODEL_MATRIX_DEDUPLICATES_NAMES_AND_RETAINS_INDEPENDENT_REPETITIONS_MAKEPYFILE_SOURCE
-    )
+def test_model_matrix_deduplicates_names_and_retains_independent_repetitions(runner: pytest.Pytester) -> None:
+    runner.makepyfile(MODEL_MATRIX_DEDUPLICATES_NAMES_AND_RETAINS_INDEPENDENT_REPETITIONS_MAKEPYFILE_SOURCE)
     result = runner.runpytest_subprocess(
-        "-q",
-        "--rag-model",
-        "model-a",
-        "--rag-model",
-        " model-a ",
-        "--rag-model",
-        "model-b",
-        "--rag-repeat",
-        "2",
-    )
+            "-q", "--rag-model", "model-a", "--rag-model", " model-a ", "--rag-model", "model-b", "--rag-repeat", "2")
     pytest_runs.outcomes(result, passed=4)
 
 
-@pytest.mark.parametrize(
-    "arguments",
-    INVALID_MATRIX_OPTIONS_ARE_USAGE_ERRORS_ARGUMENTS_CASES,
-)
-def test_invalid_matrix_options_are_usage_errors(runner: pytest.Pytester,
-                                                 arguments: tuple[str, str]) -> None:  # fmt: skip
+@pytest.mark.parametrize("arguments", INVALID_MATRIX_OPTIONS_ARE_USAGE_ERRORS_ARGUMENTS_CASES)
+def test_invalid_matrix_options_are_usage_errors(runner: pytest.Pytester, arguments: tuple[str, str]) -> None:
     runner.makepyfile("def test_noop(): pass")
     result = runner.runpytest_subprocess(*arguments)
     value_checks.equal(result.ret, pytest.ExitCode.USAGE_ERROR)
@@ -125,6 +89,4 @@ def test_explicit_ui_run_requires_active_browser_plugin(runner: pytest.Pytester)
 
 def test_model_matrix_does_not_require_an_unused_iteration_fixture(runner: pytest.Pytester) -> None:
     runner.makepyfile(MODEL_MATRIX_DOES_NOT_REQUIRE_AN_UNUSED_ITERATION_FIXTURE_MAKEPYFILE_SOURCE)
-    pytest_runs.outcomes(
-        runner.runpytest_subprocess("--rag-model", "model-a", "--rag-repeat", "2", "-q"), passed=2
-    )
+    pytest_runs.outcomes(runner.runpytest_subprocess("--rag-model", "model-a", "--rag-repeat", "2", "-q"), passed=2)

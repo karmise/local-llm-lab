@@ -9,25 +9,14 @@ from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
 from test_support.assertions import pytest_runs
 from test_support.assertions import values as value_checks
-from test_support.builders.quality_gates import (
-    measured_report,
-    prepare_configuration_case,
-    prepare_fail_closed_case,
-)
-from test_support.data.quality_gates import (
-    BOUNDARY_METRIC_CASES,
-    CONFIGURATION_CHANGE_CASES,
-    FAIL_CLOSED_CASES,
-    GATES,
-)
+from test_support.builders.quality_gates import measured_report, prepare_configuration_case, prepare_fail_closed_case
+from test_support.data.quality_gates import BOUNDARY_METRIC_CASES, CONFIGURATION_CHANGE_CASES, FAIL_CLOSED_CASES, GATES
 from test_support.data.scripts.quality_gates import render_pytest_exit_code_makepyfile_source
 
 pytestmark = pytest.mark.unit
 
 
-@title(
-    "Explicit gates turn validated measurements into threshold checks without modifying the original report"
-)
+@title("Explicit gates turn validated measurements into threshold checks without modifying the original report")
 def test_apply_gates():
     report = measured_report()
     before = deepcopy(report)
@@ -62,9 +51,7 @@ def test_boundary(metric):
 
 
 @pytest.mark.parametrize("change", CONFIGURATION_CHANGE_CASES)
-@title(
-    "Gate configuration requires all metrics, finite thresholds and an explicit calibration boundary [{param_id}]"
-)
+@title("Gate configuration requires all metrics, finite thresholds and an explicit calibration boundary [{param_id}]")
 def test_configuration(tmp_path, change):
     config = json.loads(GATES.read_text())
     prepare_configuration_case(change, config)
@@ -77,9 +64,7 @@ def test_configuration(tmp_path, change):
 def test_duplicate_metric():
     report = measured_report()
     report["dimensions"].append(deepcopy(report["dimensions"][-1]))
-    errors.rejects(
-        lambda: apply_quality_gates(report, GATES), expected=ValueError, match="Duplicate"
-    )
+    errors.rejects(lambda: apply_quality_gates(report, GATES), expected=ValueError, match="Duplicate")
 
 
 @title("A low measured value produces a failing pytest exit code for CI")

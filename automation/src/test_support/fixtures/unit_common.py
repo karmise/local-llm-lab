@@ -16,12 +16,11 @@ def offline_unit_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def framework_pytester(
-    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
-) -> pytest.Pytester:
+def framework_pytester(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> pytest.Pytester:
     # Child pytest runs exercise real collection/setup/teardown without optional plugins.
     monkeypatch.setenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
-    pytester.makeini("""
+    pytester.makeini(
+            """
         [pytest]
         addopts = --strict-markers --strict-config
         markers =

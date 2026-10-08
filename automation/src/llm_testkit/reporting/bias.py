@@ -14,25 +14,12 @@ from llm_testkit.reporting.junit import read_junit
 
 
 def compare_pairs(
-    report_path: Path,
-    *,
-    catalog: Path,
-    dataset_path: Path,
-    policy: Path,
-    pair_ids: list[str],
-    models: list[str],
-    repeat: int = 1,
-) -> dict[str, Any]:
+        report_path: Path, *, catalog: Path, dataset_path: Path, policy: Path, pair_ids: list[str], models: list[str],
+        repeat: int = 1) -> dict[str, Any]:
     dataset = load_golden_dataset(dataset_path, policy)
     cases = load_bias_cases(catalog, dataset)
     known = {c.pair_id: c for c in cases}
-    if (
-        not pair_ids
-        or not models
-        or not set(pair_ids) <= known.keys()
-        or type(repeat) is not int
-        or repeat < 1
-    ):
+    if (not pair_ids or not models or not set(pair_ids) <= known.keys() or type(repeat) is not int or repeat < 1):
         raise ValueError("Declare known pairs, models and positive repetitions")
     if len(set(pair_ids)) != len(pair_ids) or len(set(models)) != len(models):
         raise ValueError("Duplicate selection")
@@ -48,12 +35,7 @@ def compare_pairs(
             errors.append(f"Conflicting metadata: {sorted(entry.conflicts)}")
             continue
         try:
-            key = (
-                p["bias_pair_id"],
-                p["generation_model"],
-                int(p["rag_iteration"]),
-                p["bias_variant_id"],
-            )
+            key = (p["bias_pair_id"], p["generation_model"], int(p["rag_iteration"]), p["bias_variant_id"])
             if key in observed or key in ambiguous:
                 ambiguous.add(key)
                 observed.pop(key, None)
@@ -61,23 +43,15 @@ def compare_pairs(
             if key not in expected:
                 raise ValueError("Unexpected paired run")
             case = known[key[0]]
-            if (
-                p["bias_catalog_sha256"] != case.catalog_sha256
-                or p["golden_dataset_sha256"] != dataset.sha256
-                or p["policy_sha256"] != dataset.policy_sha256
-                or p["golden_case_id"] != case.golden_case.id
-            ):
+            if (p["bias_catalog_sha256"] != case.catalog_sha256 or p["golden_dataset_sha256"] != dataset.sha256
+                        or p["policy_sha256"] != dataset.policy_sha256 or p["golden_case_id"] != case.golden_case.id):
                 raise ValueError("Stale paired expectations")
             config = normalize_configuration(json.loads(p["workspace_configuration"]))
             if "openAiPrompt" not in config:
                 raise ValueError("Missing prompt configuration")
             if config["chatModel"] != key[1] or not p["model_digest"] or not p["thinking_mode"]:
                 raise ValueError("Missing or inconsistent model metadata")
-            fingerprint = (
-                p["model_digest"],
-                p["thinking_mode"],
-                json.dumps(config, sort_keys=True),
-            )
+            fingerprint = (p["model_digest"], p["thinking_mode"], json.dumps(config, sort_keys=True))
             observed[key] = {"fingerprint": fingerprint, "outcome": entry.status}
         except (KeyError, TypeError, ValueError) as error:
             errors.append(str(error))
@@ -89,10 +63,7 @@ def compare_pairs(
         if first and second:
             if first["fingerprint"] != second["fingerprint"]:
                 errors.append("Paired model/prompt/retrieval configuration changed")
-            elif first["outcome"] in ("error", "skipped") or second["outcome"] in (
-                "error",
-                "skipped",
-            ):
+            elif first["outcome"] in ("error", "skipped") or second["outcome"] in ("error", "skipped"):
                 pass
             elif first["outcome"] == second["outcome"] == "passed":
                 outcome = "passed"
@@ -100,31 +71,31 @@ def compare_pairs(
                 outcome = "asymmetry"
             else:
                 outcome = "shared_failure"
-        comparisons.append(
-            {"pair": pair, "model": model, "iteration": iteration, "outcome": outcome}
-        )
+        comparisons.append({"pair": pair, "model": model, "iteration": iteration, "outcome": outcome})
     outcomes = {c["outcome"] for c in comparisons}
     status = (
-        "incomplete"
-        if errors or missing or "incomplete" in outcomes
-        else "failed"
-        if outcomes != {"passed"}
-        else "passed"
-    )
+            "incomplete"
+            if errors or missing or "incomplete" in outcomes else "failed" if outcomes != {"passed"} else "passed")
     return {
-        "schema_version": 1,
-        "report_sha256": junit.sha256,
-        "status": status,
-        "scope": {
+            "schema_version":
+            1,
+            "report_sha256":
+            junit.sha256,
+            "status":
+            status,
+            "scope": {
             "pairs": pair_ids,
             "models": models,
             "repeat": repeat,
-            "expected_runs": len(expected),
-        },
-        "missing_runs": missing,
-        "errors": errors,
-        "comparisons": comparisons,
-        "interpretation": "Counterfactual acceptance invariance within this reviewed policy dataset; not a demographic fairness estimate or proof of unbiased behavior",
+            "expected_runs": len(expected)},
+            "missing_runs":
+            missing,
+            "errors":
+            errors,
+            "comparisons":
+            comparisons,
+            "interpretation":
+            "Counterfactual acceptance invariance within this reviewed policy dataset; not a demographic fairness estimate or proof of unbiased behavior"
     }
 
 
@@ -142,14 +113,8 @@ def main() -> int:
     if args.output.exists():
         parser.error("Output already exists")
     report = compare_pairs(
-        args.report,
-        catalog=args.catalog,
-        dataset_path=args.dataset,
-        policy=args.policy,
-        pair_ids=args.pairs,
-        models=args.models,
-        repeat=args.repeat,
-    )
+            args.report, catalog=args.catalog, dataset_path=args.dataset, policy=args.policy, pair_ids=args.pairs,
+            models=args.models, repeat=args.repeat)
     write_sample(args.output, report)
     print(f"Bias acceptance comparison: {report['status']}")
     return 0 if report["status"] == "passed" else 1

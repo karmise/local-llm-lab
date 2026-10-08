@@ -14,14 +14,11 @@ class WorkspacePage:
         self.base_url = base_url.rstrip("/")
         self.answer_timeout_ms = timeout * 1000
         self.composer = page.get_by_placeholder("Send a message", exact=True)
-        self.send_button = page.get_by_role(
-            "button", name="Send prompt message to workspace", exact=True
-        )
+        self.send_button = page.get_by_role("button", name="Send prompt message to workspace", exact=True)
         self.history = page.locator("#chat-history")
         # Upstream has no message test IDs. Scope by its response edit control.
         self.assistant_messages = self.history.locator(".group").filter(
-            has=page.get_by_role("button", name="Edit Edit response", exact=True),
-        )
+                has=page.get_by_role("button", name="Edit Edit response", exact=True))
         self._reply_index: int | None = None
 
     @property
@@ -56,9 +53,7 @@ class WorkspacePage:
         return self.history.get_by_text(re.compile(rf"^{pattern}$"))
 
     def source_document(self, title: str) -> Locator:
-        return self.page.get_by_role(
-            "button", name=re.compile(rf"^{re.escape(title)} Document \d+ references?$")
-        )
+        return self.page.get_by_role("button", name=re.compile(rf"^{re.escape(title)} Document \d+ references?$"))
 
     @step("UI: open answer sources")
     def open_sources(self) -> None:
@@ -75,9 +70,7 @@ class WorkspacePage:
 
     def source_details(self, title: str) -> Locator:
         # Upstream's source overlay lacks a dialog role; scope to its heading.
-        return self.page.locator("div.fixed").filter(
-            has=self.source_heading(title),
-        )
+        return self.page.locator("div.fixed").filter(has=self.source_heading(title))
 
     @step("UI: reload conversation")
     def reload(self) -> None:

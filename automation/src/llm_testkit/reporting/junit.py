@@ -59,7 +59,5 @@ def read_junit(path: Path, *, identity_property: str | None = None) -> JUnitRepo
         for tag, outcome in _OUTCOMES.items():
             for child in row.findall(tag):
                 entry.outcomes.add(outcome)
-                entry.details.append(
-                    {"kind": outcome, "message": child.get("message", ""), "text": child.text or ""}
-                )
+                entry.details.append({"kind": outcome, "message": child.get("message", ""), "text": child.text or ""})
     return JUnitReport(hashlib.sha256(raw).hexdigest(), entries)

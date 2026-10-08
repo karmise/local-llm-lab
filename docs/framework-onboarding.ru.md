@@ -324,7 +324,8 @@ python -m pip install -r requirements.lock -r requirements-dev.lock
 python -m pip install --no-deps -e .
 python -m pytest tests/unit -q
 python -m ruff check src tests
-python -m ruff format --check src tests
+python -m isort --check-only --diff src tests
+python -m yapf --diff --recursive src tests
 ```
 
 Если `.venv` уже настроено, используйте его. Без библиотек оценки часть

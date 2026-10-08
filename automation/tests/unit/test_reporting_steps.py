@@ -10,31 +10,18 @@ from test_support.assertions import mocks as mock_checks
 from test_support.assertions import values as value_checks
 from test_support.assertions.reporting_steps import check_reported_operation_outcome
 from test_support.builders.reporting_steps import (
-    expected_reporting_events,
-    make_missing_allure_stub,
-    make_missing_transitive_dependency_stub,
-    make_operation_stub,
-    make_reported_step_stub,
-    make_reporting_backend,
-    prepare_reported_operation_case,
-)
+        expected_reporting_events, make_missing_allure_stub, make_missing_transitive_dependency_stub,
+        make_operation_stub, make_reported_step_stub, make_reporting_backend, prepare_reported_operation_case)
 from test_support.data import common as case_data
-from test_support.data.reporting_steps import (
-    ALTERNATIVE_QUESTION_PROFILE,
-    REPORTED_OPERATION_REPORTING_INSTALLED_CASES,
-)
+from test_support.data.reporting_steps import ALTERNATIVE_QUESTION_PROFILE, REPORTED_OPERATION_REPORTING_INSTALLED_CASES
 
 pytestmark = pytest.mark.unit
 
 
-@pytest.mark.parametrize(
-    "reporting_installed",
-    REPORTED_OPERATION_REPORTING_INSTALLED_CASES,
-)
+@pytest.mark.parametrize("reporting_installed", REPORTED_OPERATION_REPORTING_INSTALLED_CASES)
 @title("Reported operation preserves results and failures without exposing arguments [{param_id}]")
 def test_reported_operation_preserves_result_and_failure_without_exposing_arguments(
-        monkeypatch: pytest.MonkeyPatch, reporting_installed: bool,
-        failure_factory) -> None:  # fmt: skip
+        monkeypatch: pytest.MonkeyPatch, reporting_installed: bool, failure_factory) -> None:
     backend = make_reporting_backend(reporting_installed)
     events = []
 
@@ -49,8 +36,7 @@ def test_reported_operation_preserves_result_and_failure_without_exposing_argume
 
     value_checks.identical(operation("private-key"), result)
     caught = errors.rejects(
-        lambda: operation("private-key", fail=True), expected=RuntimeError, match="Operation failed"
-    )
+            lambda: operation("private-key", fail=True), expected=RuntimeError, match="Operation failed")
     value_checks.identical(caught.value, failure)
     expected = expected_reporting_events(reporting_installed)
     value_checks.equal(events, expected)
@@ -59,8 +45,7 @@ def test_reported_operation_preserves_result_and_failure_without_exposing_argume
 
 
 @title("Optional reporter tolerates missing Allure but propagates other dependency errors")
-def test_optional_reporter_handles_only_the_missing_allure_package(
-        monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
+def test_optional_reporter_handles_only_the_missing_allure_package(monkeypatch: pytest.MonkeyPatch) -> None:
     missing_allure = make_missing_allure_stub()
 
     monkeypatch.setattr(steps, "import_module", missing_allure)
@@ -69,13 +54,11 @@ def test_optional_reporter_handles_only_the_missing_allure_package(
     missing_transitive_dependency = make_missing_transitive_dependency_stub()
 
     monkeypatch.setattr(steps, "import_module", missing_transitive_dependency)
-    errors.rejects(
-        lambda: steps._backend(), expected=ModuleNotFoundError, match="dependency is broken"
-    )
+    errors.rejects(lambda: steps._backend(), expected=ModuleNotFoundError, match="dependency is broken")
 
 
 def test_live_capture_uses_the_shared_profile_reference(
-        monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mock_factory) -> None:  # fmt: skip
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mock_factory) -> None:
     monkeypatch.setattr(steps, "_backend", lambda: None)
     chat = mock_factory()
     profile = case_data.fresh(ALTERNATIVE_QUESTION_PROFILE)

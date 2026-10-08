@@ -2,10 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from test_support.data.browser import (
-    COMPLETED_REPLY_WITH_DISABLED_SEND,
-    EMPTY_THEN_READY_REPLY,
-)
+from test_support.data.browser import COMPLETED_REPLY_WITH_DISABLED_SEND, EMPTY_THEN_READY_REPLY
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page

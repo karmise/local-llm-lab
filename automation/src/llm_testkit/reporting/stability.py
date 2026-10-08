@@ -9,12 +9,7 @@ from typing import Any
 from llm_testkit.core.provenance import normalize_configuration
 from llm_testkit.reporting.junit import read_junit
 
-METADATA_FIELDS = (
-    "model_digest",
-    "policy_sha256",
-    "workspace_configuration",
-    "thinking_mode",
-)
+METADATA_FIELDS = ("model_digest", "policy_sha256", "workspace_configuration", "thinking_mode")
 
 
 def summarize_report(path: Path) -> list[dict[str, Any]]:
@@ -24,11 +19,7 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
     for entry in entries.values():
         properties = entry.properties
         name = entry.name
-        fallback = (
-            re.search(r"\[(.+?)(?:-run-(\d+))?\]$", name)
-            if entry.classname.endswith("test_rag")
-            else None
-        )
+        fallback = (re.search(r"\[(.+?)(?:-run-(\d+))?\]$", name) if entry.classname.endswith("test_rag") else None)
         model = properties.get("generation_model") or (fallback.group(1) if fallback else None)
         if model is None:
             continue
@@ -44,9 +35,7 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
             scenario += f"[conversation={properties['conversation_case_id']}]"
         if properties.get("prompt_id"):
             scenario += f"[prompt={properties['prompt_id']}]"
-        group = groups.setdefault(
-            (entry.classname, scenario, model),
-            {
+        group = groups.setdefault((entry.classname, scenario, model), {
                 "classname": entry.classname,
                 "scenario": scenario,
                 "model": model,
@@ -56,9 +45,7 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
                 "errored": 0,
                 "skipped": 0,
                 "metadata_complete": True,
-                "fingerprints": set(),
-            },
-        )
+                "fingerprints": set()})
         group["runs"] += 1
         failed = "failed" in entry.outcomes
         errored = "error" in entry.outcomes
@@ -72,10 +59,8 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
             complete = complete and bool(properties.get("golden_dataset_sha256"))
         if properties.get("bias_pair_id"):
             complete = (
-                complete
-                and bool(properties.get("bias_catalog_sha256"))
-                and bool(properties.get("bias_variant_id"))
-            )
+                    complete and bool(properties.get("bias_catalog_sha256"))
+                    and bool(properties.get("bias_variant_id")))
         if properties.get("adversarial_case_id"):
             complete = complete and bool(properties.get("adversarial_catalog_sha256"))
         if properties.get("conversation_case_id"):
@@ -86,26 +71,16 @@ def summarize_report(path: Path) -> list[dict[str, Any]]:
         if complete:
             try:
                 configuration = json.dumps(
-                    normalize_configuration(json.loads(properties["workspace_configuration"])),
-                    sort_keys=True,
-                )
+                        normalize_configuration(json.loads(properties["workspace_configuration"])), sort_keys=True)
             except (TypeError, ValueError):
                 complete = False
         group["metadata_complete"] = group["metadata_complete"] and complete
         if complete:
-            group["fingerprints"].add(
-                (
-                    properties["model_digest"],
-                    properties["policy_sha256"],
-                    configuration,
-                    properties["thinking_mode"],
-                    properties.get("golden_dataset_sha256", ""),
-                    properties.get("prompt_sha256", ""),
-                    properties.get("adversarial_catalog_sha256", ""),
-                    properties.get("bias_catalog_sha256", ""),
-                    properties.get("conversation_catalog_sha256", ""),
-                )
-            )
+            group["fingerprints"].add((
+                    properties["model_digest"], properties["policy_sha256"], configuration, properties["thinking_mode"],
+                    properties.get("golden_dataset_sha256", ""), properties.get("prompt_sha256",
+                    ""), properties.get("adversarial_catalog_sha256", ""), properties.get("bias_catalog_sha256",
+                    ""), properties.get("conversation_catalog_sha256", "")))
 
     results = []
     for group in groups.values():

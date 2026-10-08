@@ -43,13 +43,7 @@ def load_prompt_catalog(path: Path) -> PromptCatalog:
             raise ValueError("Prompt text and version must be nonempty")
         if "[LLM_TESTKIT_CAPTURE:" in prompt:
             raise ValueError("Prompt catalog must not contain runtime capture markers")
-        variants.append(
-            PromptVariant(identifier, version, prompt, hashlib.sha256(prompt.encode()).hexdigest())
-        )
-    if not isinstance(data.get("baseline"), str) or data["baseline"] not in {
-        v.id for v in variants
-    }:
+        variants.append(PromptVariant(identifier, version, prompt, hashlib.sha256(prompt.encode()).hexdigest()))
+    if not isinstance(data.get("baseline"), str) or data["baseline"] not in {v.id for v in variants}:
         raise ValueError("Baseline prompt is absent")
-    return PromptCatalog(
-        data["version"], data["baseline"], tuple(variants), hashlib.sha256(raw).hexdigest()
-    )
+    return PromptCatalog(data["version"], data["baseline"], tuple(variants), hashlib.sha256(raw).hexdigest())

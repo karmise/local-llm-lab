@@ -14,16 +14,8 @@ from llm_testkit.reporting.junit import read_junit
 
 
 def compare_prompts(
-    report_path: Path,
-    *,
-    catalog_path: Path,
-    dataset_path: Path,
-    policy_file: Path,
-    case_ids: list[str],
-    models: list[str],
-    candidate: str,
-    repeat: int = 1,
-) -> dict[str, Any]:
+        report_path: Path, *, catalog_path: Path, dataset_path: Path, policy_file: Path, case_ids: list[str],
+        models: list[str], candidate: str, repeat: int = 1) -> dict[str, Any]:
     catalog = load_prompt_catalog(catalog_path)
     dataset = load_golden_dataset(dataset_path, policy_file)
     variants = {v.id: v for v in catalog.variants}
@@ -38,10 +30,8 @@ def compare_prompts(
     expected = set(product(case_ids, models, range(1, repeat + 1), (catalog.baseline, candidate)))
     junit = read_junit(report_path)
     entries = {
-        identity: entry
-        for identity, entry in junit.cases.items()
-        if entry.classname.endswith("test_prompt_regression")
-    }
+            identity: entry
+            for identity, entry in junit.cases.items() if entry.classname.endswith("test_prompt_regression")}
     errors = []
     observed = {}
     for identity, entry in entries.items():
@@ -50,34 +40,19 @@ def compare_prompts(
             errors.append(f"{identity}: Conflicting metadata: {sorted(entry.conflicts)}")
             continue
         try:
-            key = (
-                p["golden_case_id"],
-                p["generation_model"],
-                int(p["rag_iteration"]),
-                p["prompt_id"],
-            )
+            key = (p["golden_case_id"], p["generation_model"], int(p["rag_iteration"]), p["prompt_id"])
             if key not in expected or key in observed:
                 raise ValueError("Unexpected or duplicated matrix run")
             variant = variants[p["prompt_id"]]
-            if (
-                p["golden_dataset_sha256"] != dataset.sha256
-                or p["policy_sha256"] != dataset.policy_sha256
-                or p["prompt_catalog_sha256"] != catalog.sha256
-                or p["prompt_sha256"] != variant.sha256
-                or p["prompt_version"] != variant.version
-                or not p["model_digest"]
-                or not p["thinking_mode"]
-            ):
+            if (p["golden_dataset_sha256"] != dataset.sha256 or p["policy_sha256"] != dataset.policy_sha256
+                        or p["prompt_catalog_sha256"] != catalog.sha256 or p["prompt_sha256"] != variant.sha256
+                        or p["prompt_version"] != variant.version or not p["model_digest"] or not p["thinking_mode"]):
                 raise ValueError("Changed or missing provenance")
             configuration = normalize_configuration(json.loads(p["workspace_configuration"]))
             prompt = configuration.pop("openAiPrompt")
             if prompt != variant.prompt or configuration["chatModel"] != key[1]:
                 raise ValueError("Configuration does not match selected prompt/model")
-            fingerprint = (
-                p["model_digest"],
-                p["thinking_mode"],
-                json.dumps(configuration, sort_keys=True),
-            )
+            fingerprint = (p["model_digest"], p["thinking_mode"], json.dumps(configuration, sort_keys=True))
             observed[key] = {"fingerprint": fingerprint, "outcome": entry.status}
         except (KeyError, ValueError, TypeError) as error:
             errors.append(f"{identity}: {error}")
@@ -89,53 +64,52 @@ def compare_prompts(
         outcome = "incomplete"
         if base and new:
             if base["fingerprint"] != new["fingerprint"]:
-                errors.append(
-                    f"{case}/{model}/{iteration}: model or retrieval configuration changed"
-                )
+                errors.append(f"{case}/{model}/{iteration}: model or retrieval configuration changed")
             elif base["outcome"] in ("error", "skipped") or new["outcome"] in ("error", "skipped"):
                 pass
             elif base["outcome"] == "failed":
                 outcome = "baseline_failed"
             else:
                 outcome = "regression" if new["outcome"] == "failed" else "passed"
-        comparisons.append(
-            {
+        comparisons.append({
                 "case": case,
                 "model": model,
                 "iteration": iteration,
                 "outcome": outcome,
                 "baseline": base["outcome"] if base else "missing",
-                "candidate": new["outcome"] if new else "missing",
-            }
-        )
+                "candidate": new["outcome"] if new else "missing"})
     outcomes = {c["outcome"] for c in comparisons}
     status = (
-        "incomplete"
-        if errors or missing or "incomplete" in outcomes
-        else "regression"
-        if "regression" in outcomes
-        else "baseline_failed"
-        if "baseline_failed" in outcomes
-        else "passed"
-    )
+            "incomplete" if errors or missing or "incomplete" in outcomes else "regression"
+            if "regression" in outcomes else "baseline_failed" if "baseline_failed" in outcomes else "passed")
     return {
-        "schema_version": 1,
-        "status": status,
-        "baseline": catalog.baseline,
-        "candidate": candidate,
-        "catalog_sha256": catalog.sha256,
-        "golden_dataset_sha256": dataset.sha256,
-        "report_sha256": junit.sha256,
-        "scope": {
+            "schema_version":
+            1,
+            "status":
+            status,
+            "baseline":
+            catalog.baseline,
+            "candidate":
+            candidate,
+            "catalog_sha256":
+            catalog.sha256,
+            "golden_dataset_sha256":
+            dataset.sha256,
+            "report_sha256":
+            junit.sha256,
+            "scope": {
             "cases": case_ids,
             "models": models,
             "repeat": repeat,
-            "expected_runs": len(expected),
-        },
-        "missing_runs": missing,
-        "errors": errors,
-        "comparisons": comparisons,
-        "interpretation": "Acceptance regression within the declared scope; independent repetitions are not retries or statistical proof",
+            "expected_runs": len(expected)},
+            "missing_runs":
+            missing,
+            "errors":
+            errors,
+            "comparisons":
+            comparisons,
+            "interpretation":
+            "Acceptance regression within the declared scope; independent repetitions are not retries or statistical proof"
     }
 
 
@@ -154,19 +128,10 @@ def main() -> int:
     if args.output.exists():
         parser.error("Output already exists")
     report = compare_prompts(
-        args.report,
-        catalog_path=args.catalog,
-        dataset_path=args.dataset,
-        policy_file=args.policy,
-        case_ids=args.cases,
-        models=args.models,
-        candidate=args.candidate,
-        repeat=args.repeat,
-    )
+            args.report, catalog_path=args.catalog, dataset_path=args.dataset, policy_file=args.policy,
+            case_ids=args.cases, models=args.models, candidate=args.candidate, repeat=args.repeat)
     write_sample(args.output, report)
-    print(
-        f"Prompt comparison: {report['status']}; expected runs: {report['scope']['expected_runs']}"
-    )
+    print(f"Prompt comparison: {report['status']}; expected runs: {report['scope']['expected_runs']}")
     return 0 if report["status"] == "passed" else 1
 
 
