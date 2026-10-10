@@ -17,6 +17,7 @@ from llm_testkit import assertions
 from llm_testkit.clients.ollama_client import OllamaClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
+from llm_testkit.core.scores import require_score
 from llm_testkit.datasets.golden import GoldenCase, GoldenDataset, load_golden_dataset
 from llm_testkit.evaluation.faithfulness import load_sample
 from llm_testkit.observation.evaluation_sample import write_sample
@@ -32,7 +33,7 @@ def validate_control(control: dict[str, Any]) -> None:
     if not isinstance(bounds, list) or len(bounds) != 2:
         raise ValueError("Control requires an F1 range")
     for value in bounds:
-        assertions.assert_quality_score(value)
+        require_score(value, "Control F1 bound")
     if bounds[0] > bounds[1]:
         raise ValueError("Invalid control F1 range")
     if type(control.get("response_verdict")) is not int or control["response_verdict"] not in (0, 1):
@@ -87,7 +88,7 @@ def validate_result(result: dict[str, Any]) -> dict[str, Any]:
     fn = sum(1 - v["verdict"] for v in result["reference_verdicts"])
     # RAGAS 0.4.3 uses response-side TP plus reference-side FN for factual F1.
     expected = round(2 * tp / (2 * tp + fp + fn), 2)
-    assertions.assert_quality_score(result["value"])
+    require_score(result["value"], "Correctness F1")
     if not math.isclose(result["value"], expected, abs_tol=1e-9):
         raise ValueError("Correctness F1 does not match bidirectional verdicts")
     counts = {"tp": tp, "fp": fp, "fn": fn}
@@ -161,8 +162,6 @@ def evaluate_correctness_report(
             validate_control(control)
             if control["case_id"] != case.id:
                 raise ValueError("Control belongs to a different golden case")
-            if not isinstance(control["response"], str) or not control["response"].strip():
-                raise ValueError("Control response must be nonempty")
             sample = {**sample, "response": control["response"]}
             report["control"] = control
         report["response"] = sample["response"]
@@ -180,7 +179,7 @@ def evaluate_correctness_report(
             try:
                 check_control(report["result"], control)
                 report["control_status"] = "matched"
-            except (ValueError, AssertionError) as error:
+            except ValueError as error:
                 report.update(control_status="mismatch", control_error=str(error))
     except Exception as error:
         report["error"] = {"type": type(error).__name__, "message": str(error)}

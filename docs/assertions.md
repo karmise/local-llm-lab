@@ -1,6 +1,7 @@
 # Reusable Assertions
 
-All explicit checks live in `automation/src/llm_testkit/assertions.py`.
+All explicit checks live in the `automation/src/llm_testkit/assertions/` package, one module per
+area (`fields`, `api`, `answers`, `quality`, `ui`); `from llm_testkit import assertions` exposes all of them.
 Tests describe scenarios and call named checks. Fixtures also use this module
 to validate resource setup and cleanup. API clients still return responses
 without checking expected outcomes.
@@ -92,7 +93,7 @@ model and missing digest); the current unit suite contains twenty checks.
 New repeated checks should be added here with type annotations and descriptive
 messages. Avoid dumping complete HTTP responses or headers in diagnostics.
 
-[Step 11](step-11-faithfulness.md) adds `assert_quality_score(value, minimum=None)`.
+[Step 11](step-11-faithfulness.md) adds `assert_quality_score(value)`; thresholds are applied by quality gates.
 It rejects nonnumeric, nonfinite and out-of-range values. An explicit minimum
 can be supplied after judge calibration; no default quality gate is enabled.
 

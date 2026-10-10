@@ -4,7 +4,7 @@ import re
 from copy import deepcopy
 from typing import Any
 
-_CAPTURE_SUFFIX = re.compile(r"\n\[LLM_TESTKIT_CAPTURE:[a-f0-9]{32}\]$")
+_CAPTURE_SUFFIX = re.compile(r"\n\[LLM_TESTKIT_CAPTURE:[a-f0-9]{32}\]\Z")
 
 
 def normalize_configuration(value: Any) -> dict[str, Any]:

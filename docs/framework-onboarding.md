@@ -115,38 +115,37 @@ answer is correct.
 | [core/http_client.py](../automation/src/llm_testkit/core/http_client.py) | Requests session, base URL, timeout, response and session closure. | Clients share one transport policy. There are no implicit retries; redirects are disabled by default so a redirect remains observable. |
 | [clients/anythingllm_client.py](../automation/src/llm_testkit/clients/anythingllm_client.py) | Endpoint paths, URL encoding, payloads and file uploads. | Tests speak in operations such as `create_workspace`, not repeated request construction. Clients return raw responses and do not impose test acceptance criteria. |
 | [pages/workspace_page.py](../automation/src/llm_testkit/pages/workspace_page.py) | UI locators, navigation, sending and source-opening actions. | An upstream label or DOM change can be fixed in one place without rewriting scenarios. |
-| [assertions.py](../automation/src/llm_testkit/assertions.py) | Reusable application, answer, source and UI acceptance checks. | API and UI scenarios reuse the same policy rules and diagnostic messages. |
-| `test_support/assertions/` | Independent unit checks for values, errors, mocks and domain evidence. | The framework's application Assertions cannot hide a failure in their own unit tests. |
+| [assertions/](../automation/src/llm_testkit/assertions/) | Reusable field, API, answer, quality and UI acceptance checks, one module per area. | API and UI scenarios reuse the same policy rules and diagnostic messages. |
 | [test_support/fixtures/environment.py](../automation/src/test_support/fixtures/environment.py) | Paths, settings, API clients and shared scenario profiles. | Tests do not need to find local credentials or duplicate file-loading logic. |
 | [test_support/fixtures/resources.py](../automation/src/test_support/fixtures/resources.py) | Workspace/folder creation, upload, indexing and cleanup. | Resource ownership must remain reliable when a scenario or setup check fails. |
 | [test_support/fixtures/rag.py](../automation/src/test_support/fixtures/rag.py) | Model selection, metadata, generation and optional capture. | Comparisons need a record of the model/configuration that produced each answer. |
-| `test_support/fixtures/unit_*.py` | Scoped offline fixtures, patching and temporary framework resources. | Unit test bodies stay focused on the operation and expected result. |
-| `test_support/builders/` | Object construction, deterministic test doubles and named scenario preparation. | Data mutation and simulation details do not obscure the scenario. |
-| `test_support/data/` | Named parameter tables and isolated pytest source templates in `scripts/`. | Test bodies describe behavior; parameter input and synthetic child-test code are located separately. |
+| `test_support/builders/` | Public per-domain builders and deterministic doubles shared by several test modules. | A test module reuses reviewed data without importing another module's private helpers. |
 | [pytest_support/options.py](../automation/src/llm_testkit/pytest_support/options.py) | CLI flags, model/repetition matrix and opt-in validation. | Selection rules belong in one place and apply after `-k`/`-m` filtering. |
 | `evaluation/` | RAGAS adapter, faithful-claim measurement and judge controls. | Evaluation mechanics can be investigated separately from app scenarios. |
 | `reporting/` | Allure integration, combined quality evidence and stability summaries. | A reporter presents evidence; it must not silently retry or relax checks. |
 | [tests/conftest.py](../automation/tests/conftest.py) | Plugin registration and assertion rewriting. | This entry point stays small rather than accumulating all setup logic. |
 
 Integration tests use `Assertions` for application acceptance checks. Unit tests
-call `test_support.assertions`, which uses native pytest assertions internally:
-a broken application assertion cannot also verify its own output. The support
-package separates value, exception and mock checks from domain-specific expectations.
+use plain pytest `assert` and `pytest.raises(..., match=...)`, so a broken
+application assertion cannot also verify its own output. Every rejection test
+names the rule it enforces and has a paired acceptance test; mutation testing
+showed which tests actually detect a broken rule
+([step 39](step-39-test-architecture.md)).
 Unit tests block accidental Requests calls. They use mocked responses, scoped
 patches and, for lifecycle/collection behavior, real child pytest runs.
 
 These are project choices, not a universal requirement that every Python test
 must hide its assertions or that every application needs this many layers.
 
-All fixture implementations live under `src/test_support/fixtures`. Suite
-`conftest.py` files and occasional explicit fixture re-exports select their scope.
-There are no fixture definitions, conditional branches, loops or imports inside
-the executable test functions. Different expectations can use separate tests or
-explicit expected values in a parameter table. Supporting code may use control
-flow where the setup or check requires it. See the
-[readability guide](step-34-test-readability.md) for examples and extension rules.
-For prepared judge fixtures, fresh input copies and the shared unit-check contract,
-read [the scenario-layer guide](step-35-unit-scenario-layers.md).
+Live and browser fixtures live under `src/test_support/fixtures`, and suite
+`conftest.py` files select their scope. A unit fixture, table or child-test source
+used by one test module is defined in that module; shared unit data comes from
+`test_support/builders`. Test functions follow arrange-act-assert without
+conditional branches; different expectations use separate tests or explicit
+expected values in a `pytest.param(..., id=...)` table. See
+[step 39](step-39-test-architecture.md) for the rules and the mutation results;
+steps [34](step-34-test-readability.md) and [35](step-35-unit-scenario-layers.md)
+record the earlier design.
 
 ## 4. Walk through one paid-leave scenario
 

@@ -1,5 +1,9 @@
 # Step 35: shared expectations and prepared unit scenarios
 
+> Superseded by [step 39](step-39-test-architecture.md): every unit domain now uses
+> plain pytest and public builders, and `test_support/assertions` and `test_support/data`
+> were removed. This page records the previous structure.
+
 Unit scenarios now separate the operation being tested from object construction,
 input payloads and expected-result logic. Test bodies contain readable actions
 and calls to reusable checks. There are no direct `assert` statements,

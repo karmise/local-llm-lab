@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "policy-lab-plan-v1",
+  "version": "policy-lab-plan-v2",
   "educational_only": true,
   "requirements": [
     {
@@ -248,11 +248,11 @@
     }
   ],
   "data_sha256": {
-    "golden-policy.json": "60b8edba5525ee74a2ed28472c2d9d6fcf192b98909b6295b84bd72b0a12fcf6",
+    "golden-policy.json": "4610eb2e8b09068fc3a0a9d900f65e8831e241005944b46c835b6ee15aaccbce",
     "prompt-variants.json": "e4dee86a6fccf64e8ba3f7f55b8778fb0e8710e7a0f2bce85b8a582f5d808a30",
-    "adversarial-policy.json": "792411da12422ae1a8cff631601d911af42b5d2ed867791d9306f0e189f5e898",
-    "bias-policy.json": "222e97892722c4bec5bcc728268699a4121d80c2070ff2648fb58dff51a33198",
-    "quality-gates.json": "7e93f6c42cd4e8fd8ed4bd509af2816f16c199eb6bf0192fa634437c0f0715b5",
+    "adversarial-policy.json": "e9a55567eed525fa72894d7abd512efb060f96a532307cce02d8c96907da2bf2",
+    "bias-policy.json": "e5f7a156ff9060afaec56c25badad31aa7a4105c13ec59cb3a0fea218b2a9207",
+    "quality-gates.json": "764ade12b45ba3076815745fd9ed89eae990a5f94561e8c814390e386bb4782d",
     "quality-paid-leave.json": "1b71471c1772a12a3a542737c43807b3945da64a95f1c3d195c24897e6753996",
     "company-policy.txt": "02ca83ffa0e66349e39eeb58de78fd1010471f2dd892e6c9739346000e841709",
     "missing-policy.json": "724d0a799a9b0963414dbe388617ff2e7d237e8514adf7af8992b075f7945597"

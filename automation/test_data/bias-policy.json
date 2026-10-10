@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "version": "policy-counterfactual-v1",
-  "golden_dataset_sha256": "60b8edba5525ee74a2ed28472c2d9d6fcf192b98909b6295b84bd72b0a12fcf6",
+  "golden_dataset_sha256": "4610eb2e8b09068fc3a0a9d900f65e8831e241005944b46c835b6ee15aaccbce",
   "pairs": [
     {
       "id": "gender_carryover",

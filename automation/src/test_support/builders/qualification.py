@@ -1,159 +1,100 @@
-"""Scenario data builders and deterministic test doubles."""
+"""Test data builders for qualification: a small automation tree, its reviewed plan and JUnit evidence."""
 
 import hashlib
 import json
 import xml.etree.ElementTree as ET
-from copy import deepcopy
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
-from test_support.data import common as case_data
-from test_support.data.qualification import ROOT as ROOT
-from test_support.data.qualification import SELECTOR as SELECTOR
+from llm_testkit.qualification.plan import load_plan
 
-
-def write_junit(root, plan, rows, name="results.xml"):
-    suite = ET.Element("testsuite")
-    for axis, status, changes in rows:
-        node = SELECTOR + f"[{axis}]"
-        row = ET.SubElement(suite, "testcase", name=node)
-        props = ET.SubElement(row, "properties")
-        metadata = {
-                "test_node_id": node,
-                "golden_case_id": axis,
-                "requirement_ids": json.dumps(["REQ-EXAMPLE"]),
-                "qualification_plan_sha256": plan["sha256"],
-                "test_source_sha256": plan["test_source_sha256"][SELECTOR],
-                "framework_source_sha256": plan["framework_source_sha256"],
-                **changes}
-        for key, value in metadata.items():
-            ET.SubElement(props, "property", name=key, value=value)
-        if status != "passed":
-            ET.SubElement(row, {"failed": "failure"}.get(status, status), message="deviation").text = "original detail"
-    path = root / "reports" / name
-    path.parent.mkdir(exist_ok=True)
-    ET.ElementTree(suite).write(path, encoding="utf-8")
-    return path
+SELECTOR = "tests/test_example.py::test_example"
+POLICY = b"Six days\n"
 
 
-def prepare_invalid_plan_case(change, plan, row):
-    if change == "schema":
-        plan["schema_version"] = True
-    elif change == "education":
-        plan["educational_only"] = False
-    elif change == "version":
-        plan["version"] = ""
-    elif change == "requirements":
-        plan["requirements"] = []
-    elif change == "row":
-        plan["requirements"] = [1]
-    elif change == "id":
-        row["id"] = "bad id"
-    elif change == "duplicate":
-        plan["requirements"].append(deepcopy(row))
-    elif change in ("phase", "risk", "acceptance"):
-        row[change] = ""
-    elif change == "tests":
-        row["tests"] = [1]
-    elif change == "selector":
-        row["tests"] = ["outside.py::test_example"]
-    elif change == "unknown":
-        row["tests"] = ["tests/test_example.py::test_unknown"]
-    elif change == "escape":
-        row["tests"] = ["tests/../../test_example.py::test_example"]
-    elif change == "axes":
-        row["axes"] = []
-    elif change == "axis-values":
-        row["axes"] = {"golden_case_id": []}
-    elif change == "axis-duplicate":
-        row["axes"] = {"golden_case_id": ["first", "first"]}
-    elif change == "data":
-        plan["data_sha256"] = []
-    elif change == "data-checksum":
-        plan["data_sha256"][case_data.POLICY_DOCUMENT_TITLE] = "0" * 64
-    else:
-        plan["data_sha256"] = {"../outside.txt": "0" * 64}
+def reviewed_plan() -> dict[str, Any]:
+    """One high-risk OQ requirement that needs both golden cases of the example test."""
+    return {
+            "schema_version":
+            1,
+            "version":
+            "example-v1",
+            "educational_only":
+            True,
+            "data_sha256": {
+            "policy.txt": hashlib.sha256(POLICY).hexdigest()},
+            "requirements": [{
+            "id": "REQ-EXAMPLE",
+            "phase": "OQ",
+            "risk": "high",
+            "description": "Example policy",
+            "acceptance": "Both cases pass",
+            "rationale": "A partial sample cannot demonstrate both requirements",
+            "tests": [SELECTOR],
+            "axes": {
+            "golden_case_id": ["first", "second"]}}]}
 
 
-def prepare_trace_outcomes_case(rows, status):
-    if status != "missing":
-        rows.append(("second", status, {}))
+def run(axis: str, status: str = "passed", **properties: str) -> tuple[str, str, dict[str, str]]:
+    """One JUnit run of the example test for a golden case; ``properties`` override its recorded provenance."""
+    return axis, status, properties
 
 
-def prepare_invalid_package_inputs_case(args, change, junit, path):
-    if change == "empty":
-        args["junit_files"] = []
-    elif change == "duplicate":
-        args["junit_files"] = [junit, junit]
-    else:
-        args["attachments"] = [path]
+@dataclass
+class QualificationLab:
+    """An automation tree with one test, one framework source file, one data file and a reviewed plan."""
+
+    root: Path
+
+    @property
+    def plan_path(self) -> Path:
+        return self.root / "test_data/qualification-plan.json"
+
+    def plan(self) -> dict[str, Any]:
+        return load_plan(self.plan_path, self.root)
+
+    def write_plan(self, plan: dict[str, Any]) -> None:
+        self.plan_path.write_text(json.dumps(plan))
+
+    def write_junit(self, *runs, name: str = "results.xml") -> Path:
+        """JUnit for ``runs`` with provenance bound to the current plan unless a run overrides it."""
+        plan = self.plan()
+        suite = ET.Element("testsuite")
+        for axis, status, changes in runs:
+            node = f"{SELECTOR}[{axis}]"
+            row = ET.SubElement(suite, "testcase", name=node)
+            properties = ET.SubElement(row, "properties")
+            metadata = {
+                    "test_node_id": node,
+                    "golden_case_id": axis,
+                    "requirement_ids": json.dumps(["REQ-EXAMPLE"]),
+                    "qualification_plan_sha256": plan["sha256"],
+                    "test_source_sha256": plan["test_source_sha256"][SELECTOR],
+                    "framework_source_sha256": plan["framework_source_sha256"],
+                    **changes}
+            for key, value in metadata.items():
+                ET.SubElement(properties, "property", name=key, value=value)
+            if status != "passed":
+                outcome = ET.SubElement(row, {"failed": "failure"}.get(status, status), message="deviation")
+                outcome.text = "original detail"
+        path = self.root / "reports" / name
+        path.parent.mkdir(exist_ok=True)
+        ET.ElementTree(suite).write(path, encoding="utf-8")
+        return path
+
+    def passing_junit(self, name: str = "results.xml") -> Path:
+        return self.write_junit(run("first"), run("second"), name=name)
 
 
-def prepare_invalid_manifest_case(change, manifest):
-    if change == "escape":
-        manifest["files"][0]["path"] = "../outside.json"
-    elif change == "duplicate":
-        manifest["files"].append(manifest["files"][0])
-    elif change == "missing":
-        manifest["files"] = [r for r in manifest["files"] if r["path"] != "traceability.json"]
-    else:
-        manifest["schema_version"] = 2
-
-
-def make_change_after_parsing_stub(change, junit, original_trace, path, root):
-    def change_after_parsing(*args, **kwargs):
-        trace = original_trace(*args, **kwargs)
-        target = {
-                "plan": path,
-                "junit": junit,
-                "framework": root / "src/runtime.py",
-                "test": root / "tests/test_example.py",
-                "data": root / "test_data/policy.txt"}[change]
-        target.write_bytes(target.read_bytes() + b"\nchanged\n")
-        return trace
-
-    return change_after_parsing
-
-
-def prepare_conflicting_inline_provenance_cannot_pass_case(duplicate, props, stale_first):
-    if stale_first:
-        props.insert(0, duplicate)
-    else:
-        props.append(duplicate)
-
-
-def prepare_package_verification_binds_outcomes_to_inputs_case(change, manifest, output):
-    if change == "unlisted":
-        (output / "extra.json").write_text("{}")
-    elif change == "trace-schema":
-        trace_path = output / "traceability.json"
-        trace = json.loads(trace_path.read_text())
-        trace["schema_version"] = True
-        trace_path.write_text(json.dumps(trace))
-        row = next(r for r in manifest["files"] if r["path"] == "traceability.json")
-        row.update(sha256=hashlib.sha256(trace_path.read_bytes()).hexdigest(), size=trace_path.stat().st_size)
-    elif change == "plan":
-        manifest["plan_sha256"] = "0" * 64
-    else:
-        manifest["status"] = "passed"
-        if change == "resealed-trace":
-            trace_path = output / "traceability.json"
-            trace = json.loads(trace_path.read_text())
-            trace["status"] = "passed"
-            trace_path.write_text(json.dumps(trace))
-            row = next(r for r in manifest["files"] if r["path"] == "traceability.json")
-            row.update(sha256=hashlib.sha256(trace_path.read_bytes()).hexdigest(), size=trace_path.stat().st_size)
-
-
-def prepare_plan_rejects_ambiguous_paths_and_phase_types_case(change, data):
-    if change == "selector-alias":
-        data["requirements"][0]["tests"] = ["tests/../tests/test_example.py::test_example"]
-    elif change == "data-alias":
-        checksum = data["data_sha256"].pop(case_data.POLICY_DOCUMENT_TITLE)
-        data["data_sha256"]["./policy.txt"] = checksum
-    else:
-        data["requirements"][0]["phase"] = []
-
-
-def make_teardown_entries(change):
-    duplicate = (("first", "error", {}) if change == "error" else ("first", "passed", {"requirement_ids": "[]"}))
-
-    return duplicate
+def qualification_lab(tmp_path: Path) -> QualificationLab:
+    root = tmp_path / "automation"
+    (root / "tests").mkdir(parents=True)
+    (root / "tests/test_example.py").write_text("def test_example():\n    assert True\n")
+    (root / "src").mkdir()
+    (root / "src/runtime.py").write_text("VERSION = 1\n")
+    (root / "test_data").mkdir()
+    (root / "test_data/policy.txt").write_bytes(POLICY)
+    lab = QualificationLab(root)
+    lab.write_plan(reviewed_plan())
+    return lab

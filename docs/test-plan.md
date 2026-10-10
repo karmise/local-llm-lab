@@ -41,7 +41,7 @@ Its gate thresholds remain experimental and its human review remains pending.
 | Prompt/document attacks override policy | PQ: adversarial | Six attacks × two models; actual captured exposure required for document attacks |
 | Employee descriptors change uniform entitlement | PQ: paired bias checks | Three pairs × two variants × two models; both variants satisfy the same criteria; not population fairness validation |
 | Browser behavior hides or loses evidence | PQ: UI | Four application scenarios: answer/source visibility, missing policy, source details and persisted history |
-| Semantic quality degrades | PQ: saved quality gates | Paid-leave facts/sources plus four validated metrics pass explicit experimental thresholds; not a dataset-wide accuracy estimate |
+| Semantic quality degrades | PQ: saved quality gates | Paid-leave facts/sources plus four validated metrics; faithfulness and context precision/recall pass explicit experimental thresholds and factual correctness is recorded without one; not a dataset-wide accuracy estimate |
 | Declared workloads degrade latency/correctness | PQ: performance | Both health and RAG batches meet their recorded latency/error gates; small bounded workloads, not capacity planning |
 
 ## Test strategy

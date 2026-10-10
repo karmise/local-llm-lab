@@ -40,7 +40,8 @@ def metric_dimensions(name, evidence, checksum, sample, dataset, judge_model, ju
                 "metric": metric,
                 "value": value,
                 "minimum": minima[metric],
-                "status": "passed" if value >= minima[metric] else "failed"} for metric, value in values.items()]
+                "status": "measured" if minima[metric] is None else "passed" if value >= minima[metric] else "failed"}
+                for metric, value in values.items()]
     except Exception as error:
         return [{
                 "name": metric,
