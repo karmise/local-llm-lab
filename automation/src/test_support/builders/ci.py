@@ -109,3 +109,7 @@ class ReviewedBlob:
 
     def files(self) -> list[Path]:
         return list(self.directory.iterdir())
+
+
+def reject_authentication(*args, **kwargs):
+    raise ValueError("Disposable authentication failed")

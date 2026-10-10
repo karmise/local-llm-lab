@@ -46,15 +46,15 @@ def bootstrap(root: Path) -> None:
         secret = (payload.get("apiKey") or {}).get("secret")
         if payload.get("error") or not isinstance(secret, str) or not secret.strip():
             raise ValueError("Disposable API key creation failed")
-        # Mask before any subsequent operation; the key is never an artifact or job output.
+        # Mask and persist privately before verification can fail or produce diagnostics.
         print(f"::add-mask::{secret}", flush=True)
+        descriptor = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as key_file:
+            key_file.write(secret)
         verification = AnythingLLMClient(http, api_key=secret).verify_authentication()
         verification.raise_for_status()
         if verification.json().get("authenticated") is not True:
             raise ValueError("Disposable API key was not authenticated")
-    descriptor = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as key_file:
-        key_file.write(secret)
 
 
 def verify_models(lock_path: Path, selected: list[str], output: Path) -> None:

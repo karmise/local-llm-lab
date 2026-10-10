@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from llm_testkit import assertions
+from llm_testkit.core.number_words import normalize_number_words
 from llm_testkit.evaluation.calibration import evaluate_controls, load_controls, select_controls
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
@@ -16,8 +17,10 @@ from test_support.builders.calibration import (
         make_numbered_control, prepare_control_loader_rejects_wrong_context_or_bad_labels_case)
 from test_support.data import common as case_data
 from test_support.data.calibration import (
-        CONTROL_LOADER_REJECTS_WRONG_CONTEXT_OR_BAD_LABELS_CHANGE_CASES, FACTS_23_WORKING_DAYS_12_CALENDAR_DAYS_INPUT,
-        ORIGINAL_INPUT, RUNNER_REJECTS_EMPTY_OR_EXCESSIVE_CONTROL_RUNS_COUNT_CASES)
+        CHANGED_NUMBER_CLAIMS, CONTROL_LOADER_REJECTS_WRONG_CONTEXT_OR_BAD_LABELS_CHANGE_CASES,
+        FACTS_23_WORKING_DAYS_12_CALENDAR_DAYS_INPUT, NUMBER_SPELLINGS, ORIGINAL_INPUT,
+        RUNNER_REJECTS_EMPTY_OR_EXCESSIVE_CONTROL_RUNS_COUNT_CASES)
+from test_support.fixtures.unit_calibration_numbers import numeric_control as numeric_control
 
 pytestmark = pytest.mark.unit
 
@@ -135,3 +138,23 @@ def test_faithful_incomplete_answer_still_fails_required_fact_check(response_fac
             response, fact_patterns=case_data.fresh(FACTS_23_WORKING_DAYS_12_CALENDAR_DAYS_INPUT), document_title=
             case_data.POLICY_DOCUMENT_TITLE, source_fragments=("23 working days", "12 calendar days")),
             expected=AssertionError, match="12 calendar days")
+
+
+@pytest.mark.parametrize("text,expected", NUMBER_SPELLINGS)
+@title(
+        "Control matching canonicalizes equivalent integer spellings and preserves unsupported number forms [{param_id}]"
+)
+def test_number_spellings(text, expected):
+    value_checks.equal(normalize_number_words(text), expected)
+
+
+@title("Recorded negative control accepts digit-to-word paraphrasing without changing expected scores or verdicts")
+def test_numeric_control_paraphrase(numeric_control):
+    numeric_control.check()
+
+
+@pytest.mark.parametrize("statement", CHANGED_NUMBER_CLAIMS)
+@title("Control matching still rejects changed numbers, units and unsupported large values [{param_id}]")
+def test_changed_numeric_control(numeric_control, statement):
+    numeric_control.replace_leave_claim(statement)
+    errors.rejects(numeric_control.check, expected=AssertionError, match="matching")

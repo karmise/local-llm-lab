@@ -10,6 +10,7 @@ from llm_testkit.evaluation.benchmark_runner import generate_sample
 from llm_testkit.reporting.redaction import redact_files
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors, values
+from test_support.builders.ci import reject_authentication
 from test_support.data.benchmark import ROOT
 from test_support.data.ci import (
         BLOB_BYTES, CAPTURE_PERMISSIONS, INVALID_BLOBS, INVALID_IDENTITY, MODEL_NAMES, PRESETS, REVIEWED_MODELS,
@@ -159,3 +160,12 @@ def test_redaction_symlink(credential_reports):
     linked = directory / "linked.log"
     linked.symlink_to(directory / "generation.log")
     errors.rejects(lambda: redact_files((linked, ), secret), expected=ValueError, match="symlink")
+
+
+@title("Failed bootstrap verification retains a private credential for diagnostic redaction")
+def test_failed_bootstrap_preserves_redaction_key(bootstrap_service, monkeypatch):
+    root, secret, _ = bootstrap_service
+    monkeypatch.setattr(environment.AnythingLLMClient, "verify_authentication", reject_authentication)
+    errors.rejects(lambda: environment.bootstrap(root), expected=ValueError, match="authentication failed")
+    values.equal((root / ".runtime/anythingllm-api-key").read_text(), secret)
+    values.equal((root / ".runtime/anythingllm-api-key").stat().st_mode & 0o777, 0o600)

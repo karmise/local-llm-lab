@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from requests import Response
 
+from llm_testkit.core.number_words import normalize_number_words
 from llm_testkit.reporting.steps import attach_screenshot, attach_text, step
 
 if TYPE_CHECKING:
@@ -43,7 +44,8 @@ def assert_calibration_result(
     for claim in claims:
         matches = [
                 index for index, item in enumerate(verdicts)
-                if re.search(claim["pattern"], item["statement"], flags=re.IGNORECASE)]
+                if re.search(claim["pattern"], item["statement"], flags=re.IGNORECASE)
+                or re.search(claim["pattern"], normalize_number_words(item["statement"]), flags=re.IGNORECASE)]
         assert len(matches) == 1, f"Expected one extracted claim matching {claim['pattern']}"
         index = matches[0]
         assert index not in matched_indices, ("Control claims must map to distinct extracted statements")

@@ -58,12 +58,14 @@ review of the lock and manifest; missing upstream blobs fail setup.
 
 The fresh single-user application creates a disposable API key through its
 installed management endpoint. Bootstrap is restricted to GitHub-hosted runners,
-refuses an existing key, masks the new secret in Actions, verifies authentication
-and writes an owner-only file. No local API key, repository secret or external
+refuses an existing key, masks the new secret in Actions and writes an owner-only
+file before verifying authentication. This retains the known key for redaction if
+authentication fails. No local API key, repository secret or external
 model account is required. The private runtime directory and storage database are
 excluded from uploads. Generation logs and JUnit are scrubbed of the known API
 key before parsing and hashing; a final scrub covers the report tree before
-upload. A failed scrub prevents upload. Console masking alone is insufficient
+upload. A failed scrub prevents upload; failed or cancelled bootstrap without a
+nonempty key file also prevents upload. Console masking alone is insufficient
 for archive files. This setup is specifically for the disposable pinned
 application, not a way to administer an existing production application.
 
@@ -175,7 +177,7 @@ neither workflow nor report builder changes thresholds to obtain a green run.
 
 ## Verification
 
-Offline verification passed 599 unit cases with 81.21% combined statement/branch
+Offline verification passed 611 unit cases with 81.28% combined statement/branch
 coverage, above the 75% floor. New checks cover all four workload presets,
 commit/source/baseline/plan/model provenance, preserved generation errors,
 bootstrap refusal on developer machines, private key creation, private versus
@@ -185,7 +187,10 @@ Ruff, isort, YAPF, actionlint 1.7.12 and Compose configuration validation passed
 The actual resolver shell was also executed against a stubbed GitHub CLI for
 eight cases: default main, explicit SHA, open PR merge SHA, closed PR, another
 base branch, absent merge candidate, conflicting selectors and invalid PR number.
-Invalid inputs failed before publishing a status or invoking model setup.
+Invalid inputs failed before publishing a status or invoking model setup. The
+actual redaction shell guard also passed five scenarios: failed/cancelled bootstrap
+without a key prevents upload, skipped bootstrap allows early diagnostics, and
+complete stored keys permit scrubbing after successful or failed verification.
 
 Actual hosted execution and repository protection are verified separately after
 publication; a local unit pass must not be reported as a passing live AI run.
@@ -232,6 +237,40 @@ The affected producer artifact was deleted and local diagnostics sanitized; the
 application and its storage had already been destroyed. New redaction occurs
 before evidence hashing and again before upload, with offline checks for repeated
 keys, unchanged answer bytes, failing diagnostics and the parsing/hash order.
+
+### Bounded smoke execution and saved-control replay
+
+[Run 38033662325](https://github.com/karmise/local-llm-lab/actions/runs/38033662325)
+tested `edda9a92d50fcd22f44d8e8f733c02326c3811f8` with `smoke/primary` and
+Ollama 0.35.0. Both fresh application answers passed their deterministic checks;
+there were zero case execution errors and stable generation/judge identities.
+Paid-leave faithfulness, factual correctness and context recall were 1.0;
+context precision was approximately 1.0. All four metrics were N/A for the
+unsupported-benefit refusal. Generation took 104.03 and 82.83 seconds on CPU.
+The run used two generations, six control calls and nine metric judge calls.
+
+The historical aggregate remained an error and `RAG smoke quality` was published
+as failure: the `wrong_numbers` control got the correct score 0.0 and both correct
+negative verdicts, but the judge spelled `30` and `2` as `thirty` and `two`.
+The numeric-only claim regex produced a false mismatch. This was a matcher defect,
+not evidence that the judge endorsed incorrect facts. The follow-up canonicalizes
+unambiguous English integers 0–99 for control matching while preserving original
+statement text, score, individual verdicts and one-to-one claim requirements.
+Changed values/units, larger or decimal number phrases and reversed verdicts
+remain rejected. The reviewed catalog, expected scores and thresholds are unchanged.
+
+An offline replay of the original three control results with the corrected
+matcher passed all three, with **zero new model calls**. This does not rewrite the
+historical artifact, change its commit status or claim fresh passing evidence for
+a later commit. A new curated run is still required for a new PR merge candidate.
+
+The separate saved gate revalidated the original evidence and retained the
+historical failure. Allure HTML, sanitized diagnostics and raw metric evidence
+were uploaded; disposal completed. An additional local provenance revalidation
+used an exact archived checkout of the tested commit. Archived files contained
+no unredacted bearer-credential headers. Automatic framework and offline browser
+checks passed on that same commit. Later changes protect redaction on failed
+bootstrap verification as well and are covered by offline regression checks.
 
 ### Actual PR merge-gate negative check
 

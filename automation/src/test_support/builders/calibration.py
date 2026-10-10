@@ -1,8 +1,13 @@
 """Scenario data builders and deterministic test doubles."""
 
+import json
+from dataclasses import dataclass
 from unittest.mock import Mock
 
+from llm_testkit import assertions
 from test_support.data import common as case_data
+from test_support.data.benchmark import ROOT
+from test_support.data.calibration import LEAVE_CONTROL_STATEMENT, NOTICE_CONTROL_STATEMENT
 
 
 def _case() -> dict:
@@ -100,3 +105,30 @@ def make_incomplete_policy_reply():
             "sources": [{
             "title": case_data.POLICY_DOCUMENT_TITLE,
             "text": "23 working days; 12 calendar days"}]}
+
+
+@dataclass
+class NumericControl:
+    case: dict
+    result: dict
+
+    def check(self) -> None:
+        assertions.assert_calibration_result(
+                self.result, expected_score=self.case["expected_score"], claims=self.case["claims"])
+
+    def replace_leave_claim(self, statement: str) -> None:
+        self.result["verdicts"][0]["statement"] = statement
+
+
+def make_numeric_control() -> NumericControl:
+    catalog = json.loads((ROOT / "test_data/faithfulness-controls.json").read_text())
+    case = next(c for c in catalog["cases"] if c["id"] == "wrong_numbers")
+    result = {
+            "value":
+            0.0,
+            "verdicts": [{
+            "statement": LEAVE_CONTROL_STATEMENT,
+            "verdict": 0}, {
+            "statement": NOTICE_CONTROL_STATEMENT,
+            "verdict": 0}]}
+    return NumericControl(case, result)

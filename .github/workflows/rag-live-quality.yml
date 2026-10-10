@@ -123,6 +123,7 @@ jobs:
           python -m llm_testkit.ci.environment wait-ollama
           python -m llm_testkit.ci.environment verify-models "${selected[@]}" --output reports/ci/environment.json
       - name: Start disposable application and create its private API key
+        id: bootstrap
         run: |
           mkdir -p ../.runtime/ollama-capture
           chmod 777 ../.runtime/ollama-capture
@@ -148,7 +149,12 @@ jobs:
       - name: Redact disposable credentials before publishing reports
         id: redaction
         if: always()
+        env:
+          BOOTSTRAP_OUTCOME: ${{ steps.bootstrap.outcome }}
         run: |
+          if [[ "$BOOTSTRAP_OUTCOME" != "success" && "$BOOTSTRAP_OUTCOME" != "skipped" && ! -s ../.runtime/anythingllm-api-key ]]; then
+            exit 1
+          fi
           python -m llm_testkit.reporting.redaction reports/ci \
             --secret-file ../.runtime/anythingllm-api-key
       - name: Preserve fresh evidence even when quality fails
