@@ -1,7 +1,10 @@
 """CI scenarios supply prepared reports and service clients without network access."""
 
+import hashlib
 import json
+import os
 import shutil
+import subprocess
 from unittest.mock import Mock
 
 import pytest
@@ -9,8 +12,9 @@ import pytest
 from llm_testkit.ci import environment
 from llm_testkit.evaluation import benchmark_runner as runner
 from test_support.builders.benchmark import make_calibrate_stub, make_judge_model_catalog
-from test_support.builders.ci import ci_generator, create_run
+from test_support.builders.ci import ReviewedBlob, ci_generator, create_run
 from test_support.data.benchmark import ROOT
+from test_support.data.ci import BLOB_BYTES, CAPTURE_SCRIPT
 
 
 @pytest.fixture
@@ -71,3 +75,32 @@ def model_service(tmp_path, monkeypatch):
     monkeypatch.setattr(environment, "HttpClient", Mock(return_value=http))
     monkeypatch.setattr(environment.OllamaClient, "list_models", Mock(return_value=response))
     return lock, tmp_path / "environment.json", response
+
+
+@pytest.fixture
+def capture_permissions(tmp_path):
+    node = shutil.which("node")
+    if node is None:
+        pytest.fail("Node.js is required to verify CI capture permissions")
+
+    def inspect(actions, shared):
+        environment = {**os.environ, "GITHUB_ACTIONS": actions, "LLM_TESTKIT_CAPTURE_SHARED_READ": shared}
+        result = subprocess.run([
+                node, "-e", CAPTURE_SCRIPT,
+                str(ROOT / "src/llm_testkit/observation/ollama-preload.cjs"),
+                str(tmp_path)], env=environment, check=True, text=True, capture_output=True)
+        return json.loads(result.stdout)
+
+    return inspect
+
+
+@pytest.fixture
+def reviewed_blob(tmp_path):
+    response = Mock()
+    response.__enter__ = Mock(return_value=response)
+    response.__exit__ = Mock(return_value=None)
+    response.iter_content.return_value = [BLOB_BYTES]
+    session = Mock()
+    session.get.return_value = response
+    layer = {"digest": "sha256:" + hashlib.sha256(BLOB_BYTES).hexdigest(), "size": len(BLOB_BYTES)}
+    return ReviewedBlob(session, response, tmp_path, layer)

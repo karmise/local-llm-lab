@@ -49,9 +49,12 @@ Each run/attempt has a unique `rag-ci-...` project and its own disposable volume
 The final cleanup removes only those volumes; it never touches the local lab.
 
 `config/ci-models.json` records the reviewed generation and BGE-M3 embedding
-digests. Downloaded tags must match before generation starts. A changed upstream
-tag fails preflight and needs an explicit reviewed lock update. Runtime version
-and weights are retained in `environment.json`.
+digests. `config/ci-model-manifests/` preserves the exact original manifest bytes.
+CI downloads their immutable blobs, verifies every size/SHA-256 and installs the
+manifests before starting Ollama. It does not resolve mutable tags with `pull`.
+The installed API catalog must still match before generation. Runtime version
+and weights are retained in `environment.json`. Model updates require explicit
+review of the lock and manifest; missing upstream blobs fail setup.
 
 The fresh single-user application creates a disposable API key through its
 installed management endpoint. Bootstrap is restricted to GitHub-hosted runners,
@@ -60,6 +63,12 @@ and writes an owner-only file. No local API key, repository secret or external
 model account is required. The private runtime directory and storage database are
 excluded from uploads. This setup is specifically for the disposable pinned
 application, not a way to administer an existing production application.
+
+The application container and Ubuntu runner have different UIDs. CI explicitly
+enables read sharing for the fictional captured prompt files (0644) so the host
+can evaluate them. The capture hook requires both the CI flag and the explicit
+sharing flag; ordinary local captures stay owner-only (0600). API keys remain
+0600 regardless of capture mode.
 
 ## Evidence validation and reporting
 
@@ -124,7 +133,8 @@ so a smaller passing matrix cannot satisfy the curated merge requirement.
 Statuses target the tested SHA, not the workflow's main SHA. Any subsequent code
 commit requires new evidence. Concurrent runs for the same target are serialized.
 
-Repository branch protection should require these contexts on `main`:
+Repository branch protection was configured and read back on 2026-10-10 with
+these required contexts on `main`, all bound to the GitHub Actions app (15368):
 
 - `Ruff and unit tests`;
 - `Offline Page Object checks`;
@@ -132,7 +142,7 @@ Repository branch protection should require these contexts on `main`:
 
 The two automatic job checks use the GitHub Actions app as their expected source.
 The AI context is a commit status written using the workflow's GitHub token.
-The branch should require being current with main and disallow force pushes and
+The branch requires being current with main and disallows force pushes and
 deletion. Administrator bypass remains available for deliberate repository
 maintenance; a direct administrator push is not evidence that quality passed.
 The repository setting is operational state, not implied by this YAML. Inspect
@@ -145,14 +155,35 @@ neither workflow nor report builder changes thresholds to obtain a green run.
 
 ## Verification
 
-Offline verification passed 585 unit cases with 81.48% combined statement/branch
+Offline verification passed 595 unit cases with 81.14% combined statement/branch
 coverage, above the 75% floor. New checks cover all four workload presets,
 commit/source/baseline/plan/model provenance, preserved generation errors,
-bootstrap refusal on developer machines, private key creation and weight checks.
+bootstrap refusal on developer machines, private key creation, private versus
+explicitly shared capture permissions and checksum/size-verified blob downloads.
 Ruff, isort, YAPF, actionlint 1.7.12 and Compose configuration validation passed.
 
 Actual hosted execution and repository protection are verified separately after
 publication; a local unit pass must not be reported as a passing live AI run.
+
+### First hosted execution
+
+[Run 38030127070](https://github.com/karmise/local-llm-lab/actions/runs/38030127070)
+tested commit `42d92701bb0aaea37b08da46dea4bde7b80a7693`. The framework and offline
+browser workflow passed. The live producer failed model preflight before any
+answer/judge inference: the public Qwen3.5 tag had changed. The registry manifest
+was `d8b0f5e9760cd1682034f292d7ef72ec46f432149be0df7574bf2d6e92e38c04`, while
+the reviewed local model was `2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd`.
+
+The downstream gate still ran, rejected missing complete benchmark evidence,
+generated Allure HTML and retained both artifacts. The final commit status was
+`RAG benchmark quality: failure`, written by `github-actions[bot]`. The disposable
+services were removed. This demonstrates failure propagation and evidence
+preservation; it is not a failed answer-quality experiment.
+
+The follow-up installs the original manifests and their content-addressed blobs,
+whose availability was checked in the official registry. It also handles the
+container/host capture permissions explicitly. It does not change the reviewed
+model weights, references or thresholds to make that first run pass.
 
 ## References
 

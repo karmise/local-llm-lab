@@ -1,18 +1,24 @@
+import hashlib
 import json
 
 import pytest
 
 from llm_testkit.ci import environment
 from llm_testkit.ci.benchmark import execution_context, inputs
+from llm_testkit.ci.model_cache import reviewed_manifest
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors, values
 from test_support.data.benchmark import ROOT
-from test_support.data.ci import INVALID_IDENTITY, MODEL_NAMES, PRESETS, REVISION
+from test_support.data.ci import (
+        BLOB_BYTES, CAPTURE_PERMISSIONS, INVALID_BLOBS, INVALID_IDENTITY, MODEL_NAMES, PRESETS, REVIEWED_MODELS,
+        REVISION)
 from test_support.fixtures.unit_benchmark import benchmark_data as benchmark_data
 from test_support.fixtures.unit_ci import bootstrap_service as bootstrap_service
+from test_support.fixtures.unit_ci import capture_permissions as capture_permissions
 from test_support.fixtures.unit_ci import ci_run as ci_run
 from test_support.fixtures.unit_ci import hosted_environment as hosted_environment
 from test_support.fixtures.unit_ci import model_service as model_service
+from test_support.fixtures.unit_ci import reviewed_blob as reviewed_blob
 
 pytestmark = pytest.mark.unit
 
@@ -78,3 +84,37 @@ def test_changed_model_weights(model_service):
     catalog.json.return_value["models"][0]["digest"] = "changed"
     errors.rejects(lambda: environment.verify_models(lock, list(MODEL_NAMES), output), expected=ValueError)
     values.falsy(output.exists())
+
+
+@pytest.mark.parametrize("actions,shared,expected_mode", CAPTURE_PERMISSIONS)
+@title("Context capture shares read access only for the explicitly enabled disposable CI mode [{param_id}]")
+def test_capture_permissions(capture_permissions, actions, shared, expected_mode):
+    result = capture_permissions(actions, shared)
+    values.equal(result["mode"], expected_mode)
+    values.equal(result["result"], "original-result")
+
+
+@pytest.mark.parametrize("model", REVIEWED_MODELS)
+@title("Checked-in immutable model manifests match the reviewed digest lock [{param_id}]")
+def test_reviewed_manifest(model):
+    raw, layers = reviewed_manifest(ROOT.parent, model)
+    lock = json.loads((ROOT.parent / "config/ci-models.json").read_text())
+    values.equal(hashlib.sha256(raw).hexdigest(), lock[model])
+    values.truthy(layers)
+
+
+@title("Model installation publishes only a complete checksum-verified blob")
+def test_verified_blob(reviewed_blob):
+    reviewed_blob.download()
+    values.equal(reviewed_blob.saved_bytes(), BLOB_BYTES)
+    values.length(reviewed_blob.files(), 1)
+    errors.rejects(reviewed_blob.download, expected=ValueError, match="existing")
+    values.equal(reviewed_blob.saved_bytes(), BLOB_BYTES)
+
+
+@pytest.mark.parametrize("content", INVALID_BLOBS)
+@title("Truncated, changed and oversized model downloads cannot become installed weights [{param_id}]")
+def test_invalid_blob(reviewed_blob, content):
+    reviewed_blob.replace_bytes(content)
+    errors.rejects(reviewed_blob.download, expected=ValueError)
+    values.falsy(reviewed_blob.files())

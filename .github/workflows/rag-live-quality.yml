@@ -98,18 +98,16 @@ jobs:
           [[ "$(git rev-parse HEAD)" == "$CI_REVISION" ]]
           python -m llm_testkit.ci.benchmark plan --revision "$CI_REVISION" \
             --profile "$CI_PROFILE" --models "$CI_MODELS" --output reports/ci/plan.json
-      - name: Start isolated model server and download reviewed weights
+      - name: Install immutable reviewed weights and start isolated model server
         timeout-minutes: 30
         run: |
-          docker compose up -d ollama
-          python -m llm_testkit.ci.environment wait-ollama
-          docker compose exec -T ollama ollama pull qwen3.5:4b
-          docker compose exec -T ollama ollama pull bge-m3:567m
           selected=(--model qwen3.5:4b --model bge-m3:567m)
           if [[ "$CI_MODELS" == "comparison" ]]; then
-            docker compose exec -T ollama ollama pull qwen2.5:7b
             selected+=(--model qwen2.5:7b)
           fi
+          python -m llm_testkit.ci.model_cache "${selected[@]}"
+          docker compose up -d ollama
+          python -m llm_testkit.ci.environment wait-ollama
           python -m llm_testkit.ci.environment verify-models "${selected[@]}" --output reports/ci/environment.json
       - name: Start disposable application and create its private API key
         run: |

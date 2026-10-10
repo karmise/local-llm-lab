@@ -9,7 +9,7 @@ services:
       OLLAMA_MAX_LOADED_MODELS: "1"
       OLLAMA_CONTEXT_LENGTH: "8192"
     volumes:
-      - ollama-models:/root/.ollama
+      - ./.runtime/ollama-models:/root/.ollama/models
   anythingllm:
     image: mintplexlabs/anythingllm:1.16.2@sha256:480b0f105efd6a4c8a4cde82713fe81348d75c979a24a38e9ed8e236bed0fd17
     ports:
@@ -28,10 +28,11 @@ services:
       VECTOR_DB: lancedb
       NODE_OPTIONS: --require=/app/llm-testkit/ollama-preload.cjs
       LLM_TESTKIT_CAPTURE_DIR: /app/llm-testkit/captures
+      GITHUB_ACTIONS: "true"
+      LLM_TESTKIT_CAPTURE_SHARED_READ: "true"
     volumes:
       - anythingllm-storage:/app/server/storage
       - ./automation/src/llm_testkit/observation/ollama-preload.cjs:/app/llm-testkit/ollama-preload.cjs:ro
       - ./.runtime/ollama-capture:/app/llm-testkit/captures
 volumes:
   anythingllm-storage:
-  ollama-models:

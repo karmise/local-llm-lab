@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from llm_testkit.ci.benchmark import execution_context, validate_ci_benchmark
+from llm_testkit.ci.model_cache import download_blob
 from llm_testkit.evaluation import benchmark_runner as runner
 from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.qualification.plan import framework_checksum
@@ -88,3 +89,23 @@ def create_run(root, output, dataset, gates, plan):
     runner.run(root, output, plan, dataset, gates, notify=lambda *args, **kwargs: None)
     write_sample(output / "ci-context.json", context_for(root))
     return SavedCIRun(root, output)
+
+
+@dataclass
+class ReviewedBlob:
+    session: object
+    response: object
+    directory: Path
+    layer: dict
+
+    def download(self) -> None:
+        download_blob(self.session, "qwen3.5:4b", self.layer, self.directory)
+
+    def replace_bytes(self, content: bytes) -> None:
+        self.response.iter_content.return_value = [content]
+
+    def saved_bytes(self) -> bytes:
+        return (self.directory / self.layer["digest"].replace(":", "-")).read_bytes()
+
+    def files(self) -> list[Path]:
+        return list(self.directory.iterdir())

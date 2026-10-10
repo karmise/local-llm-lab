@@ -23,7 +23,12 @@ Module._load = function (...args) {
         boundary: "ollama-sdk-chat",
         captured_at: new Date().toISOString(),
         request,
-      }, null, 2), { flag: "wx", mode: 0o600 });
+      }, null, 2), {
+        flag: "wx",
+        // Disposable CI exports fictional context to a host with a different UID.
+        mode: process.env.GITHUB_ACTIONS === "true" &&
+          process.env.LLM_TESTKIT_CAPTURE_SHARED_READ === "true" ? 0o644 : 0o600,
+      });
     }
     return originalChat.call(this, request, ...rest);
   };
