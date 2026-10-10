@@ -106,8 +106,12 @@ absent artifacts; pending never authorizes merging.
 ## Run for the exact commit
 
 In GitHub, select **Actions → Fresh RAG quality → Run workflow**, leave the
-workflow branch as `main` and enter the full target commit SHA. An empty SHA
-tests the dispatched main commit. For a feature branch, pass its latest full SHA.
+workflow branch as `main`. For a PR, enter its number in `pull-request` and leave
+`revision` empty. The workflow resolves the open PR's current test merge commit,
+which includes main and is the same candidate used by automatic PR checks.
+For a standalone experiment, enter the full target SHA in `revision`. Leaving
+both fields empty tests the dispatched main commit. Both fields cannot be set
+together; closed PRs and PRs targeting another base branch are rejected.
 
 From the repository root:
 
@@ -115,6 +119,17 @@ From the repository root:
 gh workflow run rag-live-quality.yml --ref main \
   -f revision="$(git rev-parse HEAD)" -f profile=curated -f models=primary
 ```
+
+For the required pre-merge gate, replace `123` with the actual PR number:
+
+```bash
+gh workflow run rag-live-quality.yml --ref main \
+  -f pull-request=123 -f profile=curated -f models=primary
+```
+
+PR changes, a new main commit or a merge conflict require resolving and testing
+the new merge candidate. A successful standalone head-SHA experiment is not
+automatically a pass for a different PR merge commit.
 
 The trusted main workflow resolves that exact commit before checkout. Producer
 and gate jobs have read-only repository permissions. Separate status-writing
@@ -130,7 +145,9 @@ A manual workflow job check alone does not satisfy a PR's required status check.
 This pipeline publishes a commit status called `RAG benchmark quality` for
 `curated` runs. A `smoke` run publishes **a different context**, `RAG smoke quality`,
 so a smaller passing matrix cannot satisfy the curated merge requirement.
-Statuses target the tested SHA, not the workflow's main SHA. Any subsequent code
+Statuses target the tested SHA, not the workflow's main SHA. The PR-number mode
+targets its test merge SHA because GitHub may require results there when automatic
+PR checks already exist on that candidate. Any subsequent code
 commit requires new evidence. Concurrent runs for the same target are serialized.
 
 Repository branch protection was configured and read back on 2026-10-10 with
@@ -162,6 +179,11 @@ bootstrap refusal on developer machines, private key creation, private versus
 explicitly shared capture permissions and checksum/size-verified blob downloads.
 Ruff, isort, YAPF, actionlint 1.7.12 and Compose configuration validation passed.
 
+The actual resolver shell was also executed against a stubbed GitHub CLI for
+eight cases: default main, explicit SHA, open PR merge SHA, closed PR, another
+base branch, absent merge candidate, conflicting selectors and invalid PR number.
+Invalid inputs failed before publishing a status or invoking model setup.
+
 Actual hosted execution and repository protection are verified separately after
 publication; a local unit pass must not be reported as a passing live AI run.
 
@@ -187,7 +209,7 @@ model weights, references or thresholds to make that first run pass.
 
 ## References
 
-- [GitHub: which workflow checks satisfy required PR checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
+- [GitHub: required-check events and head versus test merge commit](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
 - [GitHub: commit statuses reflected in pull requests](https://docs.github.com/en/rest/commits/statuses).
 - [GitHub: protected branches and administrator bypass](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches).
 - [Ollama: Docker and memory/concurrency configuration](https://github.com/ollama/ollama/blob/main/docs/faq.mdx).
