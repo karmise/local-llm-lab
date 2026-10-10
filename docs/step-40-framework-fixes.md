@@ -25,3 +25,9 @@ previous code.
 Not done: typed catalog loaders (for example pydantic). The hand-written validators are covered
 by tests that detect 90–96% of mutants, and a new runtime dependency would change the reviewed
 lock files used for IQ. It is a separate decision, not a cleanup.
+
+## Found by the live gate
+
+| Fix | Previous behaviour | Regression test |
+| --- | --- | --- |
+| Number words above 99 are normalised | The live judge rewrote "KGS 5000" as "five thousand KGS". `normalize_number_words` converted only 0–99, so the labelled claim `\b5000\b` matched nothing and a correct judge was reported as a control mismatch, failing the benchmark. Well-formed integers of any size are now written as digits; decimals and malformed phrases are kept. | `test_number_spellings[judge-rewritten-amount]` and new size and malformed cases; both saved CI calibrations now match |

@@ -48,10 +48,18 @@ def curated_controls() -> dict[str, dict]:
         pytest.param("twenty", "20", id="tens"),
         pytest.param("twenty zero", "twenty zero", id="tens-and-zero"),
         pytest.param("twenty ten", "twenty ten", id="tens-and-ten"),
-        pytest.param("thirty thousand", "thirty thousand", id="thousands"),
-        pytest.param("one hundred and thirty", "one hundred and thirty", id="hundreds"),
-        pytest.param("thirty point two", "thirty point two", id="decimal")])
-@title("Number words from 0 to 99 become digits; larger, decimal or ambiguous phrases are preserved [{param_id}]")
+        pytest.param("thirty thousand", "30000", id="thousands"),
+        pytest.param("five thousand KGS", "5000 KGS", id="judge-rewritten-amount"),
+        pytest.param("eight thousand four hundred", "8400", id="thousands-and-hundreds"),
+        pytest.param("one hundred and thirty", "130", id="hundreds-with-and"),
+        pytest.param("two million three hundred thousand", "2300000", id="millions"),
+        pytest.param("thirty point two", "thirty point two", id="decimal"),
+        pytest.param("twelve hundred", "twelve hundred", id="teen-hundreds"),
+        pytest.param("one two", "one two", id="two-units"),
+        pytest.param("thousand", "thousand", id="bare-scale"),
+        pytest.param("one thousand one million", "one thousand one million", id="rising-scales"),
+        pytest.param("zero thousand", "zero thousand", id="zero-scaled")])
+@title("Well-formed integer spellings become digits; decimal or malformed phrases are preserved [{param_id}]")
 def test_number_spellings(text, expected):
     assert normalize_number_words(text) == expected
 
