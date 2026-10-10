@@ -14,10 +14,16 @@ previous code.
 | Capture marker must be the exact end of the prompt | The pattern ended in `$`, which also matches before a final newline, so `"Policy\n<marker>\n"` normalised to `"Policy\n"`. It now ends in `\Z`. | `test_other_prompt_text_is_kept[before-final-newline]` |
 | Drift requires the captured policy and reports a prompt change once | `make_snapshot` read `metadata["policy_sha256"]` directly, so a sample without it failed with `KeyError`; a mismatching value was already rejected by `bind_case`. A changed prompt appeared as both `prompt_sha256` and `retrieval_configuration`. | `test_make_snapshot_requires_captured_policy`; `test_comparison_reports_changed_conditions[prompt]` |
 
-## Part 2: structural changes (next)
+## Part 2: structural changes
 
-- Split `assertions.py` (API, answer, quality and UI checks in one 480-line module).
+| Change | Why |
+| --- | --- |
+| `assert_quality_score` loses its unused `minimum` argument | No gate passed it; thresholds belong to `reporting/gates.py`. |
+| `assertions.py` (480 lines) becomes the `assertions/` package: `fields`, `api`, `answers`, `quality`, `ui` | Each area can be read and changed alone; `assertions.assert_...` calls are unchanged because the package re-exports every check. |
+
+Remaining:
+
+
 - Reduce `pytest_support/options.py` complexity: one selection rule per marker instead of
   one long hook, and raise collection-time selection errors as usage errors.
 - Typed catalog loaders (for example pydantic models) instead of hand-written field checks.
-- Remove `assert_quality_score(minimum=...)`, which no gate uses.
