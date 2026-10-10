@@ -35,13 +35,6 @@ def usage_error(runner, source, *args) -> pytest.RunResult:
     return result
 
 
-def collection_error(runner, source, *args) -> pytest.RunResult:
-    """A selection rejected while tests are generated: pytest reports it as a collection error."""
-    result = run(runner, source, *args)
-    assert result.ret == pytest.ExitCode.INTERRUPTED
-    return result
-
-
 @pytest.mark.parametrize(("marker", "flag"), [
         pytest.param("ui", "--run-ui", id="ui"),
         pytest.param("browser", "--run-ui", id="browser"),
@@ -180,22 +173,22 @@ def test_catalog_cases_are_parametrized(runner):
         pytest.param("golden-policy.json", "bias_case", "Invalid bias catalog", id="bias-golden-dependency"),
         pytest.param(
         "golden-policy.json", "adversarial_case", "Invalid adversarial catalog", id="adversarial-golden-dependency")])
-@title("An invalid reviewed catalog stops collection with an actionable error [{param_id}]")
-def test_invalid_catalog_is_collection_error(runner, catalog, fixture, message):
+@title("An invalid reviewed catalog is a usage error naming the catalog [{param_id}]")
+def test_invalid_catalog_is_usage_error(runner, catalog, fixture, message):
     (runner.path / "test_data" / catalog).write_text("{}")
 
-    result = collection_error(runner, f"def test_case({fixture}): pass")
+    result = usage_error(runner, f"def test_case({fixture}): pass")
 
-    result.stdout.fnmatch_lines([f"*{message}: *"])
+    result.stderr.fnmatch_lines([f"*{message}: *"])
 
 
-@title("A missing catalog file stops collection too")
-def test_missing_catalog_is_collection_error(runner):
+@title("A missing catalog file is a usage error too")
+def test_missing_catalog_is_usage_error(runner):
     (runner.path / "test_data/conversation-policy.json").unlink()
 
-    result = collection_error(runner, "def test_case(conversation_case): pass")
+    result = usage_error(runner, "def test_case(conversation_case): pass")
 
-    result.stdout.fnmatch_lines(["*Invalid conversation catalog: *"])
+    result.stderr.fnmatch_lines(["*Invalid conversation catalog: *"])
 
 
 @title("Document attacks require capture mode to verify actual exposure; user attacks do not")
@@ -237,20 +230,20 @@ def test_prompt_regression_is_opt_in(runner):
     enabled.assert_outcomes(passed=2)
 
 
-@title("An unknown prompt variant stops collection")
+@title("An unknown prompt variant is a usage error")
 def test_unknown_prompt_variant(runner):
-    result = collection_error(runner, PROMPTS, "--rag-prompt", "missing")
+    result = usage_error(runner, PROMPTS, "--rag-prompt", "missing")
 
-    result.stdout.fnmatch_lines(["*Invalid prompt selection: Unknown prompt variant*"])
+    result.stderr.fnmatch_lines(["*Invalid prompt selection: Unknown prompt variant*"])
 
 
-@title("An invalid prompt catalog stops collection")
+@title("An invalid prompt catalog is a usage error")
 def test_invalid_prompt_catalog(runner):
     (runner.path / "test_data/prompt-variants.json").write_text("{}")
 
-    result = collection_error(runner, PROMPTS)
+    result = usage_error(runner, PROMPTS)
 
-    result.stdout.fnmatch_lines(["*Invalid prompt selection: *"])
+    result.stderr.fnmatch_lines(["*Invalid prompt selection: *"])
 
 
 @title("Golden collection combines case, model and independent repetition")

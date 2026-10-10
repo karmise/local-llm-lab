@@ -20,10 +20,8 @@ previous code.
 | --- | --- |
 | `assert_quality_score` loses its unused `minimum` argument | No gate passed it; thresholds belong to `reporting/gates.py`. |
 | `assertions.py` (480 lines) becomes the `assertions/` package: `fields`, `api`, `answers`, `quality`, `ui` | Each area can be read and changed alone; `assertions.assert_...` calls are unchanged because the package re-exports every check. |
+| `options.py` hooks become one function per rule, and catalog errors are usage errors | The two hooks held every selection rule in about 120 lines. An invalid catalog or unknown prompt variant raised `UsageError` inside `pytest_generate_tests`, which pytest reports as a collection error (exit code 2). It is now recorded and raised after collection as a usage error (exit code 4) with the same message. |
 
-Remaining:
-
-
-- Reduce `pytest_support/options.py` complexity: one selection rule per marker instead of
-  one long hook, and raise collection-time selection errors as usage errors.
-- Typed catalog loaders (for example pydantic models) instead of hand-written field checks.
+Not done: typed catalog loaders (for example pydantic). The hand-written validators are covered
+by tests that detect 90–96% of mutants, and a new runtime dependency would change the reviewed
+lock files used for IQ. It is a separate decision, not a cleanup.
