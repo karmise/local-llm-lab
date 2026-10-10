@@ -16,6 +16,7 @@ from llm_testkit import assertions
 from llm_testkit.clients.ollama_client import OllamaClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
+from llm_testkit.core.scores import require_score
 from llm_testkit.observation.evaluation_sample import build_sample, write_sample
 
 
@@ -44,9 +45,7 @@ def validate_result(result: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Judge verdicts must cover every extracted statement exactly once")
     if any(type(item.get("verdict")) is not int or item["verdict"] not in (0, 1) for item in verdicts):
         raise ValueError("Judge verdict must be 0 or 1")
-    value = result["value"]
-    if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 1:
-        raise ValueError(f"Faithfulness score must be a finite number between 0 and 1, got {value!r}")
+    require_score(result["value"], "Faithfulness score")
     recomputed = sum(item["verdict"] for item in verdicts) / len(verdicts)
     if not math.isclose(result["value"], recomputed, rel_tol=0, abs_tol=1e-9):
         raise ValueError("Faithfulness score does not match its verdicts")

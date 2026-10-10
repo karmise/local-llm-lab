@@ -92,8 +92,8 @@ def corrupt_recall(**changes):
         "relevant_context_first", PRECISION_FIRST, lambda calls: calls.pop(), ValueError, "unexpected number of calls",
         id="missing-call"),
         pytest.param(
-        "relevant_context_first", float("nan"), lambda calls: None, AssertionError, "finite quality score",
-        id="invalid-score"),
+        "relevant_context_first", float("nan"), lambda calls: None, ValueError,
+        "Judge control score must be a finite number", id="invalid-score"),
         pytest.param(
         "relevant_context_first", 0.5, lambda calls: None, ValueError, "disagrees with raw verdicts",
         id="forged-precision"),

@@ -127,6 +127,8 @@ def test_validate_result_derives_counts_from_verdicts():
         lambda result: result["reference_verdicts"][0].update(reason=" "), "requires a reason", id="blank-reason"),
         pytest.param(lambda result: result.update(value=0.5), "F1 does not match", id="score-differs-from-verdicts"),
         pytest.param(
+        lambda result: result.update(value=float("nan")), "Correctness F1 must be a finite number", id="nan-score"),
+        pytest.param(
         lambda result: result.update(counts=dict(tp=9, fp=0, fn=0)), "counts do not match",
         id="counts-differ-from-verdicts")])
 @title("Judge evidence that is incomplete, duplicated or inconsistent with its score is rejected [{param_id}]")
@@ -249,6 +251,11 @@ def test_curated_controls_are_valid(controls):
         pytest.param(lambda case: case.pop("case_id"), "nonempty case_id", id="missing-case"),
         pytest.param(lambda case: case.update(response=" "), "nonempty response", id="blank-response"),
         pytest.param(lambda case: case.update(expected_f1_range=[0.5]), "requires an F1 range", id="single-bound"),
+        pytest.param(
+        lambda case: case.update(expected_f1_range=[0.5, 1.5]), "Control F1 bound must be a finite number",
+        id="bound-above-one"),
+        pytest.param(
+        lambda case: case.update(expected_f1_range=[float("nan"), 1]), "Control F1 bound must be", id="nan-bound"),
         pytest.param(lambda case: case.update(expected_f1_range=[0.9, 0.1]), "Invalid control F1", id="reversed-range"),
         pytest.param(
         lambda case: case.update(response_verdict=True), "Invalid control response verdict",
