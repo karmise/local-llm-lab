@@ -7,7 +7,7 @@ from typing import Any
 
 from llm_testkit.evaluation.correctness import METRIC_CONFIGURATION
 from test_support.builders.golden import GOLDEN_DATASET, PAID_LEAVE, TEST_DATA
-from test_support.data.common import MODEL_DIGEST, TEST_MODEL
+from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
 
 CONTROLS_FILE = TEST_DATA / "correctness-controls.json"
 

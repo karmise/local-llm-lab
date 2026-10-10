@@ -15,9 +15,9 @@ from llm_testkit.config import Settings
 from llm_testkit.evaluation.faithfulness import evaluate_sample_report, load_sample, main, score_sample, validate_result
 from llm_testkit.reporting.steps import title
 from test_support.builders.faithfulness import make_result, make_sample
+from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
 from test_support.builders.ollama import chat_response, model_catalog
 from test_support.builders.optional import load_ollama_judge
-from test_support.data.common import MODEL_DIGEST, TEST_MODEL
 
 pytestmark = pytest.mark.unit
 

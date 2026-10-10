@@ -16,11 +16,11 @@ from llm_testkit.evaluation.judge_validation import (
         evaluate_judge_controls, label_mismatches, main, result_from_evidence, score_control, summarize_validation)
 from llm_testkit.reporting.steps import title
 from test_support.builders.golden import GOLDEN_DATASET
+from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
 from test_support.builders.judge_validation import (
         JUDGE_CONTROLS_FILE, RECALL_STATEMENTS, control, control_outputs, curated_controls)
 from test_support.builders.ollama import chat_response, model_catalog
 from test_support.builders.optional import load_ollama_judge
-from test_support.data.common import MODEL_DIGEST, TEST_MODEL
 from test_support.paths import AUTOMATION_ROOT
 
 pytestmark = pytest.mark.unit

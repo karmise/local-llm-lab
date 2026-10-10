@@ -15,7 +15,7 @@ from llm_testkit.reporting.steps import title
 from test_support.builders.anythingllm import chat_reply
 from test_support.builders.conversation import CONVERSATION_FILE, catalog_json, conversation_cases
 from test_support.builders.golden import POLICY_FILE, TEST_DATA
-from test_support.data.common import POLICY_DOCUMENT_TITLE
+from test_support.builders.identities import POLICY_DOCUMENT_TITLE
 from test_support.fixtures.conversation import conversation_chat, conversation_metadata
 from test_support.paths import AUTOMATION_ROOT
 

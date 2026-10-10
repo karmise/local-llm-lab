@@ -2,7 +2,7 @@ import pytest
 
 from llm_testkit import assertions
 from llm_testkit.reporting.steps import title
-from test_support.data.installation import DECLARED_MODELS, PINNED_LIBRARIES
+from test_support.builders.installation import DECLARED_MODELS, PINNED_LIBRARIES
 
 pytestmark = pytest.mark.iq
 

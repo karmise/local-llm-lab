@@ -5,7 +5,7 @@ import json
 from requests import Response
 
 from test_support.builders.golden import POLICY_FILE
-from test_support.data.common import POLICY_DOCUMENT_TITLE
+from test_support.builders.identities import POLICY_DOCUMENT_TITLE
 
 
 def chat_reply(answer: str, *, source: str | None = None, document: str = POLICY_DOCUMENT_TITLE) -> Response:

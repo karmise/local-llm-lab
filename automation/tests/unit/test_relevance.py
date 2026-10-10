@@ -17,11 +17,11 @@ from llm_testkit.evaluation.relevance import (
 from llm_testkit.reporting.steps import title
 from test_support.builders.golden import (
         GOLDEN_DATASET, GOLDEN_DATASET_FILE, PAID_LEAVE, POLICY_FILE, make_paid_leave_sample)
+from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
 from test_support.builders.ollama import chat_response, model_catalog
 from test_support.builders.optional import load_ollama_judge
 from test_support.builders.relevance import (
         ALLOWANCE_CLAIM, make_relevance_evidence, make_result, precision_verdicts, recall_classifications)
-from test_support.data.common import MODEL_DIGEST, TEST_MODEL
 
 pytestmark = pytest.mark.unit
 

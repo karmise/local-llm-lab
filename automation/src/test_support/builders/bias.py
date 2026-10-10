@@ -6,8 +6,8 @@ from typing import Any
 
 from llm_testkit.datasets.bias import BiasCase, load_bias_cases
 from test_support.builders.golden import GOLDEN_DATASET, TEST_DATA
+from test_support.builders.identities import MODEL_DIGEST
 from test_support.builders.junit_xml import write_junit as write_bias_junit
-from test_support.data.common import MODEL_DIGEST
 
 BIAS_FILE = TEST_DATA / "bias-policy.json"
 SETTINGS = {"chatModel": "model", "openAiPrompt": "Policy", "topN": 4}

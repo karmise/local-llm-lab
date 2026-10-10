@@ -6,7 +6,7 @@ from importlib.metadata import version
 
 import pytest
 
-from test_support.data.installation import PINNED_LIBRARIES
+from test_support.builders.installation import PINNED_LIBRARIES
 
 
 @pytest.fixture

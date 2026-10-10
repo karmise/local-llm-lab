@@ -12,7 +12,7 @@ from llm_testkit.reporting.steps import title
 from test_support.builders.adversarial import ADVERSARIAL_FILE, attack_cases, catalog_json
 from test_support.builders.anythingllm import chat_reply
 from test_support.builders.golden import GOLDEN_DATASET, POLICY_FILE, TEST_DATA
-from test_support.data.common import POLICY_DOCUMENT_TITLE
+from test_support.builders.identities import POLICY_DOCUMENT_TITLE
 
 pytestmark = pytest.mark.unit
 

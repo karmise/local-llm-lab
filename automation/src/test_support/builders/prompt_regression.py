@@ -5,7 +5,7 @@ from typing import Any
 
 from llm_testkit.datasets.prompts import PromptCatalog, PromptVariant, load_prompt_catalog
 from test_support.builders.golden import GOLDEN_DATASET, TEST_DATA
-from test_support.data.common import MODEL_DIGEST
+from test_support.builders.identities import MODEL_DIGEST
 
 PROMPTS_FILE = TEST_DATA / "prompt-variants.json"
 CLASSNAME = "tests.test_prompt_regression"

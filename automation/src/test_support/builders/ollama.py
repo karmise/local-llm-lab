@@ -5,7 +5,7 @@ from typing import Any
 
 from requests import Response
 
-from test_support.data.common import TEST_MODEL
+from test_support.builders.identities import TEST_MODEL
 
 
 def chat_response(

@@ -26,9 +26,9 @@ from test_support.builders.correctness import (
         make_faithfulness_evidence, make_result)
 from test_support.builders.golden import (
         GOLDEN_DATASET, GOLDEN_DATASET_FILE, PAID_LEAVE, POLICY_FILE, TEST_DATA, make_paid_leave_sample)
+from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
 from test_support.builders.ollama import chat_response, model_catalog
 from test_support.builders.optional import load_ollama_judge
-from test_support.data.common import MODEL_DIGEST, TEST_MODEL
 from test_support.paths import AUTOMATION_ROOT
 
 pytestmark = pytest.mark.unit

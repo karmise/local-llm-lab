@@ -9,9 +9,9 @@ from requests import HTTPError
 
 from llm_testkit.clients.ollama_client import OllamaClient
 from llm_testkit.reporting.steps import title
+from test_support.builders.identities import TEST_MODEL
 from test_support.builders.ollama import chat_response
 from test_support.builders.optional import load_ollama_judge
-from test_support.data.common import TEST_MODEL
 
 pytestmark = pytest.mark.unit
 

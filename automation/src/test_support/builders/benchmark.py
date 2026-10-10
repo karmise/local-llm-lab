@@ -18,7 +18,6 @@ from llm_testkit.reporting.gates import METRICS, load_quality_gates
 from test_support.builders.calibration import CONTROLS_FILE
 from test_support.builders.golden import CASES, GOLDEN_DATASET, TEST_DATA, make_case_sample
 from test_support.builders.ollama import model_catalog
-from test_support.data import common as case_data
 
 QUALITY_GATES_FILE = TEST_DATA / "quality-gates.json"
 QUALITY_GATES = load_quality_gates(QUALITY_GATES_FILE)
@@ -211,8 +210,8 @@ def make_generate_stub(dataset, monkeypatch, *, metadata=None):
         case = CASES[identifier]
         sample = make_benchmark_sample(case, model, model_digest=JUDGE_DIGEST)
         sample["metadata"].update(metadata(root, identifier, model) if metadata else {})
-        write_sample(directory / case_data.SAMPLE_FILE_NAME, sample)
-        patch_metric_reports(monkeypatch, make_metric_evidence(case, directory / case_data.SAMPLE_FILE_NAME))
+        write_sample(directory / "sample.json", sample)
+        patch_metric_reports(monkeypatch, make_metric_evidence(case, directory / "sample.json"))
         junit = directory / "generation.xml"
         junit.write_text(
                 f'<testsuite><testcase classname="tests.test_golden_rag" name="test_golden_policy_answer[{identifier}-{model}]"/></testsuite>'

@@ -5,7 +5,7 @@ from typing import Any
 
 from llm_testkit.datasets.golden import GoldenCase, load_golden_dataset
 from llm_testkit.observation.evaluation_sample import build_sample
-from test_support.data.common import TEST_MODEL
+from test_support.builders.identities import TEST_MODEL
 from test_support.paths import AUTOMATION_ROOT
 
 TEST_DATA = AUTOMATION_ROOT / "test_data"

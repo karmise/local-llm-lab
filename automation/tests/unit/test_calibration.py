@@ -19,8 +19,8 @@ from llm_testkit.evaluation.calibration import evaluate_controls, load_controls,
 from llm_testkit.reporting.steps import title
 from test_support.builders.calibration import CONTROLS_FILE, make_catalog, make_control, make_matching_result
 from test_support.builders.golden import make_paid_leave_sample
+from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
 from test_support.builders.ollama import model_catalog
-from test_support.data.common import MODEL_DIGEST, TEST_MODEL
 
 pytestmark = pytest.mark.unit
 

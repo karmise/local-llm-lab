@@ -3,7 +3,7 @@
 from typing import Any
 
 from llm_testkit.observation.evaluation_sample import build_sample
-from test_support.data.common import TEST_MODEL
+from test_support.builders.identities import TEST_MODEL
 
 QUESTION = "How much leave?"
 ANSWER = "Employees receive 23 working days."
