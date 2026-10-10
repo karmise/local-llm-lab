@@ -138,6 +138,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Resource fixtures | `test_support/fixtures/resources.py` | `test_resource_lifecycle.py` | not measurable (see below) |
 | HTTP clients | `core/http_client.py`, `clients/anythingllm_client.py`, `clients/ollama_client.py` | `test_http_clients.py` | 35.5% → 97.1% |
 | Observation | `observation/evaluation_sample.py` | `test_observation.py` | 60.2% → 90.6% |
+| Shared assertions | `assertions.py` | `test_assertions.py` | 33.2% → 89.6% (83 mutants are in UI and domain checks tested by other modules) |
 
 Domains not listed still follow step 35.
 
