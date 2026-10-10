@@ -139,6 +139,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | HTTP clients | `core/http_client.py`, `clients/anythingllm_client.py`, `clients/ollama_client.py` | `test_http_clients.py` | 35.5% → 97.1% |
 | Observation | `observation/evaluation_sample.py` | `test_observation.py` | 60.2% → 90.6% |
 | Shared assertions | `assertions.py` | `test_assertions.py` | 33.2% → 89.6% (83 mutants are in UI and domain checks tested by other modules) |
+| Pytest options | `pytest_support/options.py` | `test_pytest_options.py` | not measurable (see below) |
 
 Domains not listed still follow step 35.
 
@@ -172,6 +173,12 @@ Findings recorded during migration, for the framework step:
 - Resource fixtures run only inside child pytest sessions, which mutmut cannot attribute to the
   outer test, whether the child runs in a subprocess or in-process. The rewrite covers every setup
   step and every cleanup check (15 scenarios instead of 7), asserting the exact API calls in order.
+- Pytest options: like the resource fixtures, the hooks run in child sessions. mutmut reports the same
+  110/577 before and after, which only reflects code the outer session runs. The rewrite has 58 tests
+  instead of 13, covering every opt-in flag, usage error and matrix id.
+- Pytest options: `pytest.UsageError` raised in `pytest_generate_tests` (invalid catalog or unknown
+  prompt variant) surfaces as a collection error, exit code 2, not as a usage error with exit code 4.
+  The run still fails before any model call.
 - `pytest.raises(match=...)` searches for the message as a substring, so mutants that wrap a
   message in extra characters (`"XX...XX"`) survive. Most remaining survivors are of this kind.
   The tests deliberately match only the rule's wording rather than the whole message.
