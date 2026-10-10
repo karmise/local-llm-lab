@@ -22,9 +22,10 @@ from llm_testkit.evaluation.correctness import (
 from llm_testkit.reporting.quality import build_quality_report
 from llm_testkit.reporting.steps import title
 from test_support.builders.correctness import (
-        CONTROLS_FILE, GOLDEN_DATASET, GOLDEN_DATASET_FILE, PAID_LEAVE, POLICY_FILE, TEST_DATA, judge_calls,
-        judge_outputs, labelled_claims, make_application_sample, make_correctness_evidence, make_faithfulness_evidence,
-        make_result)
+        CONTROLS_FILE, judge_calls, judge_outputs, labelled_claims, make_correctness_evidence,
+        make_faithfulness_evidence, make_result)
+from test_support.builders.golden import (
+        GOLDEN_DATASET, GOLDEN_DATASET_FILE, PAID_LEAVE, POLICY_FILE, TEST_DATA, make_paid_leave_sample)
 from test_support.builders.ollama import chat_response, model_catalog
 from test_support.builders.optional import load_ollama_judge
 from test_support.data.common import MODEL_DIGEST, TEST_MODEL
@@ -73,7 +74,7 @@ def scripted_judge(result: dict) -> tuple[Any, Mock]:
 def test_ragas_factual_f1_follows_judge_verdicts(response_labels, reference_labels, expected_f1):
     judge, client = scripted_judge(make_result(response_labels, reference_labels))
 
-    result = asyncio.run(score_correctness(make_application_sample(), judge))
+    result = asyncio.run(score_correctness(make_paid_leave_sample(), judge))
 
     assert result["value"] == expected_f1
     assert client.structured_chat.call_count == 4
@@ -89,7 +90,7 @@ def test_scoring_uses_recorded_metric_configuration(monkeypatch):
     metric = Mock(wraps=collections.FactualCorrectness)
     monkeypatch.setattr(collections, "FactualCorrectness", metric)
 
-    asyncio.run(score_correctness(make_application_sample(), judge))
+    asyncio.run(score_correctness(make_paid_leave_sample(), judge))
 
     metric.assert_called_once_with(llm=judge, **METRIC_CONFIGURATION)
 
@@ -148,7 +149,7 @@ def test_result_from_calls_requires_four_calls():
 
 @title("A captured sample binds to its golden case when question, reference and provenance match")
 def test_bind_case_accepts_matching_sample():
-    sample = make_application_sample()
+    sample = make_paid_leave_sample()
     sample["metadata"] = {
             "golden_case_id": PAID_LEAVE.id,
             "golden_dataset_sha256": GOLDEN_DATASET.sha256,
@@ -171,7 +172,7 @@ def test_bind_case_accepts_matching_sample():
         id="stale-policy")])
 @title("Samples with edited inputs or stale golden provenance are rejected [{param_id}]")
 def test_bind_case_rejects_unbound_sample(corrupt, error):
-    sample = make_application_sample()
+    sample = make_paid_leave_sample()
     corrupt(sample)
 
     with pytest.raises(ValueError, match=error):
@@ -181,12 +182,12 @@ def test_bind_case_rejects_unbound_sample(corrupt, error):
 @title("Binding to a case that is not in the golden dataset is rejected")
 def test_bind_case_rejects_unknown_case():
     with pytest.raises(ValueError, match="Unknown golden case"):
-        bind_case(make_application_sample(), GOLDEN_DATASET, "not_in_dataset")
+        bind_case(make_paid_leave_sample(), GOLDEN_DATASET, "not_in_dataset")
 
 
 @title("Saved correctness evidence is accepted when bound to its sample, case and raw judge calls")
 def test_evidence_check_returns_validated_measurement():
-    sample = make_application_sample()
+    sample = make_paid_leave_sample()
 
     checked = check_correctness_evidence(make_correctness_evidence(sample), "sample", sample, GOLDEN_DATASET)
 
@@ -217,7 +218,7 @@ def test_evidence_check_returns_validated_measurement():
         pytest.param({"judge_calls": []}, "two decompositions and two claim verifications", id="missing-raw-calls")])
 @title("Correctness evidence that is unfinished, synthetic or bound to other inputs is rejected [{param_id}]")
 def test_evidence_check_rejects_unbound_evidence(changes, error):
-    sample = make_application_sample()
+    sample = make_paid_leave_sample()
     evidence = {**make_correctness_evidence(sample), **changes}
 
     with pytest.raises(ValueError, match=error):
@@ -226,7 +227,7 @@ def test_evidence_check_rejects_unbound_evidence(changes, error):
 
 @title("A summary that differs from internally consistent raw judge calls is rejected")
 def test_evidence_check_rejects_summary_that_differs_from_raw_calls():
-    sample = make_application_sample()
+    sample = make_paid_leave_sample()
     evidence = make_correctness_evidence(sample)
     # The raw calls are valid on their own, so only the summary comparison can detect the substitution.
     evidence["judge_calls"] = judge_calls(make_result(reference_claims=["Other claim 0", "Other claim 1"]))
@@ -320,7 +321,7 @@ def test_check_control_rejects_disagreeing_labels(
 @pytest.fixture
 def saved_evidence(tmp_path):
     """A captured sample with faithfulness and low-score correctness evidence saved next to it."""
-    sample = make_application_sample()
+    sample = make_paid_leave_sample()
     sample_path = tmp_path / "sample.json"
     sample_path.write_text(json.dumps(sample))
     checksum = hashlib.sha256(sample_path.read_bytes()).hexdigest()
@@ -369,7 +370,7 @@ def offline_service(tmp_path, monkeypatch):
     """evaluate_correctness_report with the Ollama transport, model catalog and judge replaced by doubles."""
     pytest.importorskip("ragas")
     sample_path = tmp_path / "sample.json"
-    sample_path.write_text(json.dumps(make_application_sample()))
+    sample_path.write_text(json.dumps(make_paid_leave_sample()))
     service = SimpleNamespace(sample_path=sample_path, transport=Mock(), ollama=Mock(), judge=Mock())
     service.ollama.list_models.return_value = model_catalog((TEST_MODEL, MODEL_DIGEST))
     service.judge.configure_mock(calls=[{"output": "raw judge call"}], options={"temperature": 0})
@@ -540,7 +541,8 @@ def test_cli_passes_selected_inputs(run_cli, cli_evaluation, tmp_path, monkeypat
         pytest.param(["sample.json", "--output", "out.json"], id="without-case"),
         pytest.param(["sample.json", "--case", "paid_leave"], id="without-output")])
 @title("The CLI requires the golden case and an output file [{param_id}]")
-def test_cli_requires_case_and_output(cli_evaluation, monkeypatch, arguments):
+def test_cli_requires_case_and_output(cli_evaluation, monkeypatch, tmp_path, arguments):
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("sys.argv", ["correctness", *arguments])
 
     with pytest.raises(SystemExit) as stopped:

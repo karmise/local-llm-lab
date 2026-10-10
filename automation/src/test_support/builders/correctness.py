@@ -5,18 +5,11 @@ from collections.abc import Sequence
 from copy import deepcopy
 from typing import Any
 
-from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.evaluation.correctness import METRIC_CONFIGURATION
-from llm_testkit.observation.evaluation_sample import build_sample
+from test_support.builders.golden import GOLDEN_DATASET, PAID_LEAVE, TEST_DATA
 from test_support.data.common import MODEL_DIGEST, TEST_MODEL
-from test_support.paths import AUTOMATION_ROOT
 
-TEST_DATA = AUTOMATION_ROOT / "test_data"
-POLICY_FILE = TEST_DATA / "company-policy.txt"
-GOLDEN_DATASET_FILE = TEST_DATA / "golden-policy.json"
 CONTROLS_FILE = TEST_DATA / "correctness-controls.json"
-GOLDEN_DATASET = load_golden_dataset(GOLDEN_DATASET_FILE, POLICY_FILE)
-PAID_LEAVE = next(case for case in GOLDEN_DATASET.cases if case.id == "paid_leave")
 
 
 def labelled_claims(claims: Sequence[str], labels: Sequence[int]) -> list[dict[str, Any]]:
@@ -58,30 +51,6 @@ def judge_outputs(result: dict[str, Any]) -> list[dict[str, Any]]:
 def judge_calls(result: dict[str, Any]) -> list[dict[str, Any]]:
     """Judge calls as OllamaJudge records them; independent copies of the result's claims."""
     return [{"output": output} for output in judge_outputs(deepcopy(result))]
-
-
-def make_application_sample() -> dict[str, Any]:
-    """A captured paid-leave sample: the answer equals the golden reference, the context is the policy."""
-    capture_id = "a" * 32
-    document = f"automation-{capture_id}-company-policy.txt"
-    context = f"<document_metadata>\nsourceDocument: {document}\n</document_metadata>\n" + POLICY_FILE.read_text()
-    system_prompt = f"[LLM_TESTKIT_CAPTURE:{capture_id}]\n[CONTEXT 0]:\n{context}\n[END CONTEXT 0]"
-    observation = {
-            "schema_version": 1,
-            "boundary": "ollama-sdk-chat",
-            "request": {
-            "model": TEST_MODEL,
-            "stream": False,
-            "messages": [{
-            "role": "system",
-            "content": system_prompt}, {
-            "role": "user",
-            "content": PAID_LEAVE.question}]}}
-    sample = build_sample(
-            observation, question=PAID_LEAVE.question, answer=PAID_LEAVE.reference, reference=PAID_LEAVE.reference,
-            expected_model=TEST_MODEL, capture_id=capture_id)
-    sample["response_sources"] = [{"title": document, "text": context}]
-    return sample
 
 
 def make_correctness_evidence(
