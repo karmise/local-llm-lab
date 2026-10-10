@@ -26,17 +26,13 @@ def test_trailing_capture_marker_is_removed():
         pytest.param(f"{MARKER}\nPolicy", id="leading"),
         pytest.param(f"Policy {MARKER}", id="without-newline"),
         pytest.param(f"Policy\n{MARKER}\nMore", id="not-at-end"),
+        pytest.param(f"Policy\n{MARKER}\n", id="before-final-newline"),
         pytest.param("Policy\n[LLM_TESTKIT_CAPTURE:" + "A" * 32 + "]", id="uppercase-id"),
         pytest.param("Policy\n[LLM_TESTKIT_CAPTURE:" + "a" * 31 + "]", id="short-id"),
         pytest.param("Policy\n[OTHER_CAPTURE:" + "a" * 32 + "]", id="other-marker")])
 @title("Any prompt text other than a trailing capture marker is an experiment setting and is kept [{param_id}]")
 def test_other_prompt_text_is_kept(prompt):
     assert normalize_configuration({"openAiPrompt": prompt})["openAiPrompt"] == prompt
-
-
-@title("A marker followed only by a final newline still counts as trailing; the newline is kept")
-def test_marker_before_final_newline_is_removed():
-    assert normalize_configuration({"openAiPrompt": f"Policy\n{MARKER}\n"})["openAiPrompt"] == "Policy\n"
 
 
 @title("A configuration without a prompt is copied unchanged")
