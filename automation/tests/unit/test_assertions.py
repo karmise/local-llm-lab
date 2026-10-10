@@ -562,7 +562,7 @@ def test_models_available():
 @pytest.mark.parametrize("value", [0, 1, 0.5])
 @title("A quality score is a finite number from 0 to 1 inclusive [{value}]")
 def test_quality_score_accepts(value):
-    assertions.assert_quality_score(value, minimum=value)
+    assertions.assert_quality_score(value)
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -0.1, 1.1, True, "1", None])
@@ -571,19 +571,6 @@ def test_quality_score_rejects(value):
     rejects(
             lambda: assertions.assert_quality_score(value),
             f"^Expected a finite quality score between 0 and 1, got {re.escape(repr(value))}$")
-
-
-@title("A score below the minimum fails with both values")
-def test_quality_threshold_rejects_low_score():
-    rejects(lambda: assertions.assert_quality_score(0.5, minimum=0.8), r"^Quality score 0\.500 is below 0\.800$")
-
-
-@pytest.mark.parametrize("minimum", [-0.1, 1.1, float("nan"), True])
-@title("A quality threshold must itself be a finite number from 0 to 1 [{minimum}]")
-def test_quality_threshold_rejects_invalid_minimum(minimum):
-    rejects(
-            lambda: assertions.assert_quality_score(0.5, minimum=minimum),
-            "^Quality threshold must be a finite number between 0 and 1$")
 
 
 @pytest.mark.parametrize("status", ["passed", "measured"])

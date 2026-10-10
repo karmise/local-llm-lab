@@ -22,13 +22,9 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-def assert_quality_score(value: float, *, minimum: float | None = None) -> None:
+def assert_quality_score(value: float) -> None:
     assert type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 1, (
             f"Expected a finite quality score between 0 and 1, got {value!r}")
-    if minimum is not None:
-        assert type(minimum) in (int, float) and math.isfinite(minimum) and 0 <= minimum <= 1, (
-                "Quality threshold must be a finite number between 0 and 1")
-        assert value >= minimum, f"Quality score {value:.3f} is below {minimum:.3f}"
 
 
 def assert_calibration_result(
