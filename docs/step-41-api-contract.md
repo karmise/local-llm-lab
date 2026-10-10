@@ -31,3 +31,11 @@ python -m pytest -m 'smoke or api'
 - Delete, update and indexing of an unknown workspace answer plain-text `Bad Request`, while
   chat and vector search answer JSON. Tests check the status for the plain-text routes and the
   JSON fields for the others.
+
+## In CI
+
+The `Fresh RAG quality` workflow runs the health, authentication and contract tests right
+after it bootstraps the disposable application and before any model call, so a broken API
+contract fails the run in seconds instead of after the benchmark. Their JUnit report is
+written to `reports/ci/api/contract.xml`, redacted with the rest of the reports and kept in
+the `fresh-rag-evidence` artifact.
