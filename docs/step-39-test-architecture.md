@@ -132,6 +132,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Stability summary | `reporting/stability.py` | `test_stability.py` | 58.7% → 93.1% |
 | JUnit reader | `reporting/junit.py` | `test_junit.py` | 57.3% → 100% |
 | Reporting steps | `reporting/steps.py` | `test_reporting_steps.py` | 3.8% → 100% |
+| CI | `ci/benchmark.py`, `ci/environment.py`, `ci/model_cache.py`, `reporting/redaction.py` | `test_ci_benchmark.py`, `test_ci_environment.py`, `test_model_cache.py`, `test_redaction.py` | 38.5% → 92.9% |
 
 Domains not listed still follow step 35.
 
@@ -156,6 +157,9 @@ Findings recorded during migration, for the framework step:
   whose `policy_sha256` differs, so its own "Captured policy does not match reviewed dataset"
   branch is unreachable. A changed prompt is also reported twice, as `prompt_sha256` and as
   `retrieval_configuration`, because the configuration comparison excludes only `chatModel`.
+- CI: the old "changed generation weights" case edited a saved sample, so the saved-benchmark
+  checksum rejected it before the CI weight check ran. The new test produces a comparison run whose
+  second model's weights differ from the lock, so the CI weight check itself fails.
 - `pytest.raises(match=...)` searches for the message as a substring, so mutants that wrap a
   message in extra characters (`"XX...XX"`) survive. Most remaining survivors are of this kind.
   The tests deliberately match only the rule's wording rather than the whole message.

@@ -204,10 +204,13 @@ def make_calibrate_stub(calibration):
     return calibrate
 
 
-def make_generate_stub(dataset, monkeypatch):
+def make_generate_stub(dataset, monkeypatch, *, metadata=None):
+    """Generation that writes a passing sample, its JUnit and judge evidence; ``metadata(root, case, model)``
+    adds sample metadata."""
     def generate(root, directory, identifier, model):
         case = CASES[identifier]
         sample = make_benchmark_sample(case, model, model_digest=JUDGE_DIGEST)
+        sample["metadata"].update(metadata(root, identifier, model) if metadata else {})
         write_sample(directory / case_data.SAMPLE_FILE_NAME, sample)
         patch_metric_reports(monkeypatch, make_metric_evidence(case, directory / case_data.SAMPLE_FILE_NAME))
         junit = directory / "generation.xml"
