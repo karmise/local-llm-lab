@@ -123,6 +123,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Golden dataset | `datasets/golden.py`, `datasets/validation.py` | `test_golden_dataset.py` | 72.5% → 96.3% |
 | Adversarial inputs | `datasets/adversarial.py` | `test_adversarial.py` | 41.4% → 90.8% |
 | Counterfactual bias | `datasets/bias.py`, `reporting/bias.py` | `test_bias.py` | 53.4% → 94.2% |
+| Conversation | `datasets/conversation.py` | `test_conversation.py` | 75.6% → 96.1% |
 
 Domains not listed still follow step 35.
 
