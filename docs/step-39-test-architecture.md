@@ -134,6 +134,9 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Reporting steps | `reporting/steps.py` | `test_reporting_steps.py` | 3.8% → 100% |
 | CI | `ci/benchmark.py`, `ci/environment.py`, `ci/model_cache.py`, `reporting/redaction.py` | `test_ci_benchmark.py`, `test_ci_environment.py`, `test_model_cache.py`, `test_redaction.py` | 38.5% → 92.9% |
 | Configuration provenance | `core/provenance.py` | `test_provenance.py` | 73.3% → 100% |
+| Settings | `config.py` | `test_config.py` | 81.9% → 97.3% |
+| Resource fixtures | `test_support/fixtures/resources.py` | `test_resource_lifecycle.py` | not measurable (see below) |
+| HTTP clients | `core/http_client.py`, `clients/anythingllm_client.py`, `clients/ollama_client.py` | `test_http_clients.py` | 35.5% → 97.1% |
 
 Domains not listed still follow step 35.
 
