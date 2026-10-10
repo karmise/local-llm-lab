@@ -3,5 +3,3 @@
 from test_support.paths import AUTOMATION_ROOT
 
 ROOT = AUTOMATION_ROOT
-
-ANSWER_DURATION_SECONDS = 12.5

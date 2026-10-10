@@ -115,8 +115,14 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Benchmark plan | `datasets/benchmark.py` | `test_benchmark_plan.py` | 65.3% → 94.2% |
 | Benchmark case | `evaluation/benchmark.py` | `test_benchmark_case.py` | 68.6% → 97.5% |
 | Benchmark summary | `reporting/benchmark.py` | `test_benchmark_summary.py` | 65.0% → 94.0% |
+| Benchmark runner | `evaluation/benchmark_runner.py` | `test_benchmark_runner.py` | 48.5% → 85.6% |
+| Saved benchmark evidence | `reporting/benchmark_evidence.py` | `test_benchmark_evidence.py` | 69.7% → 89.2% |
 
 Domains not listed still follow step 35.
+
+Mutation runs were made on macOS, whose file system ignores letter case. Mutants that only change
+the case of a file name (`MANIFEST.JSON`) therefore survive locally but would fail on the Linux CI runner;
+37 of the runner/evidence survivors are of this kind.
 
 Findings recorded during migration, for the framework step:
 

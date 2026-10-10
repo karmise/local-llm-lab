@@ -166,7 +166,7 @@ def make_calibration(definition: dict) -> dict:
             "status": "matched"} for _ in definition["control_ids"]]}
 
 
-# Doubles below still serve not-yet-migrated runner, CI and judge-validation tests.
+# Run doubles shared with the CI and judge-validation tests.
 
 
 def make_calibrate_stub(calibration):
@@ -218,25 +218,5 @@ def make_generate_stub(dataset, monkeypatch):
     return generate
 
 
-def make_subprocess_run_stub(sample_path):
-    def subprocess_run(command, **kwargs):
-        junit_path = Path(command[command.index("--junitxml") + 1])
-        junit_path.write_text(
-                f'<testsuite><testcase classname="tests.test_golden_rag" name="test_golden_policy_answer[paid_leave-qwen3.5:4b]"><properties><property name="evaluation_sample" value="{sample_path}"/></properties><error message="Cleanup failed"/></testcase></testsuite>'
-        )
-        return Mock(returncode=1)
-
-    return subprocess_run
-
-
-def make_forged_benchmark_summary(tmp_path):
-    for name in ("golden-policy.json", "quality-gates.json", "faithfulness-controls.json", "company-policy.txt"):
-        (tmp_path / name).write_bytes((TEST_DATA / name).read_bytes())
-
-
 def make_judge_model_catalog():
     return {"models": [{"name": MODEL, "digest": JUDGE_DIGEST}]}
-
-
-def make_forged_saved_report(definition):
-    return {"manifest": definition, "results": [], "calibration": {"status": "error"}, "status": "checks_passed"}
