@@ -124,3 +124,22 @@ def test_quality_threshold_rejects_low_score():
 def test_quality_threshold_rejects_invalid_minimum(minimum):
     with pytest.raises(AssertionError, match="threshold must be a finite number"):
         assertions.assert_quality_score(0.5, minimum=minimum)
+
+
+@title("A faithful but incomplete answer still fails the required-fact check")
+def test_rag_answer_requires_every_requested_fact():
+    reply = {
+            "type": "textResponse",
+            "error": None,
+            "close": True,
+            "textResponse": "Each employee receives 23 working days of paid leave per year.",
+            "sources": [{
+            "title": case_data.POLICY_DOCUMENT_TITLE,
+            "text": "23 working days; 12 calendar days"}]}
+    facts = {"23 working days": r"\b23\s+working\s+days\b", "12 calendar days": r"\b12\s+calendar\s+days\b"}
+
+    with pytest.raises(AssertionError, match="12 calendar days"):
+        assertions.assert_rag_answer(
+                _response(json.dumps(reply).encode()), fact_patterns=facts,
+                document_title=case_data.POLICY_DOCUMENT_TITLE,
+                source_fragments=("23 working days", "12 calendar days"))

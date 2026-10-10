@@ -111,6 +111,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Correctness | `evaluation/correctness.py` | `test_correctness.py` | 49.7% → 92.2% |
 | Faithfulness and judge | `evaluation/faithfulness.py`, `evaluation/ollama_judge.py` | `test_faithfulness.py`, `test_ollama_judge.py` | 58.6% → 94.1% |
 | Context relevance | `evaluation/relevance.py` | `test_relevance.py` | 49.7% → 94.0% |
+| Faithfulness controls | `evaluation/calibration.py`, `core/number_words.py` | `test_calibration.py` | 34.2% → 92.0% |
 
 Domains not listed still follow step 35.
 
@@ -119,6 +120,9 @@ Findings recorded during migration, for the framework step:
 - Faithfulness: an empty verdict list becomes a NaN score and is rejected as an invalid
   quality score (`AssertionError`) rather than as missing verdicts (`ValueError`).
 - `assert_quality_score(minimum=...)` is used only by tests; no gate calls it.
+- Calibration separates `matched` from `mismatch` by catching the `AssertionError` raised by
+  `assert_calibration_result`. Under `python -O` those assertions are removed, so every
+  control would be reported as matched regardless of the judge's verdicts.
 - CLI tests that omit a required argument must run in a temporary directory. Otherwise a
   mutant that accepts the missing argument writes `out.json` to the working directory,
   and a later run fails for an unrelated reason, so the mutant survives undetected.
