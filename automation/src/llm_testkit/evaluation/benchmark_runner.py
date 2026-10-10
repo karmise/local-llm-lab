@@ -24,6 +24,7 @@ from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.reporting.benchmark import markdown, review_worksheet, summarize
 from llm_testkit.reporting.gates import load_quality_gates
 from llm_testkit.reporting.junit import read_junit
+from llm_testkit.reporting.redaction import redact_files
 
 
 def generate_sample(root: Path, directory: Path, case_id: str, model: str) -> dict:
@@ -37,6 +38,8 @@ def generate_sample(root: Path, directory: Path, case_id: str, model: str) -> di
     environment = {**os.environ, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_ADDOPTS": ""}
     with (directory / "generation.log").open("x", encoding="utf-8") as log:
         process = subprocess.run(command, cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT, check=False)
+    settings = Settings.from_env(root.parent / ".runtime/anythingllm-api-key")
+    redact_files((directory / "generation.log", directory / "generation.xml"), settings.api_key)
     junit = read_junit(directory / "generation.xml")
     if len(junit.cases) != 1:
         raise ValueError("Generation must produce exactly one JUnit case")

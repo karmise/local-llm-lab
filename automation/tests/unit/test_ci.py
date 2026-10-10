@@ -6,6 +6,8 @@ import pytest
 from llm_testkit.ci import environment
 from llm_testkit.ci.benchmark import execution_context, inputs
 from llm_testkit.ci.model_cache import reviewed_manifest
+from llm_testkit.evaluation.benchmark_runner import generate_sample
+from llm_testkit.reporting.redaction import redact_files
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors, values
 from test_support.data.benchmark import ROOT
@@ -16,6 +18,8 @@ from test_support.fixtures.unit_benchmark import benchmark_data as benchmark_dat
 from test_support.fixtures.unit_ci import bootstrap_service as bootstrap_service
 from test_support.fixtures.unit_ci import capture_permissions as capture_permissions
 from test_support.fixtures.unit_ci import ci_run as ci_run
+from test_support.fixtures.unit_ci import credential_reports as credential_reports
+from test_support.fixtures.unit_ci import failed_generation as failed_generation
 from test_support.fixtures.unit_ci import hosted_environment as hosted_environment
 from test_support.fixtures.unit_ci import model_service as model_service
 from test_support.fixtures.unit_ci import reviewed_blob as reviewed_blob
@@ -118,3 +122,40 @@ def test_invalid_blob(reviewed_blob, content):
     reviewed_blob.replace_bytes(content)
     errors.rejects(reviewed_blob.download, expected=ValueError)
     values.falsy(reviewed_blob.files())
+
+
+@title("Archived tracebacks remove repeated credentials while preserving failure diagnostics and sample bytes")
+def test_redact_reports(credential_reports):
+    directory, secret = credential_reports
+    values.equal(redact_files(directory.rglob("*"), secret), 2)
+    values.excludes((directory / "generation.log").read_text(), secret)
+    values.contains((directory / "generation.log").read_text(), "ReadTimeout")
+    values.excludes((directory / "generation.xml").read_text(), secret)
+    values.equal((directory / "sample.json").read_text(), '{"answer": "Preserved evidence"}')
+    values.equal(redact_files(directory.rglob("*"), secret), 0)
+
+
+@title("Reports are redacted before JUnit parsing and evidence checksum calculation even on failed generation")
+def test_redact_before_generation_hash(failed_generation):
+    root, directory, secret, inspected = failed_generation
+    errors.rejects(
+            lambda: generate_sample(root, directory, "paid_leave", "qwen3.5:4b"), expected=ValueError,
+            match="no captured sample")
+    content, digest = inspected[0]
+    values.excludes(content, secret.encode())
+    values.equal(digest, hashlib.sha256(content).hexdigest())
+    values.contains(content, b"ReadTimeout")
+
+
+@title("Absent bootstrap credentials do not modify diagnostic reports")
+def test_no_redaction_secret(credential_reports):
+    directory, _ = credential_reports
+    values.equal(redact_files(directory.rglob("*"), None), 0)
+
+
+@title("Credential scrub refuses linked evidence rather than modifying an external file")
+def test_redaction_symlink(credential_reports):
+    directory, secret = credential_reports
+    linked = directory / "linked.log"
+    linked.symlink_to(directory / "generation.log")
+    errors.rejects(lambda: redact_files((linked, ), secret), expected=ValueError, match="symlink")

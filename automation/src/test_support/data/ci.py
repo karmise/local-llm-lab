@@ -23,3 +23,7 @@ const result = new Client().chat({messages: [{role: 'system', content: '[LLM_TES
 const saved = fs.readdirSync(process.argv[2])[0];
 console.log(JSON.stringify({mode: fs.statSync(process.argv[2] + '/' + saved).mode & 511, result}));
 """
+
+REPORT_SECRET = "DISPOSABLE-TEST-CREDENTIAL"
+REPORT_TRACE = f"Authorization: Bearer {REPORT_SECRET}\nReadTimeout: request failed\n{REPORT_SECRET}\n"
+REPORT_XML = f'<testsuite><testcase name="test_golden_policy_answer[paid_leave-qwen3.5:4b]"><failure message="ReadTimeout">{REPORT_SECRET}</failure></testcase></testsuite>'

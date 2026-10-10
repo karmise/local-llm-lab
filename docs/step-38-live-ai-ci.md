@@ -43,7 +43,7 @@ reason to silently repeat an answer. Downloads have their own 30-minute limit.
 ## Isolated application setup
 
 `compose.ci.yaml` is a standalone configuration, never a local Compose overlay.
-It pins AnythingLLM 1.16.2 and Ollama 0.40.2 by image digest, puts the two services
+It pins AnythingLLM 1.16.2 and Ollama 0.35.0 by image digest, puts the two services
 on an internal Compose network and binds their published ports to loopback.
 Each run/attempt has a unique `rag-ci-...` project and its own disposable volumes.
 The final cleanup removes only those volumes; it never touches the local lab.
@@ -61,7 +61,10 @@ installed management endpoint. Bootstrap is restricted to GitHub-hosted runners,
 refuses an existing key, masks the new secret in Actions, verifies authentication
 and writes an owner-only file. No local API key, repository secret or external
 model account is required. The private runtime directory and storage database are
-excluded from uploads. This setup is specifically for the disposable pinned
+excluded from uploads. Generation logs and JUnit are scrubbed of the known API
+key before parsing and hashing; a final scrub covers the report tree before
+upload. A failed scrub prevents upload. Console masking alone is insufficient
+for archive files. This setup is specifically for the disposable pinned
 application, not a way to administer an existing production application.
 
 The application container and Ubuntu runner have different UIDs. CI explicitly
@@ -172,7 +175,7 @@ neither workflow nor report builder changes thresholds to obtain a green run.
 
 ## Verification
 
-Offline verification passed 595 unit cases with 81.14% combined statement/branch
+Offline verification passed 599 unit cases with 81.21% combined statement/branch
 coverage, above the 75% floor. New checks cover all four workload presets,
 commit/source/baseline/plan/model provenance, preserved generation errors,
 bootstrap refusal on developer machines, private key creation, private versus
@@ -206,6 +209,47 @@ The follow-up installs the original manifests and their content-addressed blobs,
 whose availability was checked in the official registry. It also handles the
 container/host capture permissions explicitly. It does not change the reviewed
 model weights, references or thresholds to make that first run pass.
+
+### Full hosted execution and runtime correction
+
+[Run 38030694328](https://github.com/karmise/local-llm-lab/actions/runs/38030694328)
+tested `675a604d1811d03fbb8f44490f22f408658fea32` using the frozen manifests.
+Installation and setup passed. Four declared rows produced execution errors,
+not four valid low quality scores: Ollama 0.40.2 changed the legacy manifest
+identity after inference, and the receipt-boundary generation exceeded 600
+seconds on the CPU runner. The gate independently recomputed an error outcome,
+generated Allure HTML and published a failing commit status. Cleanup completed.
+
+The follow-up pins Ollama 0.35.0, matching the local runtime for the reviewed
+weights, instead of adopting the new runtime's migrated model identity. Judge
+controls also showed disagreements; their labels and thresholds remain unchanged.
+A small hosted smoke run verifies the corrected execution chain without repeating
+the entire expensive matrix. Smoke evidence cannot satisfy the curated merge gate.
+
+A failed-request traceback included the disposable application's API key in the
+archived log and JUnit file. Actions console masking did not redact those files.
+The affected producer artifact was deleted and local diagnostics sanitized; the
+application and its storage had already been destroyed. New redaction occurs
+before evidence hashing and again before upload, with offline checks for repeated
+keys, unchanged answer bytes, failing diagnostics and the parsing/hash order.
+
+### Actual PR merge-gate negative check
+
+[Temporary PR #1](https://github.com/karmise/local-llm-lab/pull/1) changed one
+reviewed model digest to an intentionally incorrect checksum. The main working
+tree and production model lock were unchanged. The actual PR-number workflow
+[run 38032172017](https://github.com/karmise/local-llm-lab/actions/runs/38032172017)
+resolved and tested merge candidate `2639d00b1277f453e7c8796164a997e858d6c619`,
+rather than dispatch commit `838d18534d36842fdb280552b2c8446c024f3efa` or PR head
+`fc3a84448147305d452f9bdd93270a62d5a1a6bd`.
+
+Manifest validation failed before blob downloads; application setup and inference
+were skipped, with **zero generation/judge calls**. The independent saved gate
+rejected missing completed evidence, generated Allure HTML and retained failure
+artifacts. `RAG benchmark quality: failure` was published on the merge candidate.
+The non-draft PR's API state was `mergeable_state: blocked`. The PR was then closed
+without merging and its temporary branch deleted. This proves the negative
+integration path and commit targeting; it does not claim a positive quality pass.
 
 ## References
 
