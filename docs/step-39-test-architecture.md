@@ -164,6 +164,9 @@ Findings recorded during migration, for the framework step:
 - Provenance: the capture-marker pattern ends in `$`, which in Python also matches before a final
   newline, so `"Policy\n<marker>\n"` normalises to `"Policy\n"`, not `"Policy"`. `\Z` would make
   the "trailing marker" rule exact.
+- Resource fixtures run only inside child pytest sessions, which mutmut cannot attribute to the
+  outer test, whether the child runs in a subprocess or in-process. The rewrite covers every setup
+  step and every cleanup check (15 scenarios instead of 7), asserting the exact API calls in order.
 - `pytest.raises(match=...)` searches for the message as a substring, so mutants that wrap a
   message in extra characters (`"XX...XX"`) survive. Most remaining survivors are of this kind.
   The tests deliberately match only the rule's wording rather than the whole message.
