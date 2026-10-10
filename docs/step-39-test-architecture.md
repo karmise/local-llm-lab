@@ -137,6 +137,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Settings | `config.py` | `test_config.py` | 81.9% → 97.3% |
 | Resource fixtures | `test_support/fixtures/resources.py` | `test_resource_lifecycle.py` | not measurable (see below) |
 | HTTP clients | `core/http_client.py`, `clients/anythingllm_client.py`, `clients/ollama_client.py` | `test_http_clients.py` | 35.5% → 97.1% |
+| Observation | `observation/evaluation_sample.py` | `test_observation.py` | 60.2% → 90.6% |
 
 Domains not listed still follow step 35.
 
