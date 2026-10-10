@@ -121,6 +121,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Judge validation | `evaluation/judge_validation.py` | `test_judge_validation.py` | 62.4% → 92.5% |
 | Judge review | `reporting/judge_review.py` | `test_judge_review.py` | 45.3% → 95.5% |
 | Golden dataset | `datasets/golden.py`, `datasets/validation.py` | `test_golden_dataset.py` | 72.5% → 96.3% |
+| Adversarial inputs | `datasets/adversarial.py` | `test_adversarial.py` | 41.4% → 90.8% |
 
 Domains not listed still follow step 35.
 
