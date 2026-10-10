@@ -140,6 +140,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Observation | `observation/evaluation_sample.py` | `test_observation.py` | 60.2% → 90.6% |
 | Shared assertions | `assertions.py` | `test_assertions.py` | 33.2% → 89.6% (83 mutants are in UI and domain checks tested by other modules) |
 | Pytest options | `pytest_support/options.py` | `test_pytest_options.py` | not measurable (see below) |
+| Performance | `performance/runner.py`, `performance/comparison.py`, `performance/reporting.py` | `test_performance.py` | 60.3% → 95.8% |
 
 Domains not listed still follow step 35.
 
