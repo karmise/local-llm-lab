@@ -111,12 +111,9 @@ Correctness remains a measurement until explicit gates are supplied. Context pre
 | `src/llm_testkit/clients/` | API routes, request payloads and file uploads; return raw responses |
 | `src/llm_testkit/pages/` | Browser locators and actions |
 | `src/llm_testkit/assertions.py` | API/answer/source/quality/UI acceptance criteria |
-| `src/test_support/assertions/` | Independent unit expectations: values, exceptions, mock calls and domain evidence |
 | `src/llm_testkit/pytest_support/options.py` | CLI selection, model matrix, opt-in validation after `-k`/`-m` |
 | `src/test_support/fixtures/` | Scoped setup, dependencies, resource ownership, evidence and cleanup |
-| `src/test_support/builders/` | Test objects, deterministic doubles and named scenario preparation |
-| `src/test_support/data/` | Named parameter cases and offline test inputs |
-| `src/test_support/data/scripts/` | Isolated pytest source templates for collection/lifecycle checks |
+| `src/test_support/builders/` | Public, per-domain test data builders and deterministic doubles shared by test modules |
 | `src/llm_testkit/datasets/` | Typed, source-bound golden dataset loading and validation |
 | `test_data/` | Fictional documents and shared question/reference/fact profiles |
 | `tests/unit/` | Framework behavior with HTTP calls mocked |
@@ -130,13 +127,14 @@ validating other response fields. Each cleanup also verifies absence. Pytest
 reports test and teardown failures separately and still runs the remaining
 finalizers. A failed upload/indexing/check must not leave a workspace behind.
 
-Unit tests are being migrated to plain pytest, one domain at a time
-([step 39](../docs/step-39-test-architecture.md)); `tests/unit/test_correctness.py`
-is the reference. A migrated test shows its inputs, action and expected values;
-negative cases name the error they must raise with `pytest.raises(..., match=...)`;
-reusable test data comes from public builders in `test_support/builders/<domain>.py`.
-Plain `assert` keeps unit checks independent of application Assertions.
-Not-yet-migrated domains still use `test_support.assertions`, described below.
+Unit tests use plain pytest ([step 39](../docs/step-39-test-architecture.md)).
+Each test shows its inputs, action and expected values; a rejection names the rule
+it enforces with `pytest.raises(..., match=...)` and has a paired acceptance test.
+Data shared by several test modules comes from public builders in
+`test_support/builders/<domain>.py`; data, fixtures and child-test sources used by
+one module live in that module. Plain `assert` keeps unit checks independent of
+application Assertions. Mutation testing (mutmut) measured each domain's tests;
+the scores are in the step 39 log.
 Unit tests block Requests calls unless explicitly mocked; telemetry settings are
 scoped with `monkeypatch`. Lifecycle and CLI tests exercise real child pytest runs.
 
@@ -144,24 +142,20 @@ Put shared questions, references and acceptance patterns in `test_data`. API, UI
 and quality scenarios should consume the same profiles. `rag_chat` and
 `workspace_page` declare their metadata/setup dependencies directly.
 
-Keep fixtures out of test modules. Register shared fixture plugins in
-`tests/conftest.py`; re-export narrowly scoped fixtures from the relevant suite
-or module so an adversarial document override cannot affect ordinary RAG tests.
-Use imported parameter tables rather than inline lists. Keep scenario bodies
-linear: prepare, act, check. Conditional setup, test doubles and browser simulation
+Register shared fixture plugins for live and browser suites in `tests/conftest.py`;
+re-export narrowly scoped fixtures from the relevant suite so an adversarial document
+override cannot affect ordinary RAG tests. Unit tests use inline `pytest.param(...,
+id=...)` tables. Keep scenario bodies linear: arrange, act, assert. Conditional setup, test doubles and browser simulation
 belong to test support; acceptance rules belong to `Assertions`. Optional browser
 and judge imports remain lazy in supporting code.
 
-In not-yet-migrated domains, prepared fixtures supply a stable scenario.
-Use a fixture factory when a test needs several clients,
-responses or configurations. Mutable input catalogs are copied with
-`test_support.data.common.fresh`; never mutate a shared parameter dictionary.
-Protocol field names and meaningful expected values can remain explicit in checks.
+Builders return a fresh copy on every call, so a test may edit what it receives.
+Protocol field names and meaningful expected values stay explicit in checks.
 
 The [test readability guide](../docs/step-34-test-readability.md) explains these
 boundaries and the selection of representative unit cases.
 The [shared-check and fixture guide](../docs/step-35-unit-scenario-layers.md)
-walks through the subsequent extraction of checks, object construction and payloads.
+records the earlier layered design that step 39 replaced.
 
 Use Playwright's retrying expectations instead of fixed sleeps. After sending a
 question, the Page Object targets the next persisted assistant reply; completion

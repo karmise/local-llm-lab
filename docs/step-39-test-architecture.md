@@ -1,10 +1,12 @@
 # Step 39: readable unit tests verified by mutation testing
 
-This step starts migrating unit tests from the layered scenario style of
+This step migrated every unit test from the layered scenario style of
 [step 35](step-35-unit-scenario-layers.md) to plain pytest tests whose inputs,
-action and expectations are visible in one place. The first migrated domain is
-factual correctness. Mutation testing measures whether the rewritten tests are
-at least as strong as the ones they replace.
+action and expectations are visible in one place. Factual correctness was the first
+domain. Mutation testing measured whether each rewritten domain is at least as strong
+as the tests it replaced; the [migration log](#migration-log) lists every domain.
+After the last domain, `test_support/assertions`, `test_support/data`, the unit factory
+fixtures and the conftest re-exports were removed.
 
 ## Why the previous structure was changed
 
@@ -143,7 +145,9 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Performance | `performance/runner.py`, `performance/comparison.py`, `performance/reporting.py` | `test_performance.py` | 60.3% → 95.8% |
 | Qualification | `qualification/plan.py`, `qualification/package.py` | `test_qualification_plan.py`, `test_qualification_package.py` | 76.0% → 92.0% |
 
-Domains not listed still follow step 35.
+All unit domains are migrated. Across the measured domains, mutants detected rose from
+33–76% to 86–100% per domain; the two domains exercised only through child pytest
+sessions cannot be measured this way.
 
 Mutation runs were made on macOS, whose file system ignores letter case. Mutants that only change
 the case of a file name (`MANIFEST.JSON`) therefore survive locally but would fail on the Linux CI runner;
