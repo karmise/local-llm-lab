@@ -5,10 +5,10 @@ import json
 import re
 from pathlib import Path
 
-from llm_testkit import assertions
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.evaluation.benchmark import EVIDENCE_METRICS, acceptance_dimensions, check_sample, metric_dimensions
 from llm_testkit.evaluation.calibration import load_controls
+from llm_testkit.evaluation.control_match import calibration_mismatch
 from llm_testkit.evaluation.faithfulness import validate_result
 from llm_testkit.reporting.benchmark import summarize
 from llm_testkit.reporting.gates import load_quality_gates
@@ -57,8 +57,9 @@ def load_saved_benchmark(path: Path) -> dict:
             if (len(calls) != 2 or calls[0]["output"]["statements"] != evaluated["statements"]
                         or calls[1]["output"]["statements"] != evaluated["verdicts"]):
                 raise ValueError("Judge control verdicts differ from their raw calls")
-            assertions.assert_calibration_result(
-                    evaluated, expected_score=control["expected_score"], claims=control["claims"])
+            mismatch = calibration_mismatch(evaluated, expected_score=control["expected_score"], claims=control["claims"])
+            if mismatch:
+                raise ValueError(f"Judge control result differs from its label: {mismatch}")
     for row in saved["results"]:
         name = row["artifact_directory"]
         if not re.fullmatch(r"case-[0-9]{3}", name):

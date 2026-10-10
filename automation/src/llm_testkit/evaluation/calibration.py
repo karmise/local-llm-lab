@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from llm_testkit import assertions
+from llm_testkit.evaluation.control_match import calibration_mismatch
 from llm_testkit.clients.ollama_client import OllamaClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
@@ -73,13 +74,10 @@ async def evaluate_controls(sample: dict[str, Any], cases: list[dict[str, Any]],
             # Synthetic responses are controls, never application-generated evidence.
             control_sample = {**sample, "response": case["response"]}
             row["result"] = await score_sample(control_sample, judge)
-            try:
-                assertions.assert_calibration_result(
-                        row["result"], expected_score=case["expected_score"], claims=case["claims"])
-                row["status"] = "matched"
-            except AssertionError as error:
-                row["status"] = "mismatch"
-                row["mismatch"] = str(error)
+            mismatch = calibration_mismatch(row["result"], expected_score=case["expected_score"], claims=case["claims"])
+            row["status"] = "mismatch" if mismatch else "matched"
+            if mismatch:
+                row["mismatch"] = mismatch
         except Exception as error:
             row["error"] = {"type": type(error).__name__, "message": str(error)}
         row["judge_calls"] = judge.calls

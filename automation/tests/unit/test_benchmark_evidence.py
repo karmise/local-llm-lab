@@ -250,5 +250,5 @@ def test_control_contradicting_labels_is_rejected(saved):
 
     edit_calibration(saved, contradict)
 
-    with pytest.raises(AssertionError, match="Control score"):
+    with pytest.raises(ValueError, match="Judge control result differs from its label: Control score"):
         load_saved_benchmark(saved / "benchmark.json")

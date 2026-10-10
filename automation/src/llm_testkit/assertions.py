@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from requests import Response
 
-from llm_testkit.core.number_words import normalize_number_words
+from llm_testkit.evaluation.control_match import calibration_mismatch
 from llm_testkit.reporting.steps import attach_screenshot, attach_text, step
 
 if TYPE_CHECKING:
@@ -33,24 +33,8 @@ def assert_quality_score(value: float, *, minimum: float | None = None) -> None:
 
 def assert_calibration_result(
         result: Mapping[str, Any], *, expected_score: float, claims: Sequence[Mapping[str, Any]]) -> None:
-    score = result["value"]
-    assert_quality_score(score)
-    assert_quality_score(expected_score)
-    assert math.isclose(score, expected_score, rel_tol=0,
-            abs_tol=1e-9), (f"Control score: expected {expected_score}, got {score}")
-    verdicts = assert_field_type(result, "verdicts", list)
-    assert len(verdicts) == len(claims), "Control extraction changed the expected number of claims"
-    matched_indices: set[int] = set()
-    for claim in claims:
-        matches = [
-                index for index, item in enumerate(verdicts)
-                if re.search(claim["pattern"], item["statement"], flags=re.IGNORECASE)
-                or re.search(claim["pattern"], normalize_number_words(item["statement"]), flags=re.IGNORECASE)]
-        assert len(matches) == 1, f"Expected one extracted claim matching {claim['pattern']}"
-        index = matches[0]
-        assert index not in matched_indices, ("Control claims must map to distinct extracted statements")
-        matched_indices.add(index)
-        assert_field_equals(verdicts[index], "verdict", claim["verdict"])
+    mismatch = calibration_mismatch(result, expected_score=expected_score, claims=claims)
+    assert mismatch is None, mismatch
 
 
 def assert_status_code(response: Response, expected: int, *, context: str = "Response") -> None:

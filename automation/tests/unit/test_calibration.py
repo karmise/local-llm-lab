@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import subprocess
 import sys
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -265,6 +266,30 @@ def test_runner_records_each_outcome_and_continues(monkeypatch):
     assert [awaited.args for awaited in score.await_args_list] == [({
             **sample, "response": control["response"]}, judge) for control, judge in zip(controls, judges, strict=True)]
     assert sample["response"] == "Original application answer"
+
+
+OPTIMIZED_RUN = """
+import asyncio
+from llm_testkit.evaluation import calibration
+
+async def contradicting_score(sample, judge):
+    return {"value": 0.0, "statements": ["23 working days"],
+            "verdicts": [{"statement": "23 working days", "verdict": 0}]}
+
+calibration.score_sample = contradicting_score
+control = {"id": "c", "response": "23 working days", "expected_score": 1.0,
+           "claims": [{"pattern": "23 working days", "verdict": 1}]}
+judge = type("Judge", (), {"calls": []})
+rows = asyncio.run(calibration.evaluate_controls({}, [control], judge))
+print(rows[0]["status"])
+"""
+
+
+@title("A judge that contradicts the labels is a mismatch even when Python strips assert statements (-O)")
+def test_mismatch_is_detected_under_optimized_python():
+    result = subprocess.run([sys.executable, "-O", "-c", OPTIMIZED_RUN], capture_output=True, text=True, check=True)
+
+    assert result.stdout == "mismatch\n"
 
 
 @pytest.fixture
