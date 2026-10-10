@@ -334,8 +334,7 @@ def test_comparison_reports_failed_acceptance(outcomes):
         pytest.param({"case_id": "carryover_limit"}, ["case_id"], id="case"),
         pytest.param({"policy_sha256": "1" * 64}, ["policy_sha256"], id="policy"),
         pytest.param({"dataset_sha256": "1" * 64}, ["dataset_sha256"], id="dataset"),
-        pytest.param({"configuration": configuration(openAiPrompt="Changed")},
-        ["prompt_sha256", "retrieval_configuration"], id="prompt"),
+        pytest.param({"configuration": configuration(openAiPrompt="Changed")}, ["prompt_sha256"], id="prompt"),
         pytest.param({"thinking_mode": "think"}, ["thinking_mode"], id="thinking"),
         pytest.param({"context_parser": "other"}, ["context_parser"], id="parser"),
         pytest.param({"judges": judges(judge_model="other")}, ["judge_sha256"], id="judge"),
@@ -521,6 +520,16 @@ def test_make_snapshot_rejects_other_policy(assembly):
     assembly.report["sample_sha256"] = hashlib.sha256(assembly.sample_path.read_bytes()).hexdigest()
 
     with pytest.raises(ValueError, match="policy_sha256 does not match golden provenance"):
+        assembly.make()
+
+
+@title("A sample without a captured policy checksum is rejected")
+def test_make_snapshot_requires_captured_policy(assembly):
+    del assembly.sample["metadata"]["policy_sha256"]
+    assembly.sample_path.write_text(json.dumps(assembly.sample))
+    assembly.report["sample_sha256"] = hashlib.sha256(assembly.sample_path.read_bytes()).hexdigest()
+
+    with pytest.raises(ValueError, match="^Captured policy does not match reviewed dataset$"):
         assembly.make()
 
 
