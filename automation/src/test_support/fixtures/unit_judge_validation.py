@@ -14,8 +14,8 @@ from llm_testkit.evaluation import benchmark as benchmark_evaluation
 from llm_testkit.evaluation import benchmark_runner
 from llm_testkit.evaluation.judge_validation import evaluate_judge_controls, main
 from test_support.builders.benchmark import make_calibrate_stub, make_generate_stub, make_judge_model_catalog
-from test_support.builders.correctness import append_judge_responses
 from test_support.builders.judge_validation import SavedReviewScenario, ValidationBatch, control_outputs, mutate_catalog
+from test_support.builders.ollama import chat_response
 from test_support.builders.optional import load_ollama_judge
 from test_support.data import common as case_data
 from test_support.data.judge_validation import ROOT
@@ -35,10 +35,8 @@ def judge_control(judge_catalog, control_id):
 
 @pytest.fixture
 def real_metric_control(judge_control):
-    responses = []
-    append_judge_responses(control_outputs(judge_control), responses)
     client = Mock()
-    client.structured_chat.side_effect = responses
+    client.structured_chat.side_effect = [chat_response(output) for output in control_outputs(judge_control)]
     judge = load_ollama_judge()(client, case_data.TEST_MODEL, max_calls=maximum_calls(judge_control))
     return lambda: asyncio.run(evaluate_judge_controls([judge_control], lambda budget: judge))
 

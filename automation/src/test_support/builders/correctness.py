@@ -1,145 +1,120 @@
-"""Scenario data builders and deterministic test doubles."""
+"""Test data builders for reference-based factual correctness evidence."""
 
 import hashlib
-import json
+from collections.abc import Sequence
 from copy import deepcopy
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
-from requests import Response
-
+from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.evaluation.correctness import METRIC_CONFIGURATION
 from llm_testkit.observation.evaluation_sample import build_sample
-from llm_testkit.reporting.quality import build_quality_report
-from test_support.data import common as case_data
-from test_support.data.correctness import CASE as CASE
-from test_support.data.correctness import DATASET as DATASET
-from test_support.data.correctness import (
-        EDITED_RAW_CLAIMS, EVIDENCE_MUTATION_FIELDS, INCOMPLETE_REFERENCE_CLAIMS, MODIFIED_EVIDENCE_VALUE)
-from test_support.data.correctness import ROOT as ROOT
+from test_support.data.common import MODEL_DIGEST, TEST_MODEL
+from test_support.paths import AUTOMATION_ROOT
+
+TEST_DATA = AUTOMATION_ROOT / "test_data"
+POLICY_FILE = TEST_DATA / "company-policy.txt"
+GOLDEN_DATASET_FILE = TEST_DATA / "golden-policy.json"
+CONTROLS_FILE = TEST_DATA / "correctness-controls.json"
+GOLDEN_DATASET = load_golden_dataset(GOLDEN_DATASET_FILE, POLICY_FILE)
+PAID_LEAVE = next(case for case in GOLDEN_DATASET.cases if case.id == "paid_leave")
 
 
-def _verdicts(claims, values):
+def labelled_claims(claims: Sequence[str], labels: Sequence[int]) -> list[dict[str, Any]]:
+    """Judge verdicts for claims: label 1 means supported, 0 means not supported."""
     return [{
             "statement": claim,
-            "verdict": value,
-            "reason": "Test label"} for claim, value in zip(claims, values, strict=True)]
+            "verdict": label,
+            "reason": "Test label"} for claim, label in zip(claims, labels, strict=True)]
 
 
-def _result(response_values=(1, 1), reference_values=(1, 1), value=1.0):
-    response = [f"Response claim {i}" for i in range(len(response_values))]
-    reference = [f"Reference claim {i}" for i in range(len(reference_values))]
+def make_result(
+        response_labels: Sequence[int] = (1, 1), reference_labels: Sequence[int] = (1, 1), value: float = 1.0, *,
+        reference_claims: Sequence[str] | None = None) -> dict[str, Any]:
+    """A factual-correctness result with labelled claims in both directions.
+
+    Response labels mark answer claims supported by the reference (true or false positives).
+    Reference labels mark reference claims covered by the answer (true positives or false negatives).
+    """
+    response_claims = [f"Response claim {i}" for i in range(len(response_labels))]
+    if reference_claims is None:
+        reference_claims = [f"Reference claim {i}" for i in range(len(reference_labels))]
     return {
             "value": value,
-            "response_claims": response,
-            "reference_claims": reference,
-            "response_verdicts": _verdicts(response, response_values),
-            "reference_verdicts": _verdicts(reference, reference_values)}
+            "response_claims": response_claims,
+            "reference_claims": list(reference_claims),
+            "response_verdicts": labelled_claims(response_claims, response_labels),
+            "reference_verdicts": labelled_claims(reference_claims, reference_labels)}
 
 
-def _sample():
-    identifier = "a" * 32
-    name = f"automation-{identifier}-company-policy.txt"
-    context = (
-            f"<document_metadata>\nsourceDocument: {name}\n</document_metadata>\n" +
-            (ROOT / "company-policy.txt").read_text())
+def judge_outputs(result: dict[str, Any]) -> list[dict[str, Any]]:
+    """The four structured judge replies RAGAS requests for factual F1, in call order."""
+    return [{
+            "claims": result["response_claims"]}, {
+            "statements": result["response_verdicts"]}, {
+            "claims": result["reference_claims"]}, {
+            "statements": result["reference_verdicts"]}]
+
+
+def judge_calls(result: dict[str, Any]) -> list[dict[str, Any]]:
+    """Judge calls as OllamaJudge records them; independent copies of the result's claims."""
+    return [{"output": output} for output in judge_outputs(deepcopy(result))]
+
+
+def make_application_sample() -> dict[str, Any]:
+    """A captured paid-leave sample: the answer equals the golden reference, the context is the policy."""
+    capture_id = "a" * 32
+    document = f"automation-{capture_id}-company-policy.txt"
+    context = f"<document_metadata>\nsourceDocument: {document}\n</document_metadata>\n" + POLICY_FILE.read_text()
+    system_prompt = f"[LLM_TESTKIT_CAPTURE:{capture_id}]\n[CONTEXT 0]:\n{context}\n[END CONTEXT 0]"
     observation = {
             "schema_version": 1,
             "boundary": "ollama-sdk-chat",
             "request": {
-            "model":
-            case_data.TEST_MODEL,
-            "stream":
-            False,
+            "model": TEST_MODEL,
+            "stream": False,
             "messages": [{
             "role": "system",
-            "content": f"[LLM_TESTKIT_CAPTURE:{identifier}]\n[CONTEXT 0]:\n{context}\n[END CONTEXT 0]"}, {
+            "content": system_prompt}, {
             "role": "user",
-            "content": CASE.question}]}}
+            "content": PAID_LEAVE.question}]}}
     sample = build_sample(
-            observation, question=CASE.question, answer=CASE.reference, reference=CASE.reference,
-            expected_model=case_data.TEST_MODEL, capture_id=identifier)
-    sample["response_sources"] = [{"title": name, "text": context}]
+            observation, question=PAID_LEAVE.question, answer=PAID_LEAVE.reference, reference=PAID_LEAVE.reference,
+            expected_model=TEST_MODEL, capture_id=capture_id)
+    sample["response_sources"] = [{"title": document, "text": context}]
     return sample
 
 
-def _calls(result):
-    return [{
-            "output": {
-            "claims": result["response_claims"]}}, {
-            "output": {
-            "statements": result["response_verdicts"]}}, {
-            "output": {
-            "claims": result["reference_claims"]}}, {
-            "output": {
-            "statements": result["reference_verdicts"]}}]
-
-
-def _evidence(sample, checksum="sample"):
+def make_correctness_evidence(
+        sample: dict[str, Any], *, sample_sha256: str = "sample",
+        result: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Completed correctness evidence bound to the sample, the golden case and its raw judge calls."""
+    result = make_result() if result is None else result
     return {
             "schema_version": 1,
             "metric": "factual_correctness",
             "status": "completed",
-            "sample_sha256": checksum,
-            "golden_dataset_sha256": DATASET.sha256,
-            "golden_case_id": CASE.id,
-            "reference_sha256": hashlib.sha256(CASE.reference.encode()).hexdigest(),
+            "sample_sha256": sample_sha256,
+            "golden_dataset_sha256": GOLDEN_DATASET.sha256,
+            "golden_case_id": PAID_LEAVE.id,
+            "reference_sha256": hashlib.sha256(PAID_LEAVE.reference.encode()).hexdigest(),
             "response_origin": "application_sample",
-            "question": CASE.question,
-            "reference": CASE.reference,
+            "question": PAID_LEAVE.question,
+            "reference": PAID_LEAVE.reference,
             "response": sample["response"],
             "metric_configuration": deepcopy(METRIC_CONFIGURATION),
-            "result": _result(),
-            "judge_calls": _calls(_result()),
-            "judge_model": case_data.TEST_MODEL,
-            "judge_model_digest": case_data.MODEL_DIGEST}
+            "result": result,
+            "judge_calls": judge_calls(result),
+            "judge_model": TEST_MODEL,
+            "judge_model_digest": MODEL_DIGEST}
 
 
-def prepare_invalid_claim_evidence_is_rejected_case(change, result):
-    if change == "missing":
-        result["reference_verdicts"].pop()
-    elif change == "duplicate":
-        result["response_claims"][1] = result["response_claims"][0]
-    elif change == "invalid-verdict":
-        result["response_verdicts"][0]["verdict"] = True
-    elif change == "score":
-        result["value"] = 0.5
-    elif change == "counts":
-        result["counts"] = {"tp": 9, "fp": 0, "fn": 0}
-    elif change == "empty":
-        result["response_claims"] = []
-    else:
-        result["reference_verdicts"][0]["reason"] = ""
-
-
-def make_failed_score_stub():
-    async def failed_score(sample, judge):
-        raise ValueError("Truncated judge response")
-
-    return failed_score
-
-
-def append_judge_responses(outputs, responses):
-    for output in outputs:
-        response = Response()
-        response.status_code = 200
-        response._content = json.dumps({
-                "model": case_data.TEST_MODEL,
-                "done": True,
-                "done_reason": "stop",
-                "message": {
-                "content": json.dumps(output)}}).encode()
-        responses.append(response)
-
-
-def make_valid_faithfulness_evidence(checksum):
-    """Build input for test_quality_report_adds_independent_correctness_measurement."""
+def make_faithfulness_evidence(sample_sha256: str) -> dict[str, Any]:
+    """Minimal completed faithfulness evidence for the same sample."""
     return {
             "schema_version": 1,
             "metric": "faithfulness",
             "status": "completed",
-            "sample_sha256": checksum,
+            "sample_sha256": sample_sha256,
             "result": {
             "value": 1.0,
             "statements": ["Claim"],
@@ -147,69 +122,7 @@ def make_valid_faithfulness_evidence(checksum):
             "statement": "Claim",
             "verdict": 1}]},
             "judge_model": "judge",
-            "judge_model_digest": case_data.MODEL_DIGEST,
+            "judge_model_digest": MODEL_DIGEST,
             "judge_configuration": {},
             "ragas_version": "test",
             "created_at": "now"}
-
-
-@dataclass
-class CorrectnessEvidenceScenario:
-    sample: dict[str, Any]
-    evidence: dict[str, Any]
-
-    def invalidate(self, change: str) -> None:
-        self.evidence[EVIDENCE_MUTATION_FIELDS[change]] = MODIFIED_EVIDENCE_VALUE
-
-    def corrupt_raw_claims(self) -> None:
-        self.evidence["judge_calls"][0]["output"]["claims"] = list(EDITED_RAW_CLAIMS)
-
-
-@dataclass
-class CorrectnessQualityScenario:
-    sample_path: Path
-    faithfulness_path: Path
-    correctness_path: Path
-    correctness: dict[str, Any]
-
-    def build_report(self) -> dict[str, Any]:
-        return build_quality_report(
-                self.sample_path, self.faithfulness_path, ROOT / "quality-paid-leave.json",
-                correctness_path=self.correctness_path)
-
-    def invalidate_sample_checksum(self) -> None:
-        self.correctness["sample_sha256"] = "other"
-        self.correctness_path.write_text(json.dumps(self.correctness))
-
-
-@dataclass
-class IncompleteControlScenario:
-    control: dict[str, Any]
-    result: dict[str, Any]
-
-    def attribute_missing_claim(self) -> None:
-        self.result["reference_verdicts"] = _verdicts(INCOMPLETE_REFERENCE_CLAIMS, (1, 1))
-        self.result["value"] = 1.0
-
-
-def make_quality_scenario(tmp_path: Path) -> CorrectnessQualityScenario:
-    sample = _sample()
-    source = tmp_path / case_data.SAMPLE_FILE_NAME
-    source.write_text(json.dumps(sample))
-    checksum = hashlib.sha256(source.read_bytes()).hexdigest()
-    faith_path = tmp_path / "faith.json"
-    faith_path.write_text(json.dumps(make_valid_faithfulness_evidence(checksum)))
-    correctness = _evidence(sample, checksum)
-    correctness["result"] = _result((0, 0), (0, 0), 0.0)
-    correctness["judge_calls"] = _calls(correctness["result"])
-    correct_path = tmp_path / "correct.json"
-    correct_path.write_text(json.dumps(correctness))
-    return CorrectnessQualityScenario(source, faith_path, correct_path, correctness)
-
-
-def make_incomplete_control(controls) -> IncompleteControlScenario:
-    control = next(c for c in controls if c["id"] == "incomplete")
-    result = _result((1, 1), (1, 0), 0.8)
-    result["reference_claims"] = list(INCOMPLETE_REFERENCE_CLAIMS)
-    result["reference_verdicts"] = _verdicts(INCOMPLETE_REFERENCE_CLAIMS, (1, 0))
-    return IncompleteControlScenario(control, result)

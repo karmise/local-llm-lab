@@ -130,10 +130,13 @@ validating other response fields. Each cleanup also verifies absence. Pytest
 reports test and teardown failures separately and still runs the remaining
 finalizers. A failed upload/indexing/check must not leave a workspace behind.
 
-Use `test_support.assertions` for unit expectations. Its native pytest checks are
-independent of application Assertions, so a broken application check cannot
-verify its own output. Exception helpers preserve type, regex matching and the
-original captured exception. Shared checks are included in the CI coverage gate.
+Unit tests are being migrated to plain pytest, one domain at a time
+([step 39](../docs/step-39-test-architecture.md)); `tests/unit/test_correctness.py`
+is the reference. A migrated test shows its inputs, action and expected values;
+negative cases name the error they must raise with `pytest.raises(..., match=...)`;
+reusable test data comes from public builders in `test_support/builders/<domain>.py`.
+Plain `assert` keeps unit checks independent of application Assertions.
+Not-yet-migrated domains still use `test_support.assertions`, described below.
 Unit tests block Requests calls unless explicitly mocked; telemetry settings are
 scoped with `monkeypatch`. Lifecycle and CLI tests exercise real child pytest runs.
 
@@ -149,8 +152,8 @@ linear: prepare, act, check. Conditional setup, test doubles and browser simulat
 belong to test support; acceptance rules belong to `Assertions`. Optional browser
 and judge imports remain lazy in supporting code.
 
-Prefer prepared fixtures for a stable scenario, such as `correctness_judge` or
-`correctness_evidence`. Use a fixture factory when a test needs several clients,
+In not-yet-migrated domains, prepared fixtures supply a stable scenario, such as
+`faithfulness_judge`. Use a fixture factory when a test needs several clients,
 responses or configurations. Mutable input catalogs are copied with
 `test_support.data.common.fresh`; never mutate a shared parameter dictionary.
 Protocol field names and meaningful expected values can remain explicit in checks.

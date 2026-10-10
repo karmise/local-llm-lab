@@ -1,5 +1,8 @@
 # Step 35: shared expectations and prepared unit scenarios
 
+> Superseded for migrated domains by [step 39](step-39-test-architecture.md).
+> The correctness examples below describe the previous structure.
+
 Unit scenarios now separate the operation being tested from object construction,
 input payloads and expected-result logic. Test bodies contain readable actions
 and calls to reusable checks. There are no direct `assert` statements,

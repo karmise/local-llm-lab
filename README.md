@@ -109,6 +109,8 @@ See [step 20: readable test titles](docs/step-20-test-titles.md) for explicit
 English display names and distinguishable parameter variants in Allure.
 See [step 21: framework refactoring](docs/step-21-framework-refactoring.md) for
 modular fixtures, failure-safe cleanup and browser regression coverage.
+See [step 39: test architecture](docs/step-39-test-architecture.md) for the
+migration to plain pytest unit tests, verified with mutation testing.
 The [Automation guide](automation/README.md) lists commands for each test layer;
 use `python -m pytest tests/unit -q` for checks without running services.
 
