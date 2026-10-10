@@ -41,6 +41,7 @@ Run commands from `automation` with its virtual environment activated.
 | Formatting check | `python -m yapf --diff --recursive src tests` | Development dependencies |
 | Offline Page Object regressions | `python -m pytest tests/browser --run-ui` | Chromium; no application/models |
 | Application health and API | `python -m pytest -m 'smoke or api'` | AnythingLLM; API key; embedding model for indexing |
+| API contract and negative cases ([step 41](../docs/step-41-api-contract.md)) | `python -m pytest tests/test_api_contract.py` | AnythingLLM; API key; no model calls |
 | RAG answers | `python -m pytest tests/test_rag.py --rag-model qwen3.5:4b` | AnythingLLM, API key, generation and embedding models |
 | Golden policy dataset (one case) | `python -m pytest tests/test_golden_rag.py --run-golden --rag-model qwen3.5:4b -k carryover_limit` | Same as RAG; broader catalog is opt-in |
 | Application UI | `python -m pytest tests/ui --run-ui` | Same as RAG, plus Chromium |
