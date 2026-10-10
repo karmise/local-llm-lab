@@ -128,6 +128,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Catalog validation | `datasets/validation.py` | `test_catalog_validation.py` | 44.6% → 96.4% |
 | Quality report | `reporting/quality.py` | `test_quality_report.py` | 61.8% → 98.6% |
 | Quality gates | `reporting/gates.py` | `test_quality_gates.py` | 71.0% → 95.6% |
+| Quality history | `reporting/drift.py` | `test_drift.py` | 58.6% → 94.9% |
 
 Domains not listed still follow step 35.
 
@@ -148,6 +149,10 @@ Findings recorded during migration, for the framework step:
 - CLI tests that omit a required argument must run in a temporary directory. Otherwise a
   mutant that accepts the missing argument writes `out.json` to the working directory,
   and a later run fails for an unrelated reason, so the mutant survives undetected.
+- Drift: `make_snapshot` binds the golden case first, and that check already rejects a sample
+  whose `policy_sha256` differs, so its own "Captured policy does not match reviewed dataset"
+  branch is unreachable. A changed prompt is also reported twice, as `prompt_sha256` and as
+  `retrieval_configuration`, because the configuration comparison excludes only `chatModel`.
 - `pytest.raises(match=...)` searches for the message as a substring, so mutants that wrap a
   message in extra characters (`"XX...XX"`) survive. Most remaining survivors are of this kind.
   The tests deliberately match only the rule's wording rather than the whole message.
