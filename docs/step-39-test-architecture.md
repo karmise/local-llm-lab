@@ -126,6 +126,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Conversation | `datasets/conversation.py` | `test_conversation.py` | 75.6% → 96.1% |
 | Prompt regression | `datasets/prompts.py`, `reporting/prompt_regression.py` | `test_prompt_regression.py` | 51.2% → 95.4% |
 | Catalog validation | `datasets/validation.py` | `test_catalog_validation.py` | 44.6% → 96.4% |
+| Quality report | `reporting/quality.py` | `test_quality_report.py` | 61.8% → 98.6% |
 
 Domains not listed still follow step 35.
 
