@@ -37,11 +37,12 @@ def checked_dimensions(name: str, evidence: dict, sample_path, *, minima=MINIMA,
 
 
 @pytest.mark.parametrize(("name", "expected"), [
-        pytest.param("faithfulness", [("faithfulness", 1.0, 0.9)], id="faithfulness"),
-        pytest.param("correctness", [("factual_correctness", 1.0, 0.8)], id="correctness"),
+        pytest.param("faithfulness", [("faithfulness", 1.0, 0.9, "passed")], id="faithfulness"),
+        pytest.param("correctness", [("factual_correctness", 1.0, None, "measured")], id="correctness-ungated"),
         pytest.param(
-        "relevance", [("context_precision", 1 / (1 + 1e-10), 0.8), ("context_recall", 1.0, 0.9)], id="relevance")])
-@title("Valid judge evidence becomes passed metric dimensions with their recorded thresholds [{param_id}]")
+        "relevance", [("context_precision", 1 / (1 + 1e-10), 0.8, "passed"),
+        ("context_recall", 1.0, 0.9, "passed")], id="relevance")])
+@title("Valid judge evidence becomes passed dimensions, or measured ones where no threshold is set [{param_id}]")
 def test_metric_dimensions_from_valid_evidence(sample_path, name, expected):
     evidence = make_metric_evidence(PAID_LEAVE, sample_path)[name]
 
@@ -52,7 +53,7 @@ def test_metric_dimensions_from_valid_evidence(sample_path, name, expected):
             "metric": metric,
             "value": value,
             "minimum": minimum,
-            "status": "passed"} for metric, value, minimum in expected]
+            "status": status} for metric, value, minimum, status in expected]
 
 
 @title("A score equal to its threshold passes; a score just below it fails")
@@ -217,7 +218,8 @@ def test_evaluate_case_records_all_dimensions(case_run):
     assert (row["question"], row["reference"],
             row["answer"]) == (PAID_LEAVE.question, PAID_LEAVE.reference, PAID_LEAVE.reference)
     assert [d["name"] for d in row["dimensions"]] == ["Reviewed answer rules", "Document sources", *METRICS_IN_ORDER]
-    assert {d["status"] for d in row["dimensions"]} == {"passed"}
+    assert [d["status"] for d in row["dimensions"]] == [
+            "passed", "passed", *("measured" if MINIMA[metric] is None else "passed" for metric in METRICS_IN_ORDER)]
     assert row["judge_calls"] == 2 + 4 + 2
     assert "answer_request_seconds" not in row
     for name, evidence in case_run.evidence.items():
@@ -258,7 +260,9 @@ def test_evaluate_case_isolates_failed_service(case_run, service, metrics):
     row = evaluate_case(case_run)
 
     statuses = {d["metric"]: d["status"] for d in row["dimensions"] if d.get("metric")}
-    assert statuses == {metric: "error" if metric in metrics else "passed" for metric in METRICS_IN_ORDER}
+    assert statuses == {
+            metric: "error" if metric in metrics else "measured" if MINIMA[metric] is None else "passed"
+            for metric in METRICS_IN_ORDER}
     assert all(d["error"] == "RuntimeError: Judge offline" for d in row["dimensions"] if d.get("metric") in metrics)
     assert all(d["name"] == d["metric"] for d in row["dimensions"] if d.get("metric"))
     assert service not in row["evidence_sha256"]

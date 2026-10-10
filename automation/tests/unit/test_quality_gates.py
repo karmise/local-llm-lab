@@ -14,7 +14,8 @@ from test_support.paths import AUTOMATION_ROOT
 pytestmark = pytest.mark.unit
 
 GATES_FILE = AUTOMATION_ROOT / "test_data/quality-gates.json"
-MINIMA = {"faithfulness": 0.9, "factual_correctness": 0.8, "context_precision": 0.8, "context_recall": 0.9}
+MINIMA = {"faithfulness": 0.9, "factual_correctness": None, "context_precision": 0.8, "context_recall": 0.9}
+GATED = sorted(metric for metric, minimum in MINIMA.items() if minimum is not None)
 
 
 def measured_report(**values: float) -> dict:
@@ -54,7 +55,7 @@ def test_reviewed_gates_load():
     gates = load_quality_gates(GATES_FILE)
 
     assert (gates["schema_version"], gates["calibration"],
-            gates["version"]) == (1, "experimental", "policy-quality-gates-v1")
+            gates["version"]) == (1, "experimental", "policy-quality-gates-v2")
     assert gates["minimum_scores"] == MINIMA
     assert "Not clinically validated" in gates["rationale"]
     assert gates["sha256"] == hashlib.sha256(GATES_FILE.read_bytes()).hexdigest()
@@ -90,7 +91,8 @@ def test_gates_reject_invalid_configuration(tmp_path, changes, message):
 def test_gates_reject_invalid_threshold(tmp_path, minimum):
     path = write_gates(tmp_path, minimum_scores=MINIMA | {"faithfulness": minimum})
 
-    with pytest.raises(AssertionError, match="Expected a finite quality score between 0 and 1"):
+    with pytest.raises(ValueError,
+            match="Quality gate minimum for faithfulness must be a finite number between 0 and 1"):
         load_quality_gates(path)
 
 
@@ -114,17 +116,24 @@ def test_gates_pass_measurements_at_or_above_minimum():
     assert gated["quality_gates"] == load_quality_gates(GATES_FILE)
     assert gated["interpretation"] == gated["quality_gates"]["rationale"]
     assert gated["dimensions"][:2] == report["dimensions"][:2]
-    assert [metric_row(gated, metric) for metric in sorted(METRICS)] == [{
+    assert [metric_row(gated, metric) for metric in GATED] == [{
             "name": f"{metric} gate (minimum {MINIMA[metric]})",
             "metric": metric,
             "status": "passed",
             "details": {
             "value": 1.0,
-            "threshold": MINIMA[metric]}} for metric in sorted(METRICS)]
+            "threshold": MINIMA[metric]}} for metric in GATED]
+    assert metric_row(gated, "factual_correctness") == {
+            "name": "factual_correctness measurement (no threshold)",
+            "metric": "factual_correctness",
+            "status": "measured",
+            "details": {
+            "value": 1.0,
+            "threshold": None}}
     assertions.assert_quality_report(gated)
 
 
-@pytest.mark.parametrize("metric", sorted(METRICS))
+@pytest.mark.parametrize("metric", GATED)
 @title("A score equal to the minimum passes and an immediately lower one fails [{metric}]")
 def test_gate_boundary(metric):
     at_minimum = apply_quality_gates(measured_report(**{metric: MINIMA[metric]}), GATES_FILE)
@@ -132,6 +141,31 @@ def test_gate_boundary(metric):
 
     assert (at_minimum["status"], metric_row(at_minimum, metric)["status"]) == ("checks_passed", "passed")
     assert (below["status"], metric_row(below, metric)["status"]) == ("failed", "failed")
+
+
+@title("A metric without a threshold stays a measurement however low, so it cannot fail the run")
+def test_ungated_metric_is_measured():
+    gated = apply_quality_gates(measured_report(factual_correctness=0.0), GATES_FILE)
+
+    assert (gated["status"], metric_row(gated, "factual_correctness")["status"]) == ("checks_passed", "measured")
+
+
+@pytest.mark.parametrize(("status", "overall"), [
+        pytest.param("failed", "failed", id="failed"),
+        pytest.param("error", "error", id="error"),
+        pytest.param("passed", "error", id="not-measured")])
+@title("An ungated metric that failed, errored or was not measured is not hidden [{param_id}]")
+def test_ungated_metric_keeps_failures(status, overall):
+    report = measured_report()
+    metric_row(report, "factual_correctness")["status"] = status
+
+    assert apply_quality_gates(report, GATES_FILE)["status"] == overall
+
+
+@title("Gates must keep at least one threshold")
+def test_gates_require_a_threshold(tmp_path):
+    with pytest.raises(ValueError, match="Quality gates require at least one threshold"):
+        load_quality_gates(write_gates(tmp_path, minimum_scores=dict.fromkeys(MINIMA)))
 
 
 @title("A low score fails with a message naming the score and the minimum")

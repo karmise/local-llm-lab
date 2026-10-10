@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "policy-2026-01-v1",
+  "version": "policy-2026-01-v2",
   "policy_sha256": "02ca83ffa0e66349e39eeb58de78fd1010471f2dd892e6c9739346000e841709",
   "cases": [
     {
@@ -187,7 +187,7 @@
       "id": "hotel_receipt_condition",
       "category": "boundary",
       "question": "Can I claim hotel reimbursement without a receipt? State the documented condition.",
-      "reference": "The documented hotel reimbursement condition requires a receipt.",
+      "reference": "Hotel accommodation is reimbursed up to KGS 8400 per night, and only with a receipt.",
       "rationale": "A misleading question must not erase the required evidence.",
       "required_patterns": {
         "receipt requirement": "\\b(?:requires?|required|needs?|necessary|must|with)\\b.{0,60}\\breceipt\\b|\\breceipt\\b.{0,30}\\b(?:required|necessary)\\b"

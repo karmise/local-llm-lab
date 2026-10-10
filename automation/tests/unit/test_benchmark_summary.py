@@ -285,7 +285,7 @@ def test_summary_rejects_invalid_score(definition, calibration):
     rows = complete_rows()
     first_metric(rows[0])["value"] = float("nan")
 
-    with pytest.raises(AssertionError, match="finite quality score"):
+    with pytest.raises(ValueError, match="score must be a finite number between 0 and 1"):
         summarize(definition, rows, calibration)
 
 

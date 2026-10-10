@@ -6,6 +6,7 @@ from collections import Counter
 from statistics import mean
 
 from llm_testkit import assertions
+from llm_testkit.core.scores import require_score
 from llm_testkit.datasets.benchmark import configuration_hash
 from llm_testkit.reporting.gates import METRICS
 from llm_testkit.reporting.steps import attach_text, set_metadata, step
@@ -56,7 +57,7 @@ def _group(expected: list[dict], rows: dict[tuple[str, str], dict]) -> dict:
         dimensions = [
                 d for planned in eligible
                 for d in rows.get((planned["case_id"], planned["model"]), {}).get("dimensions", [])
-                if d.get("metric") == metric and d["status"] in ("passed", "failed")]
+                if d.get("metric") == metric and d["status"] in ("passed", "failed", "measured")]
         values = [d["value"] for d in dimensions]
         summary["metrics"][metric] = {
                 "eligible": len(eligible),
@@ -94,19 +95,21 @@ def summarize(manifest: dict, results: list[dict], calibration: dict) -> dict:
         if len(metrics) != 4 or set(metrics) != METRICS or len(dimensions) != 6:
             raise ValueError("Benchmark result requires two checks and four metric outcomes")
         for dimension in dimensions:
-            if dimension["status"] not in ("passed", "failed", "error", "not_applicable"):
+            if dimension["status"] not in ("passed", "failed", "measured", "error", "not_applicable"):
                 raise ValueError("Unknown benchmark dimension status")
             metric = dimension.get("metric")
             if metric:
                 refusal = row["category"] == "missing_information"
                 if refusal != (dimension["status"] == "not_applicable"):
                     raise ValueError("Only refusal metrics may be not applicable")
-                if dimension["status"] in ("passed", "failed"):
-                    assertions.assert_quality_score(dimension["value"])
+                if dimension["status"] in ("passed", "failed", "measured"):
+                    require_score(dimension["value"], f"Benchmark {metric} score")
                     if dimension.get("minimum") != minima[metric]:
                         raise ValueError("Benchmark threshold differs from the manifest")
-                    passed = dimension["value"] >= minima[metric]
-                    if passed != (dimension["status"] == "passed"):
+                    outcome = (
+                            "measured" if minima[metric] is None else
+                            "passed" if dimension["value"] >= minima[metric] else "failed")
+                    if dimension["status"] != outcome:
                         raise ValueError("Benchmark status differs from its metric score")
             elif dimension["status"] == "not_applicable":
                 raise ValueError("Reviewed answer/source checks are always required")

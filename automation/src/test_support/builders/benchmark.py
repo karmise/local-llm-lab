@@ -129,12 +129,13 @@ def patch_metric_reports(monkeypatch, evidence: dict[str, dict[str, Any]]) -> di
 
 
 def make_row(case_id: str = "paid_leave", category: str = "multi_fact", *, model: str = MODEL) -> dict[str, Any]:
-    """A benchmark result row whose two checks pass and whose four metrics pass, or are N/A for refusals."""
+    """A benchmark result row whose two checks pass and whose gated metrics pass (ungated ones are measured), or are
+    N/A for refusals."""
     refusal = category == "missing_information"
     metrics = [{
             "name": metric,
             "metric": metric,
-            "status": "not_applicable" if refusal else "passed",
+            "status": "not_applicable" if refusal else "measured" if MINIMA[metric] is None else "passed",
             "value": 1.0,
             "minimum": MINIMA[metric]} for metric in sorted(METRICS)]
     checks = [{"name": "Reviewed answer rules", "status": "passed"}, {"name": "Document sources", "status": "passed"}]

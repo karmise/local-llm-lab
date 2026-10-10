@@ -4,7 +4,7 @@
   "label_origin": "engineering_authored",
   "human_review": "pending",
   "policy_sha256": "02ca83ffa0e66349e39eeb58de78fd1010471f2dd892e6c9739346000e841709",
-  "golden_dataset_sha256": "60b8edba5525ee74a2ed28472c2d9d6fcf192b98909b6295b84bd72b0a12fcf6",
+  "golden_dataset_sha256": "4610eb2e8b09068fc3a0a9d900f65e8831e241005944b46c835b6ee15aaccbce",
   "description": "Small positive and negative controls for metric/judge/reference suitability. No statistical calibration or human approval is implied.",
   "cases": [
     {
@@ -12,7 +12,7 @@
       "metric": "faithfulness",
       "case_id": "hotel_receipt_condition",
       "user_input": "Can I claim hotel reimbursement without a receipt? State the documented condition.",
-      "reference": "The documented hotel reimbursement condition requires a receipt.",
+      "reference": "Hotel accommodation is reimbursed up to KGS 8400 per night, and only with a receipt.",
       "response": "Hotel reimbursement requires a receipt.",
       "retrieved_contexts": [
         "The company reimburses hotel accommodation up to KGS 8400 per night with a receipt."
@@ -33,7 +33,7 @@
       "metric": "faithfulness",
       "case_id": "hotel_receipt_condition",
       "user_input": "Can I claim hotel reimbursement without a receipt? State the documented condition.",
-      "reference": "The documented hotel reimbursement condition requires a receipt.",
+      "reference": "Hotel accommodation is reimbursed up to KGS 8400 per night, and only with a receipt.",
       "response": "Hotel reimbursement is available without a receipt.",
       "retrieved_contexts": [
         "The company reimburses hotel accommodation up to KGS 8400 per night with a receipt."

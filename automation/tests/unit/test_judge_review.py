@@ -45,7 +45,7 @@ def test_review_reports_candidate_with_evidence(disputed):
     assert (candidate["generation_status"], candidate["human_verdict"]) == ("passed", None)
 
 
-@title("The review keeps the benchmark's failed status, records its inputs and leaves approval pending")
+@title("The review keeps the benchmark status, records its inputs and leaves approval pending")
 def test_review_does_not_approve(disputed):
     report = review_benchmark(disputed / "benchmark.json")
 
@@ -54,7 +54,7 @@ def test_review_does_not_approve(disputed):
     assert report["benchmark_sha256"] == hashlib.sha256((disputed / "benchmark.json").read_bytes()).hexdigest()
     assert (report["policy_sha256"],
             report["golden_dataset_sha256"]) == (manifest["policy_sha256"], manifest["golden_dataset_sha256"])
-    assert report["original_benchmark_status"] == "failed"
+    assert report["original_benchmark_status"] == "checks_passed"
     assert (report["human_review"], report["threshold_decision"]) == ("pending", "retain_experimental_thresholds")
     assert "does not override failures, approve a judge or change any source artifact" in report["interpretation"]
     assert all(row["human_verdict"] is None for row in report["rows"])
@@ -139,7 +139,7 @@ def test_cli_saves_review(disputed, tmp_path, monkeypatch, capsys):
 
     assert json.loads(output.read_text()) == review_benchmark(disputed / "benchmark.json")
     assert capsys.readouterr().out.strip() == (
-            f"Verified benchmark: failed; disagreement candidates: 1; human review pending. Saved to {output}")
+            f"Verified benchmark: checks_passed; disagreement candidates: 1; human review pending. Saved to {output}")
 
 
 @pytest.mark.parametrize(("prepare", "message"), [
