@@ -5,24 +5,19 @@ import shutil
 import pytest
 
 from llm_testkit import assertions
-from llm_testkit.datasets.benchmark import make_plan, manifest
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.evaluation import benchmark_runner as runner
 from llm_testkit.observation.evaluation_sample import write_sample
-from llm_testkit.reporting.benchmark import markdown, review_worksheet, summarize
 from llm_testkit.reporting.benchmark_evidence import load_saved_benchmark
 from llm_testkit.reporting.steps import title
 from test_support.assertions import errors as errors
 from test_support.assertions import mocks as mock_checks
 from test_support.assertions import values as value_checks
-from test_support.assertions.benchmark import check_answer_timing, check_benchmark_configuration_changes
 from test_support.builders.benchmark import (
         make_benchmark_sample, make_calibrate_stub, make_forged_benchmark_summary, make_forged_saved_report,
-        make_generate_stub, make_judge_model_catalog, make_row, make_subprocess_run_stub, prepare_invalid_summary_case,
-        timed_rows)
+        make_generate_stub, make_judge_model_catalog, make_subprocess_run_stub)
 from test_support.data import common as case_data
-from test_support.data.benchmark import (
-        ANSWER_DURATION_SECONDS, INVALID_SUMMARY_CHANGE_CASES, NAME_METRIC_CONTEXT_PRECISION_INPUT, ROOT)
+from test_support.data.benchmark import ANSWER_DURATION_SECONDS, ROOT
 from test_support.fixtures.unit_benchmark import benchmark_data as benchmark_data
 from test_support.fixtures.unit_benchmark import measured_chat as measured_chat
 
@@ -36,76 +31,6 @@ def test_chat_duration_is_measured(measured_chat):
     value_checks.identical(result, client.chat.return_value)
     mock_checks.called_once_with(record_property, "answer_request_seconds", ANSWER_DURATION_SECONDS)
     value_checks.equal(clock.call_count, 2)
-
-
-@title("Benchmark reports descriptive answer timings independently of semantic scores")
-def test_answer_timing_summary(benchmark_data):
-    _, _, _, definition, calibration = benchmark_data
-    report = summarize(definition, timed_rows(), calibration)
-    check_answer_timing(report["summary"])
-    value_checks.contains(markdown(report), "Answer request timing")
-
-
-@title("Older benchmarks report unavailable timing rather than inventing latency")
-def test_legacy_timing_remains_unavailable(benchmark_data):
-    _, _, _, definition, calibration = benchmark_data
-    report = summarize(definition, [make_row()], calibration)
-    value_checks.equal(report["summary"]["answer_timing"]["unavailable"], 2)
-    value_checks.identical(report["summary"]["answer_timing"]["mean_seconds"], None)
-
-
-@title("Benchmark summary excludes refusal metrics explicitly and uses the planned denominator")
-def test_summary_and_missing_rows(benchmark_data):
-    _, _, _, definition, calibration = benchmark_data
-    report = summarize(definition, [make_row()], calibration)
-    value_checks.equal(report["status"], "error")
-    value_checks.equal(report["summary"]["pass_rate"], 0.5)
-    value_checks.equal(report["summary"]["missing"], 1)
-    value_checks.equal(report["summary"]["metrics"]["context_recall"]["not_applicable"], 1)
-    value_checks.contains(markdown(report), "1 / 1")
-    complete = summarize(definition, [make_row(), make_row("gym_missing", "missing_information")], calibration)
-    assertions.assert_benchmark_report(complete)
-    value_checks.identical(complete["categories"]["missing_information"]["metrics"]["faithfulness"]["mean"], None)
-    value_checks.equal(review_worksheet(complete)["status"], "pending_human_review")
-
-
-@title("Failed answer checks and judge errors cannot be hidden by perfect mean scores")
-def test_failures_remain_visible(benchmark_data):
-    _, _, _, definition, calibration = benchmark_data
-    row = make_row()
-    row["dimensions"][0].update(status="failed", error="Missing annual allowance")
-    report = summarize(definition, [row, make_row("gym_missing", "missing_information")], calibration)
-    value_checks.equal(report["status"], "failed")
-    value_checks.equal(report["summary"]["metrics"]["faithfulness"]["mean"], 1)
-    row["dimensions"][2] = case_data.fresh(NAME_METRIC_CONTEXT_PRECISION_INPUT)
-    report = summarize(definition, [row], calibration)
-    value_checks.equal(report["summary"]["metrics"]["context_precision"]["unavailable"], 1)
-    value_checks.identical(report["summary"]["metrics"]["context_precision"]["mean"], None)
-
-
-@pytest.mark.parametrize("change", INVALID_SUMMARY_CHANGE_CASES)
-@title("Benchmark refuses inconsistent case identities and metric outcomes [{param_id}]")
-def test_invalid_summary(benchmark_data, change):
-    _, _, _, definition, calibration = benchmark_data
-    row = make_row()
-    rows = [row]
-    prepare_invalid_summary_case(change, row, rows)
-    errors.rejects(lambda: summarize(definition, rows, calibration), expected=(ValueError, AssertionError))
-
-
-@title("Model comparisons reject changed prompts or generation weights")
-def test_different_configurations_rejected(benchmark_data):
-    _, _, _, definition, calibration = benchmark_data
-    check_benchmark_configuration_changes(calibration, definition)
-
-
-@title("Judge control mismatch prevents a benchmark from claiming acceptance")
-def test_control_mismatch(benchmark_data):
-    _, _, _, definition, calibration = benchmark_data
-    calibration["results"][0]["status"] = "mismatch"
-    report = summarize(definition, [make_row(), make_row("gym_missing", "missing_information")], calibration)
-    value_checks.equal(report["status"], "error")
-    value_checks.identical(report["judge_controls_matched"], False)
 
 
 @title("Benchmark runner preserves its full matrix, snapshots and human review worksheet")
@@ -185,25 +110,6 @@ def test_preflight_failure(tmp_path, benchmark_data, monkeypatch, mock_factory, 
     value_checks.equal(report["summary"]["errors"], 2)
     value_checks.equal(report["summary"]["metrics"]["faithfulness"]["unavailable"], 1)
     mock_checks.not_called(generate)
-
-
-@title("Two-model benchmark compares the same settings and retains per-model outcomes")
-def test_two_model_summary(benchmark_data):
-    dataset, gates, _, _, calibration = benchmark_data
-    plan = make_plan(dataset, case_ids=["paid_leave"], models=["qwen3.5:4b", "qwen2.5:7b"])
-    definition = manifest(plan, dataset, gates, ROOT / "test_data/faithfulness-controls.json")
-    first, second = make_row(), make_row()
-    second["model"] = "qwen2.5:7b"
-    second["model_digest"] = "other-weights"
-    first["workspace_configuration"]["chatModel"] = first["model"]
-    second["workspace_configuration"]["chatModel"] = second["model"]
-    report = summarize(definition, [first, second], calibration)
-    assertions.assert_benchmark_report(report)
-    value_checks.equal(set(report["models"]), set(plan.models))
-    second["workspace_configuration"]["openAiPrompt"] = "Other prompt"
-    errors.rejects(
-            lambda: summarize(definition, [first, second], calibration), expected=ValueError,
-            match="different workspace settings")
 
 
 @title("Offline benchmark rendering recomputes a forged passing summary without model calls")

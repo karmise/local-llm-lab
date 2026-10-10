@@ -114,6 +114,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Faithfulness controls | `evaluation/calibration.py`, `core/number_words.py` | `test_calibration.py` | 34.2% → 92.0% |
 | Benchmark plan | `datasets/benchmark.py` | `test_benchmark_plan.py` | 65.3% → 94.2% |
 | Benchmark case | `evaluation/benchmark.py` | `test_benchmark_case.py` | 68.6% → 97.5% |
+| Benchmark summary | `reporting/benchmark.py` | `test_benchmark_summary.py` | 65.0% → 94.0% |
 
 Domains not listed still follow step 35.
 

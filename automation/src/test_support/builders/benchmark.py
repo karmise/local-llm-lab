@@ -7,11 +7,13 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
+from llm_testkit.datasets.benchmark import make_plan, manifest
 from llm_testkit.datasets.golden import GoldenCase
 from llm_testkit.evaluation import benchmark as evaluation
 from llm_testkit.evaluation.correctness import METRIC_CONFIGURATION
 from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.reporting.gates import METRICS, load_quality_gates
+from test_support.builders.calibration import CONTROLS_FILE
 from test_support.builders.golden import CASES, GOLDEN_DATASET, TEST_DATA, make_case_sample
 from test_support.data import common as case_data
 
@@ -145,7 +147,26 @@ def make_row(case_id: str = "paid_leave", category: str = "multi_fact", *, model
             "dimensions": [*checks, *metrics]}
 
 
-# Doubles below still serve not-yet-migrated runner, summary, CI and judge-validation tests.
+def make_definition(
+        case_ids: tuple[str, ...] = ("paid_leave", "gym_missing"), models: tuple[str, ...] = (MODEL, )) -> dict:
+    """The manifest of a small matrix: one answered case and one missing-information case by default."""
+    plan = make_plan(GOLDEN_DATASET, case_ids=list(case_ids), models=list(models))
+    return manifest(plan, GOLDEN_DATASET, QUALITY_GATES, CONTROLS_FILE)
+
+
+def make_calibration(definition: dict) -> dict:
+    """A matched judge-control summary bound to the manifest's judge, catalog and control identifiers."""
+    return {
+            "status": "matched",
+            "judge_model": definition["judge_model"],
+            "judge_model_digest": JUDGE_DIGEST,
+            "controls_sha256": definition["controls_sha256"],
+            "control_ids": definition["control_ids"],
+            "results": [{
+            "status": "matched"} for _ in definition["control_ids"]]}
+
+
+# Doubles below still serve not-yet-migrated runner, CI and judge-validation tests.
 
 
 def make_calibrate_stub(calibration):
@@ -219,35 +240,3 @@ def make_judge_model_catalog():
 
 def make_forged_saved_report(definition):
     return {"manifest": definition, "results": [], "calibration": {"status": "error"}, "status": "checks_passed"}
-
-
-def timed_rows():
-    first, second = make_row(), make_row("gym_missing", "missing_information")
-    first["answer_request_seconds"], second["answer_request_seconds"] = 10.0, 20.0
-    return [first, second]
-
-
-def prepare_invalid_summary_case(change, row, rows):
-    if change == "duplicate":
-        rows.append(copy.deepcopy(row))
-    elif change == "unknown":
-        row["case_id"] = "unknown"
-    elif change == "category":
-        row["category"] = "boundary"
-    elif change == "missing_metric":
-        row["dimensions"].pop()
-    elif change == "nan":
-        row["dimensions"][2]["value"] = float("nan")
-    elif change == "minimum":
-        row["dimensions"][2]["minimum"] = 0.2
-    elif change == "false_pass":
-        row["dimensions"][2]["value"] = 0.1
-    else:
-        row["dimensions"][2]["status"] = "not_applicable"
-
-
-def prepare_different_configurations_rejected_case(change, row):
-    if change == "prompt":
-        row["workspace_configuration"]["openAiPrompt"] = "Changed prompt"
-    else:
-        row["model_digest"] = "changed"
