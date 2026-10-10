@@ -57,7 +57,8 @@ def load_saved_benchmark(path: Path) -> dict:
             if (len(calls) != 2 or calls[0]["output"]["statements"] != evaluated["statements"]
                         or calls[1]["output"]["statements"] != evaluated["verdicts"]):
                 raise ValueError("Judge control verdicts differ from their raw calls")
-            mismatch = calibration_mismatch(evaluated, expected_score=control["expected_score"], claims=control["claims"])
+            mismatch = calibration_mismatch(
+                    evaluated, expected_score=control["expected_score"], claims=control["claims"])
             if mismatch:
                 raise ValueError(f"Judge control result differs from its label: {mismatch}")
     for row in saved["results"]:
