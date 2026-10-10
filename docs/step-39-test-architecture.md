@@ -146,7 +146,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Qualification | `qualification/plan.py`, `qualification/package.py` | `test_qualification_plan.py`, `test_qualification_package.py` | 76.0% → 92.0% |
 
 All unit domains are migrated. Across the measured domains, mutants detected rose from
-33–76% to 86–100% per domain; the two domains exercised only through child pytest
+3.8–81.9% before to 85.6–100% after, per domain; the two domains exercised only through child pytest
 sessions cannot be measured this way.
 
 Mutation runs were made on macOS, whose file system ignores letter case. Mutants that only change
