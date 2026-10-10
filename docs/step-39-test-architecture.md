@@ -125,6 +125,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Counterfactual bias | `datasets/bias.py`, `reporting/bias.py` | `test_bias.py` | 53.4% → 94.2% |
 | Conversation | `datasets/conversation.py` | `test_conversation.py` | 75.6% → 96.1% |
 | Prompt regression | `datasets/prompts.py`, `reporting/prompt_regression.py` | `test_prompt_regression.py` | 51.2% → 95.4% |
+| Catalog validation | `datasets/validation.py` | `test_catalog_validation.py` | 44.6% → 96.4% |
 
 Domains not listed still follow step 35.
 
