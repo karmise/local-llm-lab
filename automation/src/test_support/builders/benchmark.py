@@ -3,6 +3,7 @@
 import copy
 import hashlib
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
@@ -10,11 +11,13 @@ from unittest.mock import Mock
 from llm_testkit.datasets.benchmark import make_plan, manifest
 from llm_testkit.datasets.golden import GoldenCase
 from llm_testkit.evaluation import benchmark as evaluation
+from llm_testkit.evaluation import benchmark_runner as runner
 from llm_testkit.evaluation.correctness import METRIC_CONFIGURATION
 from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.reporting.gates import METRICS, load_quality_gates
 from test_support.builders.calibration import CONTROLS_FILE
 from test_support.builders.golden import CASES, GOLDEN_DATASET, TEST_DATA, make_case_sample
+from test_support.builders.ollama import model_catalog
 from test_support.data import common as case_data
 
 QUALITY_GATES_FILE = TEST_DATA / "quality-gates.json"
@@ -220,3 +223,44 @@ def make_generate_stub(dataset, monkeypatch):
 
 def make_judge_model_catalog():
     return {"models": [{"name": MODEL, "digest": JUDGE_DIGEST}]}
+
+
+def disputed_correctness(evidence: dict[str, Any]) -> dict[str, Any]:
+    """Correctness evidence in which the judge rejects every claim of a correct answer (F1 = 0)."""
+    disputed = copy.deepcopy(evidence)
+    disputed["result"]["value"] = 0.0
+    for direction in ("response", "reference"):
+        for row in disputed["result"][f"{direction}_verdicts"]:
+            row["verdict"] = 0
+    for call in disputed["judge_calls"]:
+        for row in call["output"].get("statements", []):
+            row["verdict"] = 0
+    return disputed
+
+
+def save_benchmark_run(tmp_path: Path, monkeypatch, *, catalog=None, dispute_correctness: bool = False) -> Path:
+    """Run the paid-leave and gym-refusal benchmark with deterministic doubles; return its output directory.
+
+    Case-001 is paid leave and case-002 the refusal. A disputed run keeps every answer check passing while
+    the correctness judge rejects the paid-leave answer.
+    """
+    root = tmp_path / "automation"
+    shutil.copytree(TEST_DATA, root / "test_data")
+    monkeypatch.delenv("ANYTHINGLLM_API_KEY", raising=False)
+    monkeypatch.setattr(runner.OllamaClient, "list_models", catalog or (lambda _: model_catalog((MODEL, JUDGE_DIGEST))))
+    definition = make_definition()
+    monkeypatch.setattr(runner, "calibrate", make_calibrate_stub(make_calibration(definition)))
+    generate = make_generate_stub(GOLDEN_DATASET, monkeypatch)
+
+    def generate_with_dispute(*arguments):
+        result = generate(*arguments)
+        if dispute_correctness:
+            correctness = evaluation.evaluate_correctness_report
+            correctness.return_value = disputed_correctness(correctness.return_value)
+        return result
+
+    monkeypatch.setattr(runner, "generate_sample", generate_with_dispute)
+    output = tmp_path / "run"
+    plan = make_plan(GOLDEN_DATASET, case_ids=["paid_leave", "gym_missing"])
+    runner.run(root, output, plan, GOLDEN_DATASET, QUALITY_GATES, notify=lambda *args, **kwargs: None)
+    return output

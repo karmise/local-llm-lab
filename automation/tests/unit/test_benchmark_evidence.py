@@ -5,40 +5,21 @@ Each tampering case edits all copies of a value that the earlier checks compare,
 
 import hashlib
 import json
-import shutil
 from unittest.mock import Mock
 
 import pytest
 
-from llm_testkit.datasets.benchmark import make_plan
-from llm_testkit.evaluation import benchmark_runner as runner
 from llm_testkit.reporting.benchmark_evidence import load_saved_benchmark
 from llm_testkit.reporting.steps import title
-from test_support.builders.benchmark import (
-        JUDGE_DIGEST, MODEL, QUALITY_GATES, make_calibrate_stub, make_calibration, make_definition, make_generate_stub)
-from test_support.builders.golden import GOLDEN_DATASET, TEST_DATA
-from test_support.builders.ollama import model_catalog
+from test_support.builders.benchmark import save_benchmark_run
 
 pytestmark = pytest.mark.unit
-
-
-def run_benchmark(tmp_path, monkeypatch, *, catalog=None):
-    root = tmp_path / "automation"
-    shutil.copytree(TEST_DATA, root / "test_data")
-    output = tmp_path / "run"
-    monkeypatch.delenv("ANYTHINGLLM_API_KEY", raising=False)
-    monkeypatch.setattr(runner.OllamaClient, "list_models", catalog or (lambda _: model_catalog((MODEL, JUDGE_DIGEST))))
-    monkeypatch.setattr(runner, "calibrate", make_calibrate_stub(make_calibration(make_definition())))
-    monkeypatch.setattr(runner, "generate_sample", make_generate_stub(GOLDEN_DATASET, monkeypatch))
-    plan = make_plan(GOLDEN_DATASET, case_ids=["paid_leave", "gym_missing"])
-    runner.run(root, output, plan, GOLDEN_DATASET, QUALITY_GATES, notify=Mock())
-    return output
 
 
 @pytest.fixture
 def saved(tmp_path, monkeypatch):
     """A complete passing benchmark run saved to disk: case-001 is paid leave, case-002 the refusal."""
-    return run_benchmark(tmp_path, monkeypatch)
+    return save_benchmark_run(tmp_path, monkeypatch)
 
 
 def edit_json(path, change) -> None:
@@ -112,7 +93,7 @@ def test_empty_saved_report_is_an_error(saved):
 
 @title("A run whose preflight failed is reloaded without generation artifacts and stays an error")
 def test_failed_run_is_reloaded(tmp_path, monkeypatch):
-    output = run_benchmark(tmp_path, monkeypatch, catalog=Mock(side_effect=RuntimeError("Offline")))
+    output = save_benchmark_run(tmp_path, monkeypatch, catalog=Mock(side_effect=RuntimeError("Offline")))
 
     reloaded = load_saved_benchmark(output / "benchmark.json")
 

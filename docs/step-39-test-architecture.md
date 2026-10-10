@@ -117,6 +117,9 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Benchmark summary | `reporting/benchmark.py` | `test_benchmark_summary.py` | 65.0% → 94.0% |
 | Benchmark runner | `evaluation/benchmark_runner.py` | `test_benchmark_runner.py` | 48.5% → 85.6% |
 | Saved benchmark evidence | `reporting/benchmark_evidence.py` | `test_benchmark_evidence.py` | 69.7% → 89.2% |
+| Judge controls | `datasets/judge_controls.py` | `test_judge_controls.py` | 70.3% → 90.9% |
+| Judge validation | `evaluation/judge_validation.py` | `test_judge_validation.py` | 62.4% → 92.5% |
+| Judge review | `reporting/judge_review.py` | `test_judge_review.py` | 45.3% → 95.5% |
 
 Domains not listed still follow step 35.
 
