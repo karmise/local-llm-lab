@@ -130,6 +130,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Quality gates | `reporting/gates.py` | `test_quality_gates.py` | 71.0% → 95.6% |
 | Quality history | `reporting/drift.py` | `test_drift.py` | 58.6% → 94.9% |
 | Stability summary | `reporting/stability.py` | `test_stability.py` | 58.7% → 93.1% |
+| JUnit reader | `reporting/junit.py` | `test_junit.py` | 57.3% → 100% |
 
 Domains not listed still follow step 35.
 
