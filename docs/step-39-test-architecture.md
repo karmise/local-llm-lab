@@ -101,7 +101,20 @@ package is imported instead.
 - `evaluate_correctness_report` re-checks that a control response is a nonempty
   string after `validate_control` has already done so. The branch is unreachable.
 
-## Migration status
+## Migration log
 
-Correctness is migrated. Other unit domains still follow step 35 and will be
-migrated one domain per commit, each with a before/after mutation measurement.
+One domain per commit. Mutation scores use the same production modules before and
+after; "before" runs the old test module, "after" the rewritten one(s).
+
+| Domain | Production modules | Test modules | Mutants detected before → after |
+| --- | --- | --- | ---: |
+| Correctness | `evaluation/correctness.py` | `test_correctness.py` | 49.7% → 92.0% |
+| Faithfulness and judge | `evaluation/faithfulness.py`, `evaluation/ollama_judge.py` | `test_faithfulness.py`, `test_ollama_judge.py` | 58.6% → 94.1% |
+
+Domains not listed still follow step 35.
+
+Findings recorded during migration, for the framework step:
+
+- Faithfulness: an empty verdict list becomes a NaN score and is rejected as an invalid
+  quality score (`AssertionError`) rather than as missing verdicts (`ValueError`).
+- `assert_quality_score(minimum=...)` is used only by tests; no gate calls it.

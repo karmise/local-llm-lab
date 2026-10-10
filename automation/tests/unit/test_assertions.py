@@ -96,3 +96,31 @@ def test_model_selection_requires_a_digest() -> None:
     errors.rejects(
             lambda: assertions.assert_model_available([make_installed_model_entry()], case_data.TEST_MODEL),
             expected=AssertionError, match="Expected a model digest")
+
+
+@pytest.mark.parametrize("value", [0, 1, 0.5], ids=["zero", "one", "half"])
+@title("Quality-score check accepts finite numbers from 0 to 1 inclusive [{param_id}]")
+def test_quality_score_accepts_unit_interval(value):
+    assertions.assert_quality_score(value, minimum=value)
+
+
+@pytest.mark.parametrize(
+        "value", [float("nan"), float("inf"), -0.1, 1.1, True, "1"],
+        ids=["nan", "infinity", "negative", "above-one", "boolean", "string"])
+@title("Quality-score check rejects values that are not finite numbers from 0 to 1 [{param_id}]")
+def test_quality_score_rejects_invalid_values(value):
+    with pytest.raises(AssertionError, match="finite quality score between 0 and 1"):
+        assertions.assert_quality_score(value)
+
+
+@title("Quality threshold rejects a score below the required minimum")
+def test_quality_threshold_rejects_low_score():
+    with pytest.raises(AssertionError, match="0.500 is below 0.800"):
+        assertions.assert_quality_score(0.5, minimum=0.8)
+
+
+@pytest.mark.parametrize("minimum", [-0.1, 1.1, float("nan"), True], ids=["negative", "above-one", "nan", "boolean"])
+@title("Quality threshold itself must be a finite number from 0 to 1 [{param_id}]")
+def test_quality_threshold_rejects_invalid_minimum(minimum):
+    with pytest.raises(AssertionError, match="threshold must be a finite number"):
+        assertions.assert_quality_score(0.5, minimum=minimum)

@@ -153,7 +153,7 @@ belong to test support; acceptance rules belong to `Assertions`. Optional browse
 and judge imports remain lazy in supporting code.
 
 In not-yet-migrated domains, prepared fixtures supply a stable scenario, such as
-`faithfulness_judge`. Use a fixture factory when a test needs several clients,
+`relevance_judges`. Use a fixture factory when a test needs several clients,
 responses or configurations. Mutable input catalogs are copied with
 `test_support.data.common.fresh`; never mutate a shared parameter dictionary.
 Protocol field names and meaningful expected values can remain explicit in checks.
