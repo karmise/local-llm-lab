@@ -36,7 +36,6 @@ def load_sample(path: Path) -> tuple[dict[str, Any], str]:
 
 
 def validate_result(result: dict[str, Any]) -> dict[str, Any]:
-    assertions.assert_quality_score(result["value"])
     statements, verdicts = result.get("statements"), result.get("verdicts")
     if (not isinstance(statements, list) or not statements or any(not isinstance(s, str) or not s.strip()
             for s in statements) or not isinstance(verdicts, list)
@@ -45,6 +44,9 @@ def validate_result(result: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Judge verdicts must cover every extracted statement exactly once")
     if any(type(item.get("verdict")) is not int or item["verdict"] not in (0, 1) for item in verdicts):
         raise ValueError("Judge verdict must be 0 or 1")
+    value = result["value"]
+    if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 1:
+        raise ValueError(f"Faithfulness score must be a finite number between 0 and 1, got {value!r}")
     recomputed = sum(item["verdict"] for item in verdicts) / len(verdicts)
     if not math.isclose(result["value"], recomputed, rel_tol=0, abs_tol=1e-9):
         raise ValueError("Faithfulness score does not match its verdicts")

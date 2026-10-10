@@ -56,11 +56,8 @@ def test_ragas_faithfulness_is_share_of_supported_claims():
     assert client.structured_chat.call_count == 2, "Budget rejection must happen before another transport call"
 
 
-@pytest.mark.parametrize(
-        ("verdicts", "error", "message"),
-        [
-        # RAGAS turns an empty verdict list into a NaN score, which the quality-score check rejects first.
-        pytest.param({"statements": []}, AssertionError, "finite quality score", id="no-verdicts"),
+@pytest.mark.parametrize(("verdicts", "error", "message"), [
+        pytest.param({"statements": []}, ValueError, "cover every extracted statement", id="no-verdicts"),
         pytest.param({"statements": [{
         "statement": "Other claim.",
         "reason": "Wrong.",
@@ -372,3 +369,12 @@ def test_cli_requires_output(run_cli, cli_evaluation):
 
     assert stopped.value.code == 2
     cli_evaluation.assert_not_called()
+
+
+@pytest.mark.parametrize("value", [float("nan"), 1.5, -0.1, True, None])
+@title("A saved faithfulness score that is not a finite number from 0 to 1 is a validation error [{value}]")
+def test_validate_result_rejects_invalid_score(value):
+    result = {"value": value, "statements": ["Claim."], "verdicts": [{"statement": "Claim.", "verdict": 1}]}
+
+    with pytest.raises(ValueError, match="Faithfulness score must be a finite number between 0 and 1"):
+        validate_result(result)

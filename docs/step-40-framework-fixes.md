@@ -9,3 +9,4 @@ previous code.
 | Fix | Previous behaviour | Regression test |
 | --- | --- | --- |
 | Judge controls no longer depend on `assert` | `evaluate_controls` told `matched` from `mismatch` by catching `AssertionError`; under `python -O` every control was `matched`. Saved benchmarks were checked the same way. | `test_mismatch_is_detected_under_optimized_python` runs a contradicting judge under `-O` |
+| Faithfulness validation order and error type | An empty verdict list reached the score check first and failed as an invalid score (`AssertionError`, skipped under `-O`) instead of as missing verdicts. | `test_scoring_rejects_invalid_judge_verdicts[no-verdicts]`, `test_validate_result_rejects_invalid_score` |
