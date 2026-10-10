@@ -7,7 +7,6 @@ import pytest
 from llm_testkit import assertions
 from llm_testkit.datasets.benchmark import make_plan, manifest
 from llm_testkit.datasets.golden import load_golden_dataset
-from llm_testkit.evaluation import benchmark as evaluation
 from llm_testkit.evaluation import benchmark_runner as runner
 from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.reporting.benchmark import markdown, review_worksheet, summarize
@@ -18,25 +17,16 @@ from test_support.assertions import mocks as mock_checks
 from test_support.assertions import values as value_checks
 from test_support.assertions.benchmark import check_answer_timing, check_benchmark_configuration_changes
 from test_support.builders.benchmark import (
-        _mock_metrics, _row, _sample, make_calibrate_stub, make_forged_benchmark_summary, make_forged_saved_report,
-        make_generate_stub, make_judge_model_catalog, make_subprocess_run_stub, prepare_invalid_summary_case,
-        timed_rows, with_pipeline_directory)
+        make_benchmark_sample, make_calibrate_stub, make_forged_benchmark_summary, make_forged_saved_report,
+        make_generate_stub, make_judge_model_catalog, make_row, make_subprocess_run_stub, prepare_invalid_summary_case,
+        timed_rows)
 from test_support.data import common as case_data
 from test_support.data.benchmark import (
-        ANSWER_DURATION_SECONDS, INVALID_ANSWER_DURATIONS, INVALID_PLAN_OPTIONS_CASES, INVALID_SUMMARY_CHANGE_CASES,
-        NAME_METRIC_CONTEXT_PRECISION_INPUT, ROOT)
+        ANSWER_DURATION_SECONDS, INVALID_SUMMARY_CHANGE_CASES, NAME_METRIC_CONTEXT_PRECISION_INPUT, ROOT)
 from test_support.fixtures.unit_benchmark import benchmark_data as benchmark_data
 from test_support.fixtures.unit_benchmark import measured_chat as measured_chat
-from test_support.fixtures.unit_benchmark import timed_sample as timed_sample
 
 pytestmark = pytest.mark.unit
-
-
-@title("Benchmark default matrix has a bounded serial model-call budget")
-def test_default_plan_budget(benchmark_data):
-    dataset = benchmark_data[0]
-    value_checks.equal(make_plan(dataset).maximum_calls, 43)
-    value_checks.equal(make_plan(dataset, models=["qwen3.5:4b", "qwen2.5:7b"], max_model_calls=80).maximum_calls, 80)
 
 
 @title("Answer timing covers the chat request and is recorded in JUnit metadata")
@@ -56,37 +46,24 @@ def test_answer_timing_summary(benchmark_data):
     value_checks.contains(markdown(report), "Answer request timing")
 
 
-@pytest.mark.parametrize("duration", INVALID_ANSWER_DURATIONS)
-@title("Captured answer timing rejects invalid measurements [{param_id}]")
-def test_invalid_answer_duration(timed_sample, duration):
-    timed_sample.change_duration(duration)
-    errors.rejects(timed_sample.load, expected=ValueError, match="finite positive")
-
-
 @title("Older benchmarks report unavailable timing rather than inventing latency")
 def test_legacy_timing_remains_unavailable(benchmark_data):
     _, _, _, definition, calibration = benchmark_data
-    report = summarize(definition, [_row()], calibration)
+    report = summarize(definition, [make_row()], calibration)
     value_checks.equal(report["summary"]["answer_timing"]["unavailable"], 2)
     value_checks.identical(report["summary"]["answer_timing"]["mean_seconds"], None)
-
-
-@pytest.mark.parametrize("options", INVALID_PLAN_OPTIONS_CASES)
-@title("Benchmark rejects invalid or over-budget matrices before model calls [{param_id}]")
-def test_invalid_plan(benchmark_data, options):
-    errors.rejects(lambda: make_plan(benchmark_data[0], **options), expected=ValueError)
 
 
 @title("Benchmark summary excludes refusal metrics explicitly and uses the planned denominator")
 def test_summary_and_missing_rows(benchmark_data):
     _, _, _, definition, calibration = benchmark_data
-    report = summarize(definition, [_row()], calibration)
+    report = summarize(definition, [make_row()], calibration)
     value_checks.equal(report["status"], "error")
     value_checks.equal(report["summary"]["pass_rate"], 0.5)
     value_checks.equal(report["summary"]["missing"], 1)
     value_checks.equal(report["summary"]["metrics"]["context_recall"]["not_applicable"], 1)
     value_checks.contains(markdown(report), "1 / 1")
-    complete = summarize(definition, [_row(), _row("gym_missing", "missing_information")], calibration)
+    complete = summarize(definition, [make_row(), make_row("gym_missing", "missing_information")], calibration)
     assertions.assert_benchmark_report(complete)
     value_checks.identical(complete["categories"]["missing_information"]["metrics"]["faithfulness"]["mean"], None)
     value_checks.equal(review_worksheet(complete)["status"], "pending_human_review")
@@ -95,9 +72,9 @@ def test_summary_and_missing_rows(benchmark_data):
 @title("Failed answer checks and judge errors cannot be hidden by perfect mean scores")
 def test_failures_remain_visible(benchmark_data):
     _, _, _, definition, calibration = benchmark_data
-    row = _row()
+    row = make_row()
     row["dimensions"][0].update(status="failed", error="Missing annual allowance")
-    report = summarize(definition, [row, _row("gym_missing", "missing_information")], calibration)
+    report = summarize(definition, [row, make_row("gym_missing", "missing_information")], calibration)
     value_checks.equal(report["status"], "failed")
     value_checks.equal(report["summary"]["metrics"]["faithfulness"]["mean"], 1)
     row["dimensions"][2] = case_data.fresh(NAME_METRIC_CONTEXT_PRECISION_INPUT)
@@ -110,7 +87,7 @@ def test_failures_remain_visible(benchmark_data):
 @title("Benchmark refuses inconsistent case identities and metric outcomes [{param_id}]")
 def test_invalid_summary(benchmark_data, change):
     _, _, _, definition, calibration = benchmark_data
-    row = _row()
+    row = make_row()
     rows = [row]
     prepare_invalid_summary_case(change, row, rows)
     errors.rejects(lambda: summarize(definition, rows, calibration), expected=(ValueError, AssertionError))
@@ -126,51 +103,9 @@ def test_different_configurations_rejected(benchmark_data):
 def test_control_mismatch(benchmark_data):
     _, _, _, definition, calibration = benchmark_data
     calibration["results"][0]["status"] = "mismatch"
-    report = summarize(definition, [_row(), _row("gym_missing", "missing_information")], calibration)
+    report = summarize(definition, [make_row(), make_row("gym_missing", "missing_information")], calibration)
     value_checks.equal(report["status"], "error")
     value_checks.identical(report["judge_controls_matched"], False)
-
-
-@title("All four benchmark metrics validate original evidence and preserve independent failures")
-def test_case_pipeline(tmp_path, benchmark_data, monkeypatch, unit_settings):
-    dataset, gates, _, _, _ = benchmark_data
-    case = dataset.cases[0]
-    sample_path = tmp_path / case_data.SAMPLE_FILE_NAME
-    write_sample(sample_path, _sample(case, dataset))
-    _mock_metrics(monkeypatch, case, dataset, sample_path)
-    kwargs = dict(
-            directory=tmp_path, dataset=dataset, dataset_path=ROOT / "test_data/golden-policy.json",
-            policy_file=ROOT / "test_data/company-policy.txt", case=case, model="qwen3.5:4b", judge_model="qwen3.5:4b",
-            judge_digest="judge-digest", settings=unit_settings, minima=gates["minimum_scores"])
-    row = evaluation.evaluate_case(sample_path, **kwargs)
-    value_checks.length(row["dimensions"], 6)
-    value_checks.all_true((d["status"] == "passed" for d in row["dimensions"]))
-    value_checks.equal(row["judge_calls"], 8)
-    value_checks.length(row["evidence_sha256"], 3)
-    other = tmp_path / "failed"
-    other.mkdir()
-    evaluation.evaluate_correctness_report.return_value["sample_sha256"] = "wrong"
-    row = evaluation.evaluate_case(sample_path, **with_pipeline_directory(kwargs, other))
-    value_checks.equal(
-            next((d for d in row["dimensions"] if d.get("metric") == "factual_correctness"))["status"], "error")
-    value_checks.equal(next((d for d in row["dimensions"] if d.get("metric") == "context_recall"))["status"], "passed")
-
-
-@title("Refusal cases run reviewed checks without invoking a semantic judge")
-def test_refusal_case_no_judge(tmp_path, benchmark_data, monkeypatch, mock_factory, unit_settings, failure_factory):
-    dataset, gates, _, _, _ = benchmark_data
-    case = next(c for c in dataset.cases if c.id == "gym_missing")
-    path = tmp_path / case_data.SAMPLE_FILE_NAME
-    write_sample(path, _sample(case, dataset))
-    judge = mock_factory(side_effect=failure_factory(AssertionError, "Unexpected judge call"))
-    monkeypatch.setattr(evaluation, "evaluate_sample_report", judge)
-    row = evaluation.evaluate_case(
-            path, directory=tmp_path, dataset=dataset, dataset_path=ROOT / "test_data/golden-policy.json",
-            policy_file=ROOT / "test_data/company-policy.txt", case=case, model="qwen3.5:4b", judge_model="qwen3.5:4b",
-            judge_digest="judge-digest", settings=unit_settings, minima=gates["minimum_scores"])
-    value_checks.equal(row["judge_calls"], 0)
-    value_checks.equal(sum((d["status"] == "not_applicable" for d in row["dimensions"])), 4)
-    mock_checks.not_called(judge)
 
 
 @title("Benchmark runner preserves its full matrix, snapshots and human review worksheet")
@@ -225,7 +160,7 @@ def test_generation_teardown_error(tmp_path, monkeypatch):
     directory.mkdir()
     dataset = load_golden_dataset(ROOT / "test_data/golden-policy.json", ROOT / "test_data/company-policy.txt")
     sample_path = samples / case_data.SAMPLE_FILE_NAME
-    write_sample(sample_path, _sample(dataset.cases[0], dataset))
+    write_sample(sample_path, make_benchmark_sample(dataset.cases[0]))
 
     subprocess_run = make_subprocess_run_stub(sample_path)
 
@@ -257,7 +192,7 @@ def test_two_model_summary(benchmark_data):
     dataset, gates, _, _, calibration = benchmark_data
     plan = make_plan(dataset, case_ids=["paid_leave"], models=["qwen3.5:4b", "qwen2.5:7b"])
     definition = manifest(plan, dataset, gates, ROOT / "test_data/faithfulness-controls.json")
-    first, second = _row(), _row()
+    first, second = make_row(), make_row()
     second["model"] = "qwen2.5:7b"
     second["model_digest"] = "other-weights"
     first["workspace_configuration"]["chatModel"] = first["model"]

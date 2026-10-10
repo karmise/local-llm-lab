@@ -10,20 +10,20 @@ from llm_testkit.ci.model_cache import download_blob
 from llm_testkit.evaluation import benchmark_runner as runner
 from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.qualification.plan import framework_checksum
-from test_support.builders.benchmark import _mock_metrics, _sample
+from test_support.builders.benchmark import make_benchmark_sample, make_metric_evidence, patch_metric_reports
 from test_support.data.ci import OTHER_REVISION, REVISION
 
 
 def ci_generator(dataset, monkeypatch):
     def generate(root, directory, identifier, model):
         case = next(c for c in dataset.cases if c.id == identifier)
-        sample = _sample(case, dataset, model)
+        sample = make_benchmark_sample(case, model)
         sample["metadata"].update(
                 model_digest="judge-digest", framework_source_sha256=framework_checksum(root),
                 test_source_sha256=hashlib.sha256((root / "tests/test_golden_rag.py").read_bytes()).hexdigest(),
                 test_node_id=f"tests/test_golden_rag.py::test_golden_policy_answer[{identifier}-{model}]")
         write_sample(directory / "sample.json", sample)
-        _mock_metrics(monkeypatch, case, dataset, directory / "sample.json")
+        patch_metric_reports(monkeypatch, make_metric_evidence(case, directory / "sample.json"))
         junit = directory / "generation.xml"
         junit.write_text(f'<testsuite><testcase name="test_golden_policy_answer[{identifier}-{model}]"/></testsuite>')
         return {

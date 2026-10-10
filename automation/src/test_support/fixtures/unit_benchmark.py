@@ -1,6 +1,5 @@
 """Fixtures scoped to the associated unit-test module."""
 
-import json
 from unittest.mock import Mock
 
 import pytest
@@ -9,8 +8,7 @@ from llm_testkit.config import Settings
 from llm_testkit.datasets.benchmark import make_plan, manifest
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.reporting.gates import load_quality_gates
-from test_support.builders.benchmark import TimedSample, _sample
-from test_support.data.benchmark import ANSWER_DURATION_SECONDS, ROOT
+from test_support.data.benchmark import ROOT
 from test_support.fixtures.rag import rag_chat
 
 
@@ -29,17 +27,6 @@ def benchmark_data():
             "results": [{
             "status": "matched"} for _ in range(3)]}
     return dataset, gates, plan, definition, calibration
-
-
-@pytest.fixture
-def timed_sample(tmp_path, benchmark_data):
-    dataset = benchmark_data[0]
-    case = dataset.cases[0]
-    sample = _sample(case, dataset)
-    sample["metadata"]["answer_request_seconds"] = ANSWER_DURATION_SECONDS
-    path = tmp_path / "sample.json"
-    path.write_text(json.dumps(sample))
-    return TimedSample(path, dataset, case)
 
 
 @pytest.fixture

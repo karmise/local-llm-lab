@@ -112,6 +112,8 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Faithfulness and judge | `evaluation/faithfulness.py`, `evaluation/ollama_judge.py` | `test_faithfulness.py`, `test_ollama_judge.py` | 58.6% → 94.1% |
 | Context relevance | `evaluation/relevance.py` | `test_relevance.py` | 49.7% → 94.0% |
 | Faithfulness controls | `evaluation/calibration.py`, `core/number_words.py` | `test_calibration.py` | 34.2% → 92.0% |
+| Benchmark plan | `datasets/benchmark.py` | `test_benchmark_plan.py` | 65.3% → 94.2% |
+| Benchmark case | `evaluation/benchmark.py` | `test_benchmark_case.py` | 68.6% → 97.5% |
 
 Domains not listed still follow step 35.
 
