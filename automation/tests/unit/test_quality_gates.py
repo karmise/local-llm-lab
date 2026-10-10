@@ -1,75 +1,239 @@
+"""Quality gates: experimental thresholds that turn validated measurements into pass/fail checks, failing closed."""
+
+import hashlib
 import json
 from copy import deepcopy
 
 import pytest
 
 from llm_testkit import assertions
-from llm_testkit.reporting.gates import apply_quality_gates, load_quality_gates
+from llm_testkit.reporting.gates import METRICS, apply_quality_gates, load_quality_gates
 from llm_testkit.reporting.steps import title
-from test_support.assertions import errors as errors
-from test_support.assertions import pytest_runs
-from test_support.assertions import values as value_checks
-from test_support.builders.quality_gates import measured_report, prepare_configuration_case, prepare_fail_closed_case
-from test_support.data.quality_gates import BOUNDARY_METRIC_CASES, CONFIGURATION_CHANGE_CASES, FAIL_CLOSED_CASES, GATES
-from test_support.data.scripts.quality_gates import render_pytest_exit_code_makepyfile_source
+from test_support.paths import AUTOMATION_ROOT
 
 pytestmark = pytest.mark.unit
 
+GATES_FILE = AUTOMATION_ROOT / "test_data/quality-gates.json"
+MINIMA = {"faithfulness": 0.9, "factual_correctness": 0.8, "context_precision": 0.8, "context_recall": 0.9}
 
-@title("Explicit gates turn validated measurements into threshold checks without modifying the original report")
-def test_apply_gates():
+
+def measured_report(**values: float) -> dict:
+    """A report whose fact and source checks passed and whose four metrics were measured (1.0 unless given)."""
+    return {
+            "schema_version":
+            1,
+            "status":
+            "checks_passed",
+            "interpretation":
+            "Measured without thresholds",
+            "dimensions": [{
+            "name": "Facts",
+            "status": "passed"}, {
+            "name": "Sources",
+            "status": "passed"}, *({
+            "name": metric,
+            "metric": metric,
+            "status": "measured",
+            "details": {
+            "value": values.get(metric, 1.0),
+            "threshold": None}} for metric in sorted(METRICS))]}
+
+
+def metric_row(report: dict, metric: str) -> dict:
+    return next(dimension for dimension in report["dimensions"] if dimension.get("metric") == metric)
+
+
+def write_gates(tmp_path, **changes) -> object:
+    path = tmp_path / "gates.json"
+    path.write_text(json.dumps(json.loads(GATES_FILE.read_text()) | changes))
+    return path
+
+
+@title("The reviewed gates are experimental, cover all four metrics and carry their checksum")
+def test_reviewed_gates_load():
+    gates = load_quality_gates(GATES_FILE)
+
+    assert (gates["schema_version"], gates["calibration"],
+            gates["version"]) == (1, "experimental", "policy-quality-gates-v1")
+    assert gates["minimum_scores"] == MINIMA
+    assert "Not clinically validated" in gates["rationale"]
+    assert gates["sha256"] == hashlib.sha256(GATES_FILE.read_bytes()).hexdigest()
+
+
+@pytest.mark.parametrize(("changes", "message"), [
+        pytest.param({"schema_version": 2}, "Unsupported quality gates schema", id="schema-two"),
+        pytest.param({"schema_version": True}, "Unsupported quality gates schema", id="schema-boolean"),
+        pytest.param({"schema_version": None}, "Unsupported quality gates schema", id="no-schema"),
+        pytest.param({"calibration": "clinically validated"}, "explicitly experimental gates only", id="clinical"),
+        pytest.param({"version": ""}, "require version and rationale", id="blank-version"),
+        pytest.param({"version": 1}, "require version and rationale", id="numeric-version"),
+        pytest.param({"rationale": " "}, "require version and rationale", id="blank-rationale"),
+        pytest.param({"minimum_scores": [0.9]}, "must define all four semantic metrics", id="minima-not-object"),
+        pytest.param({"minimum_scores": MINIMA | {
+        "accuracy": 0.8}}, "all four semantic metrics", id="unknown-metric"),
+        pytest.param({"minimum_scores": {
+        k: v
+        for k, v in MINIMA.items() if k != "faithfulness"}}, "all four semantic metrics", id="missing-metric")])
+@title("Invalid gate configuration is rejected rule by rule [{param_id}]")
+def test_gates_reject_invalid_configuration(tmp_path, changes, message):
+    with pytest.raises(ValueError, match=message):
+        load_quality_gates(write_gates(tmp_path, **changes))
+
+
+@pytest.mark.parametrize(
+        "minimum", [
+        pytest.param(float("nan"), id="nan"),
+        pytest.param(True, id="boolean"),
+        pytest.param(1.1, id="above-one"),
+        pytest.param(-0.1, id="negative")])
+@title("A threshold must be a finite score between 0 and 1 [{param_id}]")
+def test_gates_reject_invalid_threshold(tmp_path, minimum):
+    path = write_gates(tmp_path, minimum_scores=MINIMA | {"faithfulness": minimum})
+
+    with pytest.raises(AssertionError, match="Expected a finite quality score between 0 and 1"):
+        load_quality_gates(path)
+
+
+@pytest.mark.parametrize("minimum", [pytest.param(0, id="zero"), pytest.param(1, id="one")])
+@title("Thresholds at the ends of the score range are accepted [{param_id}]")
+def test_gates_accept_boundary_thresholds(tmp_path, minimum):
+    path = write_gates(tmp_path, minimum_scores=MINIMA | {"faithfulness": minimum})
+
+    assert load_quality_gates(path)["minimum_scores"]["faithfulness"] == minimum
+
+
+@title("Gates turn measurements into threshold checks without modifying the original report")
+def test_gates_pass_measurements_at_or_above_minimum():
     report = measured_report()
     before = deepcopy(report)
-    gated = apply_quality_gates(report, GATES)
+
+    gated = apply_quality_gates(report, GATES_FILE)
+
+    assert report == before
+    assert gated["status"] == "checks_passed"
+    assert gated["quality_gates"] == load_quality_gates(GATES_FILE)
+    assert gated["interpretation"] == gated["quality_gates"]["rationale"]
+    assert gated["dimensions"][:2] == report["dimensions"][:2]
+    assert [metric_row(gated, metric) for metric in sorted(METRICS)] == [{
+            "name": f"{metric} gate (minimum {MINIMA[metric]})",
+            "metric": metric,
+            "status": "passed",
+            "details": {
+            "value": 1.0,
+            "threshold": MINIMA[metric]}} for metric in sorted(METRICS)]
     assertions.assert_quality_report(gated)
-    value_checks.equal(gated["status"], "checks_passed")
-    value_checks.equal(report, before)
-    value_checks.equal(gated["quality_gates"]["calibration"], "experimental")
-    value_checks.all_true((d["status"] == "passed" for d in gated["dimensions"]))
 
 
-@pytest.mark.parametrize("metric,change,expected_status", FAIL_CLOSED_CASES)
-@title("Quality gates fail closed for missing, invalid or low-scoring metrics [{param_id}]")
-def test_fail_closed(metric, change, expected_status):
+@pytest.mark.parametrize("metric", sorted(METRICS))
+@title("A score equal to the minimum passes and an immediately lower one fails [{metric}]")
+def test_gate_boundary(metric):
+    at_minimum = apply_quality_gates(measured_report(**{metric: MINIMA[metric]}), GATES_FILE)
+    below = apply_quality_gates(measured_report(**{metric: MINIMA[metric] - 1e-6}), GATES_FILE)
+
+    assert (at_minimum["status"], metric_row(at_minimum, metric)["status"]) == ("checks_passed", "passed")
+    assert (below["status"], metric_row(below, metric)["status"]) == ("failed", "failed")
+
+
+@title("A low score fails with a message naming the score and the minimum")
+def test_low_score_fails_with_message():
+    gated = apply_quality_gates(measured_report(faithfulness=0.5), GATES_FILE)
+
+    assert metric_row(gated, "faithfulness")["error"] == "Score 0.5 is below minimum 0.9"
+    with pytest.raises(AssertionError, match="Score 0.5 is below minimum 0.9"):
+        assertions.assert_quality_report(gated)
+
+
+@pytest.mark.parametrize("value", [pytest.param(float("nan"), id="nan"), pytest.param(None, id="none")])
+@title("A measured value that is not a quality score is rejected [{param_id}]")
+def test_gate_rejects_invalid_measured_value(value):
+    with pytest.raises(AssertionError, match="Expected a finite quality score"):
+        apply_quality_gates(measured_report(faithfulness=value), GATES_FILE)
+
+
+@title("A failed or invalid measurement stays failed or in error; a gate cannot hide it")
+def test_gate_keeps_failed_and_error_dimensions():
     report = measured_report()
-    row = next(d for d in report["dimensions"] if d.get("metric") == metric)
-    prepare_fail_closed_case(change, report, row)
-    gated = apply_quality_gates(report, GATES)
-    value_checks.equal(gated["status"], expected_status)
-    errors.rejects(lambda: assertions.assert_quality_report(gated), expected=AssertionError)
+    metric_row(report, "faithfulness").update(status="error", error="Checksum mismatch")
+    metric_row(report, "context_recall").update(status="failed", error="Low recall")
+
+    gated = apply_quality_gates(report, GATES_FILE)
+
+    assert gated["status"] == "error"
+    assert (metric_row(gated, "faithfulness")["status"], metric_row(gated,
+            "faithfulness")["error"]) == ("error", "Checksum mismatch")
+    assert (metric_row(gated, "context_recall")["status"], metric_row(gated,
+            "context_recall")["error"]) == ("failed", "Low recall")
+    assert metric_row(gated, "faithfulness")["details"]["threshold"] is None
 
 
-@pytest.mark.parametrize("metric", BOUNDARY_METRIC_CASES)
-@title("Quality threshold equality passes and an immediately lower measurement fails [{param_id}]")
-def test_boundary(metric):
+@title("A failure alone makes the gated report fail rather than error")
+def test_failed_dimension_fails_report():
     report = measured_report()
-    row = next(d for d in report["dimensions"] if d.get("metric") == metric)
-    row["details"]["value"] = load_quality_gates(GATES)["minimum_scores"][metric]
-    value_checks.equal(apply_quality_gates(report, GATES)["status"], "checks_passed")
-    row["details"]["value"] -= 1e-6
-    value_checks.equal(apply_quality_gates(report, GATES)["status"], "failed")
+    metric_row(report, "context_recall").update(status="failed", error="Low recall")
+
+    assert apply_quality_gates(report, GATES_FILE)["status"] == "failed"
 
 
-@pytest.mark.parametrize("change", CONFIGURATION_CHANGE_CASES)
-@title("Gate configuration requires all metrics, finite thresholds and an explicit calibration boundary [{param_id}]")
-def test_configuration(tmp_path, change):
-    config = json.loads(GATES.read_text())
-    prepare_configuration_case(change, config)
-    path = tmp_path / "gates.json"
-    path.write_text(json.dumps(config))
-    errors.rejects(lambda: load_quality_gates(path), expected=(ValueError, AssertionError))
+@title("A gated metric that was not measured is an error")
+def test_gate_requires_measured_evidence():
+    report = measured_report()
+    metric_row(report, "faithfulness")["status"] = "passed"
+
+    gated = apply_quality_gates(report, GATES_FILE)
+
+    assert gated["status"] == "error"
+    assert metric_row(gated, "faithfulness")["error"] == "Gate requires validated measured evidence"
 
 
-@title("Duplicate metric dimensions cannot satisfy quality gates")
-def test_duplicate_metric():
+@title("Every metric without evidence is reported as its own error, in name order")
+def test_missing_metrics_are_errors():
+    report = measured_report()
+    report["dimensions"] = report["dimensions"][:2]
+
+    gated = apply_quality_gates(report, GATES_FILE)
+
+    assert gated["status"] == "error"
+    assert gated["dimensions"][2:] == [{
+            "name": f"{metric} gate",
+            "metric": metric,
+            "status": "error",
+            "error": "Required metric evidence was not supplied"} for metric in sorted(METRICS)]
+
+
+@title("Dimensions for metrics without a gate are left unchanged")
+def test_ungated_metric_dimensions_are_unchanged():
+    report = measured_report()
+    report["dimensions"].append({"name": "answer_relevancy", "metric": "answer_relevancy", "status": "measured"})
+
+    gated = apply_quality_gates(report, GATES_FILE)
+
+    assert gated["dimensions"][-1] == report["dimensions"][-1]
+    assert gated["status"] == "checks_passed"
+
+
+@title("Duplicate metric dimensions cannot satisfy a gate")
+def test_duplicate_metric_is_rejected():
     report = measured_report()
     report["dimensions"].append(deepcopy(report["dimensions"][-1]))
-    errors.rejects(lambda: apply_quality_gates(report, GATES), expected=ValueError, match="Duplicate")
+
+    with pytest.raises(ValueError, match="Duplicate quality metric dimension"):
+        apply_quality_gates(report, GATES_FILE)
 
 
 @title("A low measured value produces a failing pytest exit code for CI")
-def test_pytest_exit_code(framework_pytester):
-    framework_pytester.makepyfile(render_pytest_exit_code_makepyfile_source())
+def test_low_score_fails_the_pytest_run(framework_pytester):
+    framework_pytester.makepyfile(
+            f"""
+        from pathlib import Path
+        from llm_testkit.assertions import assert_quality_report
+        from llm_testkit.reporting.gates import apply_quality_gates
+
+        def test_gate():
+            report = {measured_report(faithfulness=0.0)!r}
+            assert_quality_report(apply_quality_gates(report, Path({str(GATES_FILE)!r})))
+    """)
+
     result = framework_pytester.runpytest_subprocess("-q")
-    pytest_runs.outcomes(result, failed=1)
-    value_checks.equal(result.ret, pytest.ExitCode.TESTS_FAILED)
+
+    result.assert_outcomes(failed=1)
+    assert result.ret == pytest.ExitCode.TESTS_FAILED
