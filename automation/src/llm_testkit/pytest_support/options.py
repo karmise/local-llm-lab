@@ -34,6 +34,9 @@ def _model_name(value: str) -> str:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--ci-profile", choices=("smoke", "curated"), help="Expected live CI benchmark scope")
+    parser.addoption("--ci-models", choices=("primary", "comparison"), help="Expected live CI generation models")
+    parser.addoption("--ci-revision", help="Exact commit SHA tested by the live CI producer")
     parser.addoption("--benchmark-report", type=Path, help="Saved dataset benchmark for offline Allure reporting")
     parser.addoption(
             "--run-conversation", action="store_true",

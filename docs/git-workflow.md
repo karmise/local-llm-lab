@@ -45,3 +45,9 @@ git push -u origin feature/workspace-api
 
 Open a pull request on GitHub to review and merge the branch. In PyCharm,
 the Commit and Push actions use the same repository and GitHub remote.
+
+Before merging, inspect required status checks and run the
+[fresh AI quality workflow](step-38-live-ai-ci.md) from main for the feature
+branch's exact latest SHA with `profile=curated`. A smoke result does not satisfy
+the curated gate. Updated commits require fresh evidence. Repository
+administrator bypass is a deliberate maintenance exception, not a quality pass.

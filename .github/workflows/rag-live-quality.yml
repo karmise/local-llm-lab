@@ -1,0 +1,183 @@
+name: Fresh RAG quality
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Full commit SHA to test; empty means the dispatched main commit
+        type: string
+        default: ""
+      profile:
+        description: Curated gate covers four cases; smoke covers two and cannot satisfy the merge gate
+        type: choice
+        options: [curated, smoke]
+        default: curated
+      models:
+        description: One primary model or both comparison models; fixed Qwen3.5 judge
+        type: choice
+        options: [primary, comparison]
+        default: primary
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-rag-${{ inputs.revision || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Bind manual run to a commit
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: write
+    outputs:
+      revision: ${{ steps.commit.outputs.revision }}
+      context: ${{ steps.commit.outputs.context }}
+    steps:
+      # No target checkout in either status-writing job.
+      - name: Resolve exact revision and mark its gate pending
+        id: commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SHA: ${{ inputs.revision }}
+          PROFILE: ${{ inputs.profile }}
+        run: |
+          revision="${REQUESTED_SHA:-$GITHUB_SHA}"
+          [[ "$revision" =~ ^[a-f0-9]{40}$ ]]
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/$revision" --jq .sha)"
+          [[ "$actual" == "$revision" ]]
+          context="RAG benchmark quality"
+          if [[ "$PROFILE" == "smoke" ]]; then context="RAG smoke quality"; fi
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          echo "context=$context" >> "$GITHUB_OUTPUT"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$revision" \
+            -f state=pending -f context="$context" -f description='Fresh evidence generation and gate in progress' \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --silent
+
+  produce:
+    name: Generate and evaluate bounded fresh answers
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: automation
+        shell: bash
+    env:
+      RAGAS_DO_NOT_TRACK: "true"
+      LANGCHAIN_TRACING_V2: "false"
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      ANYTHINGLLM_DOCUMENT_TIMEOUT: "600"
+      ANYTHINGLLM_LLM_TIMEOUT: "600"
+      CI_REVISION: ${{ needs.resolve.outputs.revision }}
+      CI_PROFILE: ${{ inputs.profile }}
+      CI_MODELS: ${{ inputs.models }}
+      COMPOSE_PROJECT_NAME: rag-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      COMPOSE_FILE: ${{ github.workspace }}/compose.ci.yaml
+    steps:
+      - name: Check out exact target code without write credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.revision }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.3"
+      - name: Install pinned evaluation dependencies
+        run: |
+          python -m pip install -r requirements-evaluation.lock
+          python -m pip install --no-deps -e .
+          python -m pip check
+      - name: Save reviewed plan before any model call
+        run: |
+          [[ "$(git rev-parse HEAD)" == "$CI_REVISION" ]]
+          python -m llm_testkit.ci.benchmark plan --revision "$CI_REVISION" \
+            --profile "$CI_PROFILE" --models "$CI_MODELS" --output reports/ci/plan.json
+      - name: Start isolated model server and download reviewed weights
+        timeout-minutes: 30
+        run: |
+          docker compose up -d ollama
+          python -m llm_testkit.ci.environment wait-ollama
+          docker compose exec -T ollama ollama pull qwen3.5:4b
+          docker compose exec -T ollama ollama pull bge-m3:567m
+          selected=(--model qwen3.5:4b --model bge-m3:567m)
+          if [[ "$CI_MODELS" == "comparison" ]]; then
+            docker compose exec -T ollama ollama pull qwen2.5:7b
+            selected+=(--model qwen2.5:7b)
+          fi
+          python -m llm_testkit.ci.environment verify-models "${selected[@]}" --output reports/ci/environment.json
+      - name: Start disposable application and create its private API key
+        run: |
+          mkdir -p ../.runtime/ollama-capture
+          chmod 777 ../.runtime/ollama-capture
+          docker compose up -d anythingllm
+          python -m llm_testkit.ci.environment bootstrap
+      - name: Capture actual context and evaluate the declared golden matrix
+        id: benchmark
+        timeout-minutes: 80
+        run: |
+          python -m llm_testkit.ci.benchmark produce --revision "$CI_REVISION" \
+            --profile "$CI_PROFILE" --models "$CI_MODELS" --output reports/ci/benchmark
+      - name: Prepare judge disagreement diagnostics without new model calls
+        if: ${{ !cancelled() && steps.benchmark.outcome != 'skipped' }}
+        run: |
+          python -m llm_testkit.reporting.judge_review reports/ci/benchmark/benchmark.json \
+            --output reports/ci/benchmark/judge-review.json
+      - name: Collect service diagnostics
+        if: always()
+        run: |
+          mkdir -p reports/ci/services
+          docker compose ps --format json > reports/ci/services/containers.json
+          docker compose logs --no-color --tail=100 > reports/ci/services/services.log 2>&1
+      - name: Preserve fresh evidence even when quality fails
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fresh-rag-evidence
+          path: automation/reports/ci/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove only this run's disposable services and volumes
+        if: always()
+        run: docker compose down --volumes --remove-orphans
+
+  gate:
+    needs: [resolve, produce]
+    if: ${{ !cancelled() && needs.resolve.result == 'success' }}
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/rag-benchmark-gate.yml
+    with:
+      revision: ${{ needs.resolve.outputs.revision }}
+      profile: ${{ inputs.profile }}
+      models: ${{ inputs.models }}
+
+  verdict:
+    name: Publish commit-bound RAG verdict
+    needs: [resolve, produce, gate]
+    if: ${{ always() && needs.resolve.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish success only if producer and independent gate both succeeded
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_REVISION: ${{ needs.resolve.outputs.revision }}
+          CI_CONTEXT: ${{ needs.resolve.outputs.context }}
+          PRODUCER_RESULT: ${{ needs.produce.result }}
+          GATE_RESULT: ${{ needs.gate.result }}
+        run: |
+          state=failure
+          if [[ "$PRODUCER_RESULT" == "success" && "$GATE_RESULT" == "success" ]]; then state=success; fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$CI_REVISION" \
+            -f state="$state" -f context="$CI_CONTEXT" -f description="Producer: $PRODUCER_RESULT; gate: $GATE_RESULT" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --silent
+          [[ "$state" == "success" ]]

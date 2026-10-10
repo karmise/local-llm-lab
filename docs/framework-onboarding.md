@@ -492,6 +492,7 @@ Follow these guides after the basic paid-leave walkthrough:
 - [Quality gates](step-27-quality-gates.md): apply explicit experimental thresholds to validated saved evidence, and enforce framework coverage in CI.
 - [Judge suitability](step-36-judge-validation.md): compare all four metrics against source-bound engineering labels and inspect reference/judge disagreements before proposing release criteria.
 - [Real two-model comparison](step-37-two-model-benchmark.md): inspect the executed eight-case matrix, answer request timings and preserved semantic failures.
+- [Fresh AI CI](step-38-live-ai-ci.md): produce new answers on a hosted runner, independently validate the complete evidence and bind the quality verdict to the exact commit.
 
 Keep the distinction between measurement, a scoped acceptance pass and statistical validation. Full matrices remain opt-in. Gate thresholds are illustrative; a saved paid-leave gate does not establish dataset-wide or clinical quality.
 

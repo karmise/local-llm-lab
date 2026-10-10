@@ -1,0 +1,74 @@
+name: Saved CI benchmark gate
+
+on:
+  workflow_call:
+    inputs:
+      revision:
+        required: true
+        type: string
+      profile:
+        required: true
+        type: string
+      models:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  quality:
+    name: Revalidate complete benchmark evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: automation
+        shell: bash
+    env:
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      CI_REVISION: ${{ inputs.revision }}
+      CI_PROFILE: ${{ inputs.profile }}
+      CI_MODELS: ${{ inputs.models }}
+    steps:
+      - name: Check out the exact tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.revision }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.3"
+      - name: Download same-run fresh evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: fresh-rag-evidence
+          path: automation/reports/ci
+      - name: Install offline reporting dependencies
+        id: dependencies
+        run: |
+          python -m pip install -r requirements-reporting.lock
+          python -m pip install --no-deps -e .
+          python -m pip check
+          npm ci --prefix tools/allure
+      - name: Revalidate provenance and enforce every applicable quality dimension
+        id: gate
+        run: |
+          python -m pytest tests/test_ci_benchmark.py -p allure_pytest.plugin \
+            --benchmark-report reports/ci/benchmark/benchmark.json \
+            --ci-profile "$CI_PROFILE" --ci-models "$CI_MODELS" --ci-revision "$CI_REVISION" \
+            --alluredir reports/ci/gate/allure-results --allure-no-capture \
+            --junitxml reports/ci/gate/results.xml
+      - name: Generate Allure HTML even after a failed gate
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.gate.outcome != 'skipped' }}
+        run: npm --prefix tools/allure exec -- allure generate reports/ci/gate/allure-results --output reports/ci/gate/allure-report
+      - name: Preserve gate diagnostics and Allure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fresh-rag-gate-reports
+          path: automation/reports/ci/gate/
+          if-no-files-found: warn
+          retention-days: 14

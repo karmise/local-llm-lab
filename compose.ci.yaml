@@ -1,0 +1,37 @@
+# Standalone, disposable GitHub-hosted environment. Never overlay local Compose.
+services:
+  ollama:
+    image: ollama/ollama:0.40.2@sha256:b86366bb528bbf7f1424435d165028497a5b69bf6ddb4fa5a87102e2b79f44fb
+    ports:
+      - "127.0.0.1:11434:11434"
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_CONTEXT_LENGTH: "8192"
+    volumes:
+      - ollama-models:/root/.ollama
+  anythingllm:
+    image: mintplexlabs/anythingllm:1.16.2@sha256:480b0f105efd6a4c8a4cde82713fe81348d75c979a24a38e9ed8e236bed0fd17
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      STORAGE_DIR: /app/server/storage
+      DISABLE_TELEMETRY: "true"
+      LLM_PROVIDER: ollama
+      OLLAMA_BASE_PATH: http://ollama:11434
+      OLLAMA_MODEL_PREF: qwen3.5:4b
+      OLLAMA_MODEL_TOKEN_LIMIT: "8192"
+      EMBEDDING_ENGINE: ollama
+      EMBEDDING_BASE_PATH: http://ollama:11434
+      EMBEDDING_MODEL_PREF: bge-m3:567m
+      EMBEDDING_MODEL_MAX_CHUNK_LENGTH: "1000"
+      VECTOR_DB: lancedb
+      NODE_OPTIONS: --require=/app/llm-testkit/ollama-preload.cjs
+      LLM_TESTKIT_CAPTURE_DIR: /app/llm-testkit/captures
+    volumes:
+      - anythingllm-storage:/app/server/storage
+      - ./automation/src/llm_testkit/observation/ollama-preload.cjs:/app/llm-testkit/ollama-preload.cjs:ro
+      - ./.runtime/ollama-capture:/app/llm-testkit/captures
+volumes:
+  anythingllm-storage:
+  ollama-models:

@@ -62,6 +62,6 @@ quality:
     evidence-artifact: quality-evidence
 ```
 
-The `produce-evidence` name is an integration example, not an existing hosted model job. Ordinary GitHub-hosted checks do not have the local AnythingLLM/Ollama services, so application generation is not automatically run on every push. A representative dataset-wide release gate and automated evidence producer need their own environment and budget. A passing saved paid-leave sample must not be presented as a passing full golden/adversarial matrix.
+The `produce-evidence` name above is an integration example for the single-sample consumer. The later [fresh AI CI stage](step-38-live-ai-ci.md) adds a real manually dispatched producer with disposable hosted AnythingLLM/Ollama services and a separate complete-benchmark consumer. Ordinary push checks still make no model calls. A passing saved paid-leave sample must not be presented as a passing full golden/adversarial matrix.
 
 Failing a workflow blocks its downstream dependent jobs. Requiring its status before a GitHub merge additionally needs repository branch protection/rulesets; this change does not configure repository administration settings.

@@ -16,8 +16,9 @@ grounded policy-answer and missing-information checks across two generation mode
 actual context capture and local RAGAS evaluation with hand-labelled judge controls,
 golden datasets, prompt/adversarial/bias regression scenarios, metric history,
 bounded performance checks and four Playwright UI scenarios. GitHub Actions runs
-offline framework checks with a coverage floor; saved evidence has explicit
-experimental quality gates. A test plan and educational IQ/OQ/PQ evidence builder
+offline framework checks with a coverage floor. A manually dispatched hosted
+AI workflow produces fresh evidence and applies commit-bound experimental
+quality gates. A test plan and educational IQ/OQ/PQ evidence builder
 link requirements to declared test matrices and execution results.
 
 ## Project structure
@@ -38,6 +39,11 @@ local-llm-lab/
     ├── reports/              # local reports; excluded from Git
     └── .venv/                # local environment; excluded from Git
 ```
+
+See [fresh AI CI and merge gates](docs/step-38-live-ai-ci.md) for bounded manual
+generation, independent evidence validation, Allure artifacts and exact-commit
+quality statuses. This workflow uses disposable hosted services and does not
+require a running developer Mac.
 
 ## Start and stop
 
