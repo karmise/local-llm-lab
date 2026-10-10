@@ -120,6 +120,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Judge controls | `datasets/judge_controls.py` | `test_judge_controls.py` | 70.3% → 90.9% |
 | Judge validation | `evaluation/judge_validation.py` | `test_judge_validation.py` | 62.4% → 92.5% |
 | Judge review | `reporting/judge_review.py` | `test_judge_review.py` | 45.3% → 95.5% |
+| Golden dataset | `datasets/golden.py`, `datasets/validation.py` | `test_golden_dataset.py` | 72.5% → 96.3% |
 
 Domains not listed still follow step 35.
 
@@ -135,6 +136,8 @@ Findings recorded during migration, for the framework step:
 - Calibration separates `matched` from `mismatch` by catching the `AssertionError` raised by
   `assert_calibration_result`. Under `python -O` those assertions are removed, so every
   control would be reported as matched regardless of the judge's verdicts.
+- Data that builders load at import time (such as `GOLDEN_DATASET`) is built before a mutant is
+  active, so tests that read it never exercise the loader. Loader tests must load inside the test.
 - CLI tests that omit a required argument must run in a temporary directory. Otherwise a
   mutant that accepts the missing argument writes `out.json` to the working directory,
   and a later run fails for an unrelated reason, so the mutant survives undetected.
