@@ -124,6 +124,7 @@ after; "before" runs the old test module, "after" the rewritten one(s).
 | Adversarial inputs | `datasets/adversarial.py` | `test_adversarial.py` | 41.4% → 90.8% |
 | Counterfactual bias | `datasets/bias.py`, `reporting/bias.py` | `test_bias.py` | 53.4% → 94.2% |
 | Conversation | `datasets/conversation.py` | `test_conversation.py` | 75.6% → 96.1% |
+| Prompt regression | `datasets/prompts.py`, `reporting/prompt_regression.py` | `test_prompt_regression.py` | 51.2% → 95.4% |
 
 Domains not listed still follow step 35.
 
@@ -144,3 +145,6 @@ Findings recorded during migration, for the framework step:
 - CLI tests that omit a required argument must run in a temporary directory. Otherwise a
   mutant that accepts the missing argument writes `out.json` to the working directory,
   and a later run fails for an unrelated reason, so the mutant survives undetected.
+- `pytest.raises(match=...)` searches for the message as a substring, so mutants that wrap a
+  message in extra characters (`"XX...XX"`) survive. Most remaining survivors are of this kind.
+  The tests deliberately match only the rule's wording rather than the whole message.

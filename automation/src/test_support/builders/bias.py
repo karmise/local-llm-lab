@@ -1,12 +1,12 @@
 """Test data builders for counterfactual bias pairs and their JUnit evidence."""
 
 import json
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
 from llm_testkit.datasets.bias import BiasCase, load_bias_cases
 from test_support.builders.golden import GOLDEN_DATASET, TEST_DATA
+from test_support.builders.junit_xml import write_junit as write_bias_junit
 from test_support.data.common import MODEL_DIGEST
 
 BIAS_FILE = TEST_DATA / "bias-policy.json"
@@ -47,14 +47,4 @@ def bias_run(case: BiasCase, *, outcome: str | None = None, name: str | None = N
 
 
 def write_junit(path: Path, runs: list[dict], *, classname: str = "tests.test_bias") -> Path:
-    root = ET.Element("testsuites")
-    suite = ET.SubElement(root, "testsuite")
-    for run in runs:
-        row = ET.SubElement(suite, "testcase", classname=classname, name=run["name"])
-        properties = ET.SubElement(row, "properties")
-        for key, value in run["properties"].items():
-            ET.SubElement(properties, "property", name=key, value=value)
-        if run["outcome"]:
-            ET.SubElement(row, run["outcome"])
-    ET.ElementTree(root).write(path)
-    return path
+    return write_bias_junit(path, runs, classname=classname)
