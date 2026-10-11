@@ -88,7 +88,7 @@ known_first_party = ["llm_testkit", "test_support"]
 
 [tool.coverage.run]
 branch = true
-source = ["llm_testkit", "test_support.fixtures", "test_support.assertions"]
+source = ["llm_testkit", "test_support.fixtures"]
 patch = ["subprocess"]
 parallel = true
 

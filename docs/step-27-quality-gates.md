@@ -27,11 +27,12 @@ Use a fresh report directory for an independent measurement. Coverage.py is pinn
 | Metric | Minimum |
 | --- | --- |
 | Faithfulness | 0.90 |
-| Factual correctness F1 | 0.80 |
+| Factual correctness F1 | none (measured; see [step 40](step-40-framework-fixes.md)) |
 | Context precision | 0.80 |
 | Context recall | 0.90 |
 
-The catalog marks these thresholds **experimental**, with a version, rationale and recorded SHA256. They demonstrate an acceptance mechanism; they have not been calibrated on a representative benchmark. Raising, lowering or changing them requires reviewing the rationale and version rather than editing tests to match a failing answer.
+A `null` minimum records the metric without a threshold: it is still validated, reported and
+listed for judge review below 1.0, but cannot pass or fail a run. The catalog marks these thresholds **experimental**, with a version, rationale and recorded SHA256. They demonstrate an acceptance mechanism; they have not been calibrated on a representative benchmark. Raising, lowering or changing them requires reviewing the rationale and version rather than editing tests to match a failing answer.
 
 Add `--quality-gates test_data/quality-gates.json` to the saved quality command with all four evidence files:
 

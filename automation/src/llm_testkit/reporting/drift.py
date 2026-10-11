@@ -90,7 +90,7 @@ def make_snapshot(
         raise ValueError("Sample or dataset changed during history assembly")
     case = bind_case(sample, dataset, case_id)
     metadata = sample["metadata"]
-    if metadata["policy_sha256"] != dataset.policy_sha256:
+    if metadata.get("policy_sha256") != dataset.policy_sha256:
         raise ValueError("Captured policy does not match reviewed dataset")
     configuration = normalize_configuration(metadata["workspace_configuration"])
     if configuration.get("chatModel") != report["generation_model"]:
@@ -151,7 +151,11 @@ def compare_snapshots(baseline: dict[str, Any], current: dict[str, Any], *, maxi
     assertions.assert_quality_score(maximum_drop)
 
     def config(row):
-        return {k: v for k, v in normalize_configuration(row["configuration"]).items() if k != "chatModel"}
+        # The prompt is compared through prompt_sha256 and the model separately, so neither repeats here.
+        return {
+                k: v
+                for k, v in normalize_configuration(row["configuration"]).items()
+                if k not in ("chatModel", "openAiPrompt")}
 
     fields = (
             "case_id", "policy_sha256", "dataset_sha256", "prompt_sha256", "thinking_mode", "context_parser",

@@ -1,5 +1,8 @@
 # Step 34: fixture boundaries and readable test scenarios
 
+> The unit-test parts of this step were superseded by [step 39](step-39-test-architecture.md);
+> parameter tables and child-test sources now live in the test module that uses them.
+
 Test functions should make the action and expected outcome easy to find.
 Framework setup, extensive input tables, fake services and embedded child-test
 source code previously obscured those outcomes. This refactoring separates those

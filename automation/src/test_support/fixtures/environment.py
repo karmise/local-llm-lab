@@ -11,7 +11,9 @@ from llm_testkit.clients.anythingllm_client import AnythingLLMClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.datasets.golden import GoldenCase, load_golden_dataset
-from test_support.data.authentication import INVALID_API_KEY
+
+# Authentication acceptance inputs contain no valid credentials.
+INVALID_API_KEY = "invalid-test-key"
 
 
 @pytest.fixture(scope="session")

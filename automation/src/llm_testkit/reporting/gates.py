@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from llm_testkit import assertions
+from llm_testkit.core.scores import require_score
 
 METRICS = frozenset({"faithfulness", "factual_correctness", "context_precision", "context_recall"})
 
@@ -23,8 +24,11 @@ def load_quality_gates(path: Path) -> dict[str, Any]:
     minima = data.get("minimum_scores")
     if not isinstance(minima, dict) or set(minima) != METRICS:
         raise ValueError("Quality gates must define all four semantic metrics")
-    for value in minima.values():
-        assertions.assert_quality_score(value)
+    for metric, value in minima.items():
+        if value is not None:
+            require_score(value, f"Quality gate minimum for {metric}")
+    if all(value is None for value in minima.values()):
+        raise ValueError("Quality gates require at least one threshold")
     return {**data, "sha256": hashlib.sha256(raw).hexdigest()}
 
 
@@ -42,6 +46,12 @@ def apply_quality_gates(report: dict[str, Any], path: Path) -> dict[str, Any]:
             raise ValueError("Duplicate quality metric dimension")
         seen.add(metric)
         minimum = gates["minimum_scores"][metric]
+        if minimum is None:
+            # Recorded without a threshold: the measurement stays visible but cannot pass or fail the run.
+            dimension["name"] = f"{metric} measurement (no threshold)"
+            if dimension["status"] not in ("measured", "failed", "error"):
+                dimension.update(status="error", error="Gate requires validated measured evidence")
+            continue
         dimension["name"] = f"{metric} gate (minimum {minimum})"
         # Failed/error dimensions stay failed/error; no numeric value can hide invalid evidence.
         if dimension["status"] == "measured":

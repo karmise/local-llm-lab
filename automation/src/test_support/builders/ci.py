@@ -1,115 +1,87 @@
-"""Prepared CI evidence and service doubles for readable offline scenarios."""
+"""Test data builders for CI evidence: a saved benchmark run bound to a tested checkout and model lock."""
 
 import hashlib
 import json
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
-from llm_testkit.ci.benchmark import execution_context, validate_ci_benchmark
-from llm_testkit.ci.model_cache import download_blob
+from llm_testkit.ci.benchmark import execution_context, inputs, validate_ci_benchmark
+from llm_testkit.datasets.benchmark import manifest
 from llm_testkit.evaluation import benchmark_runner as runner
 from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.qualification.plan import framework_checksum
-from test_support.builders.benchmark import _mock_metrics, _sample
-from test_support.data.ci import OTHER_REVISION, REVISION
+from test_support.builders.benchmark import (
+        JUDGE_DIGEST, MODEL, make_calibrate_stub, make_calibration, make_generate_stub)
+from test_support.builders.golden import TEST_DATA
+from test_support.builders.ollama import model_catalog
+from test_support.paths import AUTOMATION_ROOT
+
+REVISION = "a" * 40
+OTHER_REVISION = "b" * 40
+COMPARISON_MODEL = "qwen2.5:7b"
+GOLDEN_TEST = AUTOMATION_ROOT / "tests/test_golden_rag.py"
 
 
-def ci_generator(dataset, monkeypatch):
-    def generate(root, directory, identifier, model):
-        case = next(c for c in dataset.cases if c.id == identifier)
-        sample = _sample(case, dataset, model)
-        sample["metadata"].update(
-                model_digest="judge-digest", framework_source_sha256=framework_checksum(root),
-                test_source_sha256=hashlib.sha256((root / "tests/test_golden_rag.py").read_bytes()).hexdigest(),
-                test_node_id=f"tests/test_golden_rag.py::test_golden_policy_answer[{identifier}-{model}]")
-        write_sample(directory / "sample.json", sample)
-        _mock_metrics(monkeypatch, case, dataset, directory / "sample.json")
-        junit = directory / "generation.xml"
-        junit.write_text(f'<testsuite><testcase name="test_golden_policy_answer[{identifier}-{model}]"/></testsuite>')
-        return {
-                "generation_status": "passed",
-                "generation_junit_sha256": hashlib.sha256(junit.read_bytes()).hexdigest()}
-
-    return generate
+def ci_metadata(root: Path, case_id: str, model: str) -> dict[str, str]:
+    """Sample metadata showing the sample came from the checkout's framework and golden test."""
+    return {
+            "framework_source_sha256": framework_checksum(root),
+            "test_source_sha256": hashlib.sha256((root / "tests/test_golden_rag.py").read_bytes()).hexdigest(),
+            "test_node_id": f"tests/test_golden_rag.py::test_golden_policy_answer[{case_id}-{model}]"}
 
 
-@dataclass
+@dataclass(frozen=True)
 class SavedCIRun:
+    """A saved smoke benchmark run (``directory``) produced from a checkout (``root``)."""
+
     root: Path
     directory: Path
+    models: str
 
-    def validate(self):
+    @property
+    def lock(self) -> Path:
+        return self.root.parent / "config/ci-models.json"
+
+    def validate(self, *, revision: str = REVISION, profile: str = "smoke", models: str | None = None) -> dict:
         return validate_ci_benchmark(
-                self.root, self.directory / "benchmark.json", revision=REVISION, profile="smoke", models="primary")
+                self.root, self.directory / "benchmark.json", revision=revision, profile=profile, models=models
+                or self.models)
 
-    def change(self, target: str) -> None:
-        context_path = self.directory / "ci-context.json"
-        context = json.loads(context_path.read_text())
-        if target in ("revision", "source", "profile"):
-            context[{
-                    "revision": "revision",
-                    "source": "framework_source_sha256",
-                    "profile": "profile"}[target]] = OTHER_REVISION
-            context_path.write_text(json.dumps(context))
-        elif target == "baseline":
-            with (self.directory / "quality-gates.json").open("a") as file:
-                file.write("\n")
-        elif target == "plan":
-            path = self.directory / "manifest.json"
-            value = json.loads(path.read_text())
-            value["expected_rows"].pop()
-            path.write_text(json.dumps(value))
-        elif target == "judge_weights":
-            path = self.root.parent / "config/ci-models.json"
-            value = json.loads(path.read_text())
-            value["qwen3.5:4b"] = "changed-weights"
-            path.write_text(json.dumps(value))
-        elif target == "generation_weights":
-            sample_path = self.directory / "case-002/sample.json"
-            sample = json.loads(sample_path.read_text())
-            sample["metadata"]["model_digest"] = "changed-weights"
-            sample_path.write_text(json.dumps(sample))
-        else:
-            (self.root / "tests/test_golden_rag.py").write_text("# Different golden test\n")
+    def read(self, name: str) -> Any:
+        return json.loads((self.directory / name).read_text())
 
-    def fail_generation(self) -> None:
-        path = self.directory / "benchmark.json"
-        report = json.loads(path.read_text())
-        row = report["results"][0]
-        row["error"] = "Generation could not complete"
-        (self.directory / row["artifact_directory"] / "result.json").write_text(json.dumps(row))
-        path.write_text(json.dumps(report))
+    def write(self, name: str, value: Any) -> None:
+        (self.directory / name).write_text(json.dumps(value))
 
 
-def context_for(root: Path) -> dict:
-    return execution_context(root, REVISION, "smoke", "primary")
+def save_ci_run(
+        tmp_path: Path, monkeypatch, *, models: str = "primary", lock: dict[str, str] | None = None,
+        metadata=ci_metadata) -> SavedCIRun:
+    """Run the CI smoke profile with deterministic doubles and record its CI context.
 
-
-def create_run(root, output, dataset, gates, plan):
+    Every model reports the judge digest; ``lock`` is the reviewed model lock (by default it matches).
+    ``metadata(root, case_id, model)`` supplies the CI metadata saved in each sample.
+    """
+    root = tmp_path / "automation"
+    shutil.copytree(TEST_DATA, root / "test_data")
+    (root / "tests").mkdir()
+    shutil.copyfile(GOLDEN_TEST, root / "tests/test_golden_rag.py")
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config/ci-models.json").write_text(
+            json.dumps(lock or {
+            MODEL: JUDGE_DIGEST,
+            COMPARISON_MODEL: JUDGE_DIGEST}))
+    monkeypatch.delenv("ANYTHINGLLM_API_KEY", raising=False)
+    monkeypatch.setattr(
+            runner.OllamaClient, "list_models", lambda _: model_catalog((MODEL, JUDGE_DIGEST),
+            (COMPARISON_MODEL, JUDGE_DIGEST)))
+    dataset, gates, plan = inputs(root, "smoke", models)
+    definition = manifest(plan, dataset, gates, root / "test_data/faithfulness-controls.json")
+    monkeypatch.setattr(runner, "calibrate", make_calibrate_stub(make_calibration(definition)))
+    monkeypatch.setattr(runner, "generate_sample", make_generate_stub(dataset, monkeypatch, metadata=metadata))
+    output = tmp_path / "run"
     runner.run(root, output, plan, dataset, gates, notify=lambda *args, **kwargs: None)
-    write_sample(output / "ci-context.json", context_for(root))
-    return SavedCIRun(root, output)
-
-
-@dataclass
-class ReviewedBlob:
-    session: object
-    response: object
-    directory: Path
-    layer: dict
-
-    def download(self) -> None:
-        download_blob(self.session, "qwen3.5:4b", self.layer, self.directory)
-
-    def replace_bytes(self, content: bytes) -> None:
-        self.response.iter_content.return_value = [content]
-
-    def saved_bytes(self) -> bytes:
-        return (self.directory / self.layer["digest"].replace(":", "-")).read_bytes()
-
-    def files(self) -> list[Path]:
-        return list(self.directory.iterdir())
-
-
-def reject_authentication(*args, **kwargs):
-    raise ValueError("Disposable authentication failed")
+    write_sample(output / "ci-context.json", execution_context(root, REVISION, "smoke", models))
+    return SavedCIRun(root, output, models)

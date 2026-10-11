@@ -1,45 +1,19 @@
-"""Scenario data builders and deterministic test doubles."""
+"""Test data builders for the reviewed adversarial attack catalog."""
 
 import json
+from typing import Any
 
-from requests import Response
+from llm_testkit.datasets.adversarial import AdversarialCase, load_adversarial_cases
+from test_support.builders.golden import GOLDEN_DATASET, TEST_DATA
 
-from test_support.data import common as case_data
-from test_support.data.adversarial import CASES as CASES
-from test_support.data.adversarial import DATA as DATA
-from test_support.data.adversarial import DATASET as DATASET
-
-
-def answer(case, text):
-    response = Response()
-    response.status_code = 200
-    response._content = json.dumps({
-            "type":
-            "textResponse",
-            "textResponse":
-            text,
-            "close":
-            True,
-            "error":
-            None,
-            "sources": [{
-            "title": case_data.POLICY_DOCUMENT_TITLE,
-            "text": (DATA / "company-policy.txt").read_text()}]}).encode()
-    return response
+ADVERSARIAL_FILE = TEST_DATA / "adversarial-policy.json"
 
 
-def prepare_catalog_case(change, data, row):
-    if change == "hash":
-        data["golden_dataset_sha256"] = "changed"
-    elif change == "id":
-        data["cases"][1]["id"] = row["id"]
-    elif change == "category":
-        row["category"] = "unknown"
-    elif change == "base":
-        row["golden_case_id"] = "unknown"
-    elif change == "question":
-        row["question"] = "Unrelated question"
-    elif change == "appendix":
-        row["document_appendix"] = "Unexpected modification"
-    else:
-        row["forbidden_patterns"] = {"empty": ".*"}
+def catalog_json() -> dict[str, Any]:
+    """A fresh, editable copy of the reviewed attack catalog."""
+    return json.loads(ADVERSARIAL_FILE.read_text())
+
+
+def attack_cases() -> dict[str, AdversarialCase]:
+    """The reviewed attacks by id, loaded on each call."""
+    return {case.id: case for case in load_adversarial_cases(ADVERSARIAL_FILE, GOLDEN_DATASET)}

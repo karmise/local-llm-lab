@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "version": "policy-quality-gates-v1",
+  "version": "policy-quality-gates-v2",
   "calibration": "experimental",
-  "rationale": "Illustrative policy-lab acceptance thresholds. Not clinically validated or calibrated from a representative benchmark.",
+  "rationale": "Illustrative policy-lab acceptance thresholds. Not clinically validated or calibrated from a representative benchmark. Factual correctness is recorded without a threshold: on one- or two-claim answers a single 4B-judge error moves F1 by 0.33 or more, so it cannot yet gate a run.",
   "minimum_scores": {
     "faithfulness": 0.9,
-    "factual_correctness": 0.8,
+    "factual_correctness": null,
     "context_precision": 0.8,
     "context_recall": 0.9
   }

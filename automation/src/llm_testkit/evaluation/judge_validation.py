@@ -13,6 +13,7 @@ from llm_testkit import assertions
 from llm_testkit.clients.ollama_client import OllamaClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
+from llm_testkit.core.scores import require_score
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.datasets.judge_controls import load_judge_controls, maximum_calls, select_judge_controls
 from llm_testkit.evaluation.correctness import result_from_calls, score_correctness
@@ -21,7 +22,7 @@ from llm_testkit.observation.evaluation_sample import write_sample
 
 
 def result_from_evidence(control: dict[str, Any], calls: list[dict[str, Any]], value: float) -> dict[str, Any]:
-    assertions.assert_quality_score(value)
+    require_score(value, "Judge control score")
     if len(calls) != maximum_calls(control):
         raise ValueError("Judge control has an unexpected number of calls")
     metric = control["metric"]

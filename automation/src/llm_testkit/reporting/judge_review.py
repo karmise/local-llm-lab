@@ -15,9 +15,11 @@ def review_benchmark(path: Path) -> dict:
     root = path.parent
     rows = []
     for case in benchmark["results"]:
+        # Ungated metrics never fail a run, so an imperfect one is still shown for human review.
         failures = [
-                dimension for dimension in case.get("dimensions", [])
-                if dimension.get("metric") and dimension["status"] in {"failed", "error"}]
+                dimension for dimension in case.get("dimensions", []) if dimension.get("metric") and (
+                dimension["status"] in {"failed", "error"} or
+                (dimension["status"] == "measured" and dimension["value"] < 1))]
         evidence = {}
         for name, metrics in EVIDENCE_METRICS.items():
             if any(dimension.get("metric") in metrics for dimension in failures):

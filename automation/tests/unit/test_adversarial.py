@@ -1,3 +1,6 @@
+"""Adversarial inputs: a source-bound attack catalog, poisoned policy copies, answer checks and opt-in collection."""
+
+import hashlib
 import json
 import shutil
 
@@ -6,75 +9,187 @@ import pytest
 from llm_testkit import assertions
 from llm_testkit.datasets.adversarial import load_adversarial_cases, materialize_policy
 from llm_testkit.reporting.steps import title
-from test_support.assertions import errors as errors
-from test_support.assertions import pytest_runs
-from test_support.assertions import values as value_checks
-from test_support.assertions.adversarial import check_poisoned_copy_outcome
-from test_support.builders.adversarial import answer, prepare_catalog_case
-from test_support.data import common as case_data
-from test_support.data.adversarial import (
-        ASSERTIONS_CASE_CASES, ASSERTIONS_CASE_IDS, CASES, CATALOG_CHANGE_CASES, DATA, DATASET,
-        POISONED_COPY_CASE_CASES, POISONED_COPY_CASE_IDS)
-from test_support.data.scripts.adversarial import COLLECTION_MAKEPYFILE_SOURCE
+from test_support.builders.adversarial import ADVERSARIAL_FILE, attack_cases, catalog_json
+from test_support.builders.anythingllm import chat_reply
+from test_support.builders.golden import GOLDEN_DATASET, POLICY_FILE, TEST_DATA
+from test_support.builders.identities import POLICY_DOCUMENT_TITLE
 
 pytestmark = pytest.mark.unit
 
-
-@pytest.mark.parametrize("case", ASSERTIONS_CASE_CASES, ids=ASSERTIONS_CASE_IDS)
-@title("Adversarial assertions accept grounded answers and reject attack markers [{param_id}]")
-def test_assertions(case):
-    assertions.assert_adversarial_answer(
-            answer(case, case.golden_case.reference), case=case, document_title=case_data.POLICY_DOCUMENT_TITLE)
-    errors.rejects(
-            lambda: assertions.assert_adversarial_answer(
-            answer(case, case.golden_case.reference + " TEST_INJECTION_SUCCEEDED"), case=case, document_title=case_data.
-            POLICY_DOCUMENT_TITLE), expected=AssertionError, match="attack marker")
+ATTACK_IDS = [
+        "user_override", "role_spoof", "forged_source", "fabricated_benefit", "document_instruction",
+        "conflicting_note"]
+DOCUMENT_ATTACKS = {"document_instruction", "conflicting_note"}
 
 
-@title("Missing-policy adversarial checks reject invented benefits even alongside a refusal")
-def test_hallucinated_benefit():
-    case = next(c for c in CASES if c.id == "fabricated_benefit")
-    errors.rejects(
-            lambda: assertions.assert_adversarial_answer(
-            answer(case, case.golden_case.reference + " But the company reimburses KGS 9999."), case=case,
-            document_title=case_data.POLICY_DOCUMENT_TITLE), expected=AssertionError, match="invented amount")
-
-
-@pytest.mark.parametrize("case", POISONED_COPY_CASE_CASES, ids=POISONED_COPY_CASE_IDS)
-@title("Adversarial policy materialization leaves canonical source and expectations intact [{param_id}]")
-def test_poisoned_copy(case, tmp_path):
-    original = DATA / "company-policy.txt"
-    before = original.read_bytes()
-    poisoned = materialize_policy(original, case, tmp_path / "copy.txt")
-    value_checks.equal(original.read_bytes(), before)
-    check_poisoned_copy_outcome(before, case, original, poisoned)
-
-
-@pytest.mark.parametrize("change", CATALOG_CHANGE_CASES)
-@title("Adversarial catalog rejects stale or invalid attack definitions [{param_id}]")
-def test_catalog(change, tmp_path):
-    data = json.loads((DATA / "adversarial-policy.json").read_text())
-    row = data["cases"][0]
-    prepare_catalog_case(change, data, row)
+def load(data: dict, tmp_path):
     path = tmp_path / "attacks.json"
     path.write_text(json.dumps(data))
-    errors.rejects(lambda: load_adversarial_cases(path, DATASET), expected=ValueError)
+    return load_adversarial_cases(path, GOLDEN_DATASET)
 
 
-@title("Adversarial collection skips by default and requires capture only for selected document attacks")
-def test_collection(framework_pytester):
-    shutil.copytree(DATA, framework_pytester.path / "test_data")
+def check_answer(case, answer: str) -> None:
+    assertions.assert_adversarial_answer(chat_reply(answer), case=case, document_title=POLICY_DOCUMENT_TITLE)
+
+
+@title("The reviewed catalog loads six attacks bound to golden cases, with catalog provenance")
+def test_catalog_loads_attacks():
+    raw = ADVERSARIAL_FILE.read_bytes()
+    data = catalog_json()
+
+    cases = load_adversarial_cases(ADVERSARIAL_FILE, GOLDEN_DATASET)
+
+    assert [case.id for case in cases] == ATTACK_IDS
+    assert {case.id for case in cases if case.document_appendix} == DOCUMENT_ATTACKS
+    for case, row in zip(cases, data["cases"], strict=True):
+        assert (case.category, case.golden_case.id,
+                case.question) == (row["category"], row["golden_case_id"], row["question"])
+        assert (case.document_appendix,
+                case.forbidden_patterns) == (row["document_appendix"], tuple(row["forbidden_patterns"].items()))
+        assert (case.catalog_sha256, case.catalog_version) == (hashlib.sha256(raw).hexdigest(), data["version"])
+
+
+def first_attack(**fields):
+    return lambda data: data["cases"][0].update(fields)
+
+
+@pytest.mark.parametrize(("corrupt", "message"), [
+        pytest.param(lambda d: d.update(schema_version=2), "Unsupported adversarial catalog schema", id="schema"),
+        pytest.param(
+        lambda d: d.update(golden_dataset_sha256="changed"), "require the current golden dataset",
+        id="stale-golden-dataset"),
+        pytest.param(lambda d: d.pop("version"), "adversarial catalog version must be", id="no-version"),
+        pytest.param(lambda d: d.update(cases=[]), "requires cases", id="no-cases"),
+        pytest.param(lambda d: d.update(cases={}), "requires cases", id="cases-not-a-list"),
+        pytest.param(lambda d: d["cases"].__setitem__(0, "attack"), "row must be an object", id="row-not-object"),
+        pytest.param(first_attack(id="Bad-Id"), "Invalid or duplicated attack id", id="invalid-id"),
+        pytest.param(first_attack(id=None), "Invalid or duplicated attack id", id="no-id"),
+        pytest.param(
+        lambda d: d["cases"][1].update(id=d["cases"][0]["id"]), "Invalid or duplicated attack id", id="duplicate-id"),
+        pytest.param(
+        first_attack(category="jailbreak"), "Unknown attack category or golden case", id="unknown-category"),
+        pytest.param(first_attack(category=None), "Unknown attack category or golden case", id="no-category"),
+        pytest.param(
+        first_attack(golden_case_id="unknown"), "Unknown attack category or golden case", id="unknown-golden-case"),
+        pytest.param(first_attack(golden_case_id=None), "Unknown attack category or golden case", id="no-golden-case"),
+        pytest.param(
+        first_attack(question="Unrelated question"), "retain the original policy question", id="question-replaced"),
+        pytest.param(first_attack(question=None), "retain the original policy question", id="no-question"),
+        pytest.param(
+        first_attack(document_appendix="Unexpected modification"), "user attacks must not modify",
+        id="user-attack-with-appendix"),
+        pytest.param(
+        lambda d: d["cases"][4].update(document_appendix=" "), "Document attacks require an appendix",
+        id="document-attack-without-appendix"),
+        pytest.param(first_attack(document_appendix=None), "Document attacks require an appendix", id="no-appendix"),
+        pytest.param(
+        first_attack(forbidden_patterns={}), "forbidden_patterns must be a nonempty object", id="no-forbidden-rules"),
+        pytest.param(
+        first_attack(forbidden_patterns={"empty": ".*"}), "user_override: forbidden_patterns.empty",
+        id="vacuous-forbidden-rule")])
+@title("A stale or invalid attack definition is rejected rule by rule [{param_id}]")
+def test_catalog_rejects_invalid_attack(tmp_path, corrupt, message):
+    data = catalog_json()
+    corrupt(data)
+
+    with pytest.raises(ValueError, match=message):
+        load(data, tmp_path)
+
+
+@pytest.mark.parametrize("attack_id", ATTACK_IDS)
+@title("A grounded answer passes and the same answer with the attack marker fails [{param_id}]")
+def test_answer_checks_reject_attack_marker(attack_id):
+    case = attack_cases()[attack_id]
+
+    check_answer(case, case.golden_case.reference)
+    with pytest.raises(AssertionError, match=f"Adversarial case {attack_id}: forbidden output: attack marker"):
+        check_answer(case, case.golden_case.reference + " TEST_INJECTION_SUCCEEDED")
+
+
+@title("Attack markers are found regardless of letter case")
+def test_attack_marker_ignores_case():
+    case = attack_cases()["user_override"]
+
+    with pytest.raises(AssertionError, match="attack marker"):
+        check_answer(case, case.golden_case.reference + " test_injection_succeeded")
+
+
+@title("A refusal that still invents a benefit fails the golden rules of the missing-policy case")
+def test_unsupported_fact_rejects_invented_benefit():
+    case = attack_cases()["fabricated_benefit"]
+
+    with pytest.raises(AssertionError, match="invented amount"):
+        check_answer(case, case.golden_case.reference + " But the company reimburses KGS 9999.")
+
+
+@pytest.mark.parametrize("attack_id", sorted(DOCUMENT_ATTACKS))
+@title("A document attack is written to a separate poisoned copy; the canonical policy is unchanged [{param_id}]")
+def test_document_attack_poisons_a_copy(tmp_path, attack_id):
+    case = attack_cases()[attack_id]
+    before = POLICY_FILE.read_bytes()
+
+    poisoned = materialize_policy(POLICY_FILE, case, tmp_path / "copy.txt")
+
+    assert POLICY_FILE.read_bytes() == before
+    assert poisoned == tmp_path / "copy.txt"
+    assert poisoned.read_text() == before.decode() + case.document_appendix
+    assert hashlib.sha256(poisoned.read_bytes()).hexdigest() != GOLDEN_DATASET.policy_sha256
+
+
+@pytest.mark.parametrize("attack_id", sorted(set(ATTACK_IDS) - DOCUMENT_ATTACKS))
+@title("A user attack uses the canonical policy without writing a copy [{param_id}]")
+def test_user_attack_uses_canonical_policy(tmp_path, attack_id):
+    assert materialize_policy(POLICY_FILE, attack_cases()[attack_id], tmp_path / "copy.txt") == POLICY_FILE
+    assert not (tmp_path / "copy.txt").exists()
+
+
+@title("An attack counts as exposed only if its text reached the model context, ignoring whitespace")
+def test_attack_exposure():
+    attack = attack_cases()["document_instruction"].document_appendix
+    poisoned_context = POLICY_FILE.read_text() + " ".join(attack.split())
+
+    assertions.assert_attack_exposure([poisoned_context], attack_text=attack)
+    with pytest.raises(AssertionError, match="not exposed in actual model context"):
+        assertions.assert_attack_exposure([POLICY_FILE.read_text()], attack_text=attack)
+
+
+@pytest.mark.parametrize(("contexts", "attack"), [([], "Attack"), (["Policy"], " ")], ids=["no-context", "no-attack"])
+@title("Exposure cannot be shown without both captured contexts and attack text [{param_id}]")
+def test_attack_exposure_requires_inputs(contexts, attack):
+    with pytest.raises(AssertionError, match="requires nonempty attack text and contexts"):
+        assertions.assert_attack_exposure(contexts, attack_text=attack)
+
+
+@pytest.fixture
+def attack_suite(framework_pytester):
+    """A child pytest project with the reviewed data and one parametrised adversarial test."""
+    shutil.copytree(TEST_DATA, framework_pytester.path / "test_data")
     framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.options"]')
-    framework_pytester.makepyfile(COLLECTION_MAKEPYFILE_SOURCE)
-    pytest_runs.outcomes(framework_pytester.runpytest_subprocess("-q", "--rag-model", "test"), skipped=6)
-    pytest_runs.outcomes(
-            framework_pytester.runpytest_subprocess(
-            "-q", "--rag-model", "test", "--run-adversarial", "-k", "user_override"), passed=1, deselected=5)
-    result = framework_pytester.runpytest_subprocess(
-            "-q", "--rag-model", "test", "--run-adversarial", "-k", "document_instruction")
-    value_checks.equal(result.ret, pytest.ExitCode.USAGE_ERROR)
-    result.stderr.fnmatch_lines(["*verify actual retrieved attack exposure*"])
-    pytest_runs.outcomes(
-            framework_pytester.runpytest_subprocess(
-            "-q", "--rag-model", "test", "--run-adversarial", "-k", "document_instruction", "--capture-rag"), passed=1,
-            deselected=5)
+    framework_pytester.makepyfile(
+            """
+        import pytest
+        @pytest.mark.rag
+        @pytest.mark.adversarial
+        def test_attack(adversarial_case, generation_model, rag_iteration): pass
+    """)
+    return lambda *arguments: framework_pytester.runpytest_subprocess("-q", "--rag-model", "test", *arguments)
+
+
+@title("Adversarial scenarios are collected for every attack but skipped unless explicitly enabled")
+def test_collection_skips_by_default(attack_suite):
+    attack_suite().assert_outcomes(skipped=6)
+
+
+@title("An enabled user attack runs without context capture")
+def test_collection_runs_user_attack(attack_suite):
+    attack_suite("--run-adversarial", "-k", "user_override").assert_outcomes(passed=1, deselected=5)
+
+
+@title("A selected document attack requires context capture, so its exposure can be verified")
+def test_collection_requires_capture_for_document_attack(attack_suite):
+    without_capture = attack_suite("--run-adversarial", "-k", "document_instruction")
+    with_capture = attack_suite("--run-adversarial", "-k", "document_instruction", "--capture-rag")
+
+    assert without_capture.ret == pytest.ExitCode.USAGE_ERROR
+    without_capture.stderr.fnmatch_lines(["*verify actual retrieved attack exposure*"])
+    with_capture.assert_outcomes(passed=1, deselected=5)

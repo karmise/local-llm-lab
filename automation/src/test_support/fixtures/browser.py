@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from test_support.data.browser import CHAT_HTML
+from test_support.builders.browser import CHAT_HTML
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page

@@ -129,6 +129,11 @@ jobs:
           chmod 777 ../.runtime/ollama-capture
           docker compose up -d anythingllm
           python -m llm_testkit.ci.environment bootstrap
+      - name: Check the developer API contract before any model call
+        timeout-minutes: 5
+        run: |
+          python -m pytest tests/test_health.py tests/test_authentication.py tests/test_api_contract.py \
+            -q --junitxml=reports/ci/api/contract.xml
       - name: Capture actual context and evaluate the declared golden matrix
         id: benchmark
         timeout-minutes: 80
