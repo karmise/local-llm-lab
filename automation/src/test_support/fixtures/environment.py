@@ -43,7 +43,7 @@ def authenticated_anythingllm_api(http_client: HttpClient, settings: Settings) -
     if not settings.api_key:
         pytest.fail(
                 "Developer API key is missing. Configure ANYTHINGLLM_API_KEY or "
-                "ANYTHINGLLM_API_KEY_FILE; see docs/step-03-developer-api.md.", pytrace=False)
+                "ANYTHINGLLM_API_KEY_FILE; see docs/evaluation-guide.md.", pytrace=False)
     return AnythingLLMClient(http_client, api_key=settings.api_key)
 
 

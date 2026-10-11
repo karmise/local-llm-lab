@@ -1,30 +1,48 @@
 # LLM / RAG Application Testing
 
-Start with the [framework onboarding guide](docs/framework-onboarding.md) to understand
-the architecture and testing decisions in about one hour.
-
-A [Russian translation](docs/framework-onboarding.ru.md) is also available.
-
 [![Framework checks](https://github.com/karmise/local-llm-lab/actions/workflows/framework-checks.yml/badge.svg)](https://github.com/karmise/local-llm-lab/actions/workflows/framework-checks.yml)
 
-A local AnythingLLM environment and a Python automation framework for testing
-LLM and retrieval-augmented generation workflows.
+A local AnythingLLM + Ollama RAG application and a Python framework,
+`llm_testkit`, for testing it at every layer: API contract, grounded answers,
+golden dataset, UI, prompt/adversarial/bias regression and performance. Answers
+are evaluated on the context the model actually received, with RAGAS metrics and
+a local judge that must first agree with hand-labelled controls. A manual GitHub
+workflow generates fresh answers for each pull request and publishes a required
+merge status.
 
-The framework is developed incrementally. It currently provides a layered API
-client, authentication checks, workspace lifecycle, document retrieval,
-grounded policy-answer and missing-information checks across two generation models,
-actual context capture and local RAGAS evaluation with hand-labelled judge controls,
-golden datasets, prompt/adversarial/bias regression scenarios, metric history,
-bounded performance checks and four Playwright UI scenarios. GitHub Actions runs
-offline framework checks with a coverage floor. A manually dispatched hosted
-AI workflow produces fresh evidence and applies commit-bound experimental
-quality gates. A test plan and educational IQ/OQ/PQ evidence builder
-link requirements to declared test matrices and execution results.
+The policy corpus is deliberately tiny and fictional, so every expected answer
+can be checked by hand and every live run stays within a local budget. The
+framework is the product; its unit tests (about 2000, offline, checked with
+mutation testing) cover the framework code, not the corpus.
+
+```mermaid
+flowchart LR
+    Q[Question] --> A[AnythingLLM<br/>retrieval + prompt]
+    A --> O[Ollama<br/>generation]
+    O -. captured context .-> C[Evaluation<br/>RAGAS + judge]
+    A --> R[Answer + sources]
+    R --> K[Fact, source and<br/>refusal checks]
+    R --> C
+    J[Labelled judge<br/>controls] --> C
+    K --> G[Quality gate]
+    C --> G
+    G --> S[Commit status<br/>RAG benchmark quality]
+```
+
+| Read | For |
+| --- | --- |
+| [Onboarding guide](docs/framework-onboarding.md) ([Russian](docs/framework-onboarding.ru.md)) | Architecture, test layers and one scenario end to end, in about an hour |
+| [Automation guide](automation/README.md) | Install, commands per layer, structure and extension rules |
+| [Evaluation guide](docs/evaluation-guide.md) | Opt-in suites: capture, metrics, judge controls, gates, golden, benchmark, CI, qualification |
+| [Design decisions](docs/decisions.md) | Why the framework works this way, and its known limits |
+| [Test plan](docs/test-plan.md), [assertions](docs/assertions.md), [Git workflow](docs/git-workflow.md) | Requirements, shared checks and branching |
+| [AGENTS.md](AGENTS.md) | Short project context for AI coding agents |
 
 ## Project structure
 
 ```text
 local-llm-lab/
+├── AGENTS.md                 # project context for AI agents (CLAUDE.md imports it)
 ├── compose.yaml              # AnythingLLM service
 ├── lab.sh                    # environment management
 ├── config/                   # application configuration templates
@@ -39,11 +57,6 @@ local-llm-lab/
     ├── reports/              # local reports; excluded from Git
     └── .venv/                # local environment; excluded from Git
 ```
-
-See [fresh AI CI and merge gates](docs/step-38-live-ai-ci.md) for bounded manual
-generation, independent evidence validation, Allure artifacts and exact-commit
-quality statuses. This workflow uses disposable hosted services and does not
-require a running developer Mac.
 
 ## Start and stop
 
@@ -73,46 +86,9 @@ To unload models, use `ollama stop qwen3.5:4b`, `ollama stop qwen2.5:7b` and
 
 ## Run the tests
 
-See [step 1: Python setup](docs/step-01-python-project.md) and
-[step 2: layered API framework](docs/step-02-base-layer.md).
-Continue with [step 3: developer API access](docs/step-03-developer-api.md).
-Then review [step 4: temporary workspace lifecycle](docs/step-04-workspace-lifecycle.md).
-Response validation is centralized in the [assertions module](docs/assertions.md).
-See [step 5: document indexing and retrieval](docs/step-05-document-indexing.md).
-Continue with [step 6: grounded policy answer](docs/step-06-rag-answer.md).
-See [step 7: missing policy information](docs/step-07-missing-information.md).
-See [step 8: model comparison](docs/step-08-model-comparison.md) for parameterized
-RAG runs and result metadata.
-See [step 9: repeated-run stability](docs/step-09-stability.md) for independent
-repetitions and an offline outcome summary.
-See [step 10: actual model context capture](docs/step-10-context-capture.md) for
-opt-in collection of evaluation inputs from the Ollama SDK boundary.
-Continue with [step 11: local RAGAS faithfulness](docs/step-11-faithfulness.md)
-to evaluate a saved sample separately from ordinary test runs.
-See [step 12: hand-labelled judge controls](docs/step-12-judge-controls.md)
-for supported, contradicted and invented-claim calibration checks.
-Continue with [step 13: expanded judge controls](docs/step-13-expanded-judge-controls.md)
-for paraphrases, incomplete answers and working/calendar-day substitutions.
-See [step 14: combined quality report in Allure](docs/step-14-allure-quality-report.md)
-for separate fact/source checks and saved faithfulness evidence with diagnostic attachments.
-Continue with [step 15: live RAG-to-Allure scenario](docs/step-15-live-quality.md)
-for an explicit single-model run from test-data setup through verified cleanup.
-See [step 16: workspace UI chat](docs/step-16-ui-chat.md) for an opt-in Playwright
-scenario with Page Objects, shared assertions and browser failure evidence.
-Continue with [step 17: core UI scenarios](docs/step-17-ui-core-scenarios.md) for
-missing information, source details and history persistence.
-See [step 18: GitHub Actions](docs/step-18-github-actions.md) for automatic
-Ruff checks, offline unit tests and downloadable CI reports.
-See [step 19: reporting layers](docs/step-19-reporting-layers.md) for reusable UI
-steps, selective API steps and tests without direct Allure integration.
-See [step 20: readable test titles](docs/step-20-test-titles.md) for explicit
-English display names and distinguishable parameter variants in Allure.
-See [step 21: framework refactoring](docs/step-21-framework-refactoring.md) for
-modular fixtures, failure-safe cleanup and browser regression coverage.
-See [step 39: test architecture](docs/step-39-test-architecture.md) for the
-migration to plain pytest unit tests, verified with mutation testing.
-The [Automation guide](automation/README.md) lists commands for each test layer;
-use `python -m pytest tests/unit -q` for checks without running services.
+Commands for each test layer are in the [Automation guide](automation/README.md);
+`python -m pytest tests/unit -q` runs the offline checks without any services.
+Bare `python -m pytest` also runs live API and RAG tests.
 
 ```bash
 cd automation
@@ -124,12 +100,12 @@ In PyCharm, open the project root or `automation`. Select the existing
 `automation/.venv/bin/python` interpreter and use `automation` as the test
 working directory.
 
-See [Git workflow](docs/git-workflow.md) for the first commit and subsequent
-feature branches. The Git repository root is `local-llm-lab`.
+See [Git workflow](docs/git-workflow.md) for branches and the merge gate. The Git
+repository root is `local-llm-lab`.
 
 ## Golden policy acceptance dataset
 
-The framework includes a [16-case golden dataset](docs/step-22-golden-dataset.md)
+The framework includes a [16-case golden dataset](docs/evaluation-guide.md#golden-dataset)
 with reference answers, acceptance criteria and supporting policy fragments.
 Its broader RAG suite is explicitly enabled to control local model workload.
 
@@ -191,7 +167,7 @@ exports and logs containing real data out of Git. The application is bound to
 
 ## Manual RAG checks
 
-The manual workspace uses the [conversational Chat profile](docs/step-32-conversation.md)
+The manual workspace uses the [conversational Chat profile](docs/evaluation-guide.md#conversation-profile)
 for greetings, everyday conversation and mixed policy questions. Existing RAG
 automation retains its reviewed document-only Query profile.
 
@@ -224,21 +200,11 @@ Inside the container, `localhost` refers to the container itself. Use
 `host.docker.internal` to reach native Ollama. Changing the embedding model
 requires re-indexing: vectors from different models are not interchangeable.
 
-## Monitoring and qualification
+## Scope of the results
 
-- [Dataset quality benchmark](docs/step-33-dataset-benchmark.md): bounded live
-  experiments, all four RAG metrics, per-model/category diagnostics and human review.
-- [Judge suitability and disagreement review](docs/step-36-judge-validation.md):
-  source-bound positive/negative controls and preserved reference-scope disagreements.
-- [Real two-model comparison](docs/step-37-two-model-benchmark.md): the same four
-  questions on both models, independent quality dimensions and answer request timings.
-- [Metric history and explicit baselines](docs/step-28-metric-history.md)
-- [Bounded performance checks](docs/step-29-performance.md)
-- [Counterfactual bias regression](docs/step-30-bias.md)
-- [Test plan](docs/test-plan.md) and [educational IQ/OQ/PQ evidence](docs/step-31-qualification-evidence.md)
-
-Full live matrices remain opt-in. Returned source references alone do not
-establish the complete model context. A scoped acceptance pass is not a statistical
+Full live matrices remain opt-in; see the [evaluation guide](docs/evaluation-guide.md).
+Returned source references alone do not establish the complete model context.
+Quality thresholds are experimental. A scoped acceptance pass is not a statistical
 estimate of accuracy, demographic fairness validation or GxP approval.
 
 ## Official references

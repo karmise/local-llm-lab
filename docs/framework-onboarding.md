@@ -28,8 +28,8 @@ can understand the framework without starting the application or a model.
 | 55–60 | Answer the self-check questions at the end. | Whether you can navigate and extend the project independently. |
 
 Start with this guide, then use [automation/README.md](../automation/README.md)
-as the command reference. Numbered `step-*.md` files record individual stages;
-they are useful for deeper investigation, but reading them all is not required.
+as the command reference. [evaluation-guide.md](evaluation-guide.md) covers the opt-in
+evaluation suites, and [decisions.md](decisions.md) explains why the framework works this way.
 
 ## 1. Understand the application before the tests
 
@@ -130,7 +130,7 @@ use plain pytest `assert` and `pytest.raises(..., match=...)`, so a broken
 application assertion cannot also verify its own output. Every rejection test
 names the rule it enforces and has a paired acceptance test; mutation testing
 showed which tests actually detect a broken rule
-([step 39](step-39-test-architecture.md)).
+([decisions](decisions.md#unit-tests-are-plain-pytest-verified-by-mutation-testing)).
 Unit tests block accidental Requests calls. They use mocked responses, scoped
 patches and, for lifecycle/collection behavior, real child pytest runs.
 
@@ -143,9 +143,7 @@ used by one test module is defined in that module; shared unit data comes from
 `test_support/builders`. Test functions follow arrange-act-assert without
 conditional branches; different expectations use separate tests or explicit
 expected values in a `pytest.param(..., id=...)` table. See
-[step 39](step-39-test-architecture.md) for the rules and the mutation results;
-steps [34](step-34-test-readability.md) and [35](step-35-unit-scenario-layers.md)
-record the earlier design.
+[decisions](decisions.md#unit-tests-are-plain-pytest-verified-by-mutation-testing) for the reasoning and the mutation results.
 
 ## 4. Walk through one paid-leave scenario
 
@@ -371,7 +369,7 @@ packages. Pins make the intended environment repeatable; they do not remove the
 need to verify an upgrade against the application and its upstream contracts.
 
 Live capture requires the Compose capture overlay and extra flags. Follow the
-[dedicated live-quality guide](step-15-live-quality.md) rather than enabling it
+[dedicated live-quality guide](evaluation-guide.md#combined-quality-report-and-gates) rather than enabling it
 implicitly during onboarding.
 
 ## 7. Read the result and find the failure owner
@@ -454,11 +452,11 @@ Each requires its own evidence and a deliberate change in test meaning.
 
 ## Golden dataset extension
 
-The [golden dataset guide](step-22-golden-dataset.md) adds 16 versioned policy
+The [golden dataset guide](evaluation-guide.md#golden-dataset) adds 16 versioned policy
 scenarios with references, required/forbidden criteria and source fragments.
 The suite is opt-in with `--run-golden`; start with one case on one model.
 Catalog validation and reference checks run offline in the unit suite. The dataset stage does not introduce calibrated gates. The subsequent
-[correctness guide](step-23-factual-correctness.md) adds optional reference-based
+[correctness guide](evaluation-guide.md#semantic-metrics-on-a-captured-sample) adds optional reference-based
 RAGAS factual F1 and a fourth saved-report dimension, with four bounded judge
 calls. It remains a measurement without a calibrated pass/fail threshold.
 
@@ -478,28 +476,28 @@ Before adding your first scenario, explain these points in your own words:
 If you can follow the paid-leave scenario through its fixtures, client/Page Object,
 assertions and cleanup, you have the core navigation skills for this framework.
 Use [automation/README.md](../automation/README.md) for the current operational
-reference and [refactoring notes](step-21-framework-refactoring.md) for the reasons
-behind recent structural changes.
+reference and [decisions.md](decisions.md) for the reasons
+behind the structure.
 
-## Recent evaluation extensions
+## Evaluation extensions
 
 Follow these guides after the basic paid-leave walkthrough:
 
-- [Context precision/recall](step-24-context-relevance.md): measure retrieved-context usefulness and coverage separately from answer correctness.
-- [Prompt regression](step-25-prompt-regression.md): compare versioned prompts while holding reviewed acceptance criteria and other configuration fixed.
-- [Adversarial inputs](step-26-adversarial-inputs.md): reuse golden expectations for poisoned questions and document notes; confirm actual document-attack exposure.
-- [Quality gates](step-27-quality-gates.md): apply explicit experimental thresholds to validated saved evidence, and enforce framework coverage in CI.
-- [Judge suitability](step-36-judge-validation.md): compare all four metrics against source-bound engineering labels and inspect reference/judge disagreements before proposing release criteria.
-- [Real two-model comparison](step-37-two-model-benchmark.md): inspect the executed eight-case matrix, answer request timings and preserved semantic failures.
-- [Fresh AI CI](step-38-live-ai-ci.md): produce new answers on a hosted runner, independently validate the complete evidence and bind the quality verdict to the exact commit.
+- [Context precision/recall](evaluation-guide.md#semantic-metrics-on-a-captured-sample): measure retrieved-context usefulness and coverage separately from answer correctness.
+- [Prompt regression](evaluation-guide.md#regression-suites-built-on-the-golden-cases): compare versioned prompts while holding reviewed acceptance criteria and other configuration fixed.
+- [Adversarial inputs](evaluation-guide.md#regression-suites-built-on-the-golden-cases): reuse golden expectations for poisoned questions and document notes; confirm actual document-attack exposure.
+- [Quality gates](evaluation-guide.md#combined-quality-report-and-gates): apply explicit experimental thresholds to validated saved evidence, and enforce framework coverage in CI.
+- [Judge suitability](evaluation-guide.md#hand-labelled-judge-controls): compare all four metrics against source-bound engineering labels and inspect reference/judge disagreements before proposing release criteria.
+- [Real two-model comparison](evaluation-guide.md#dataset-benchmark): inspect the executed eight-case matrix, answer request timings and preserved semantic failures.
+- [Fresh AI CI](evaluation-guide.md#fresh-ai-evidence-in-ci): produce new answers on a hosted runner, independently validate the complete evidence and bind the quality verdict to the exact commit.
 
 Keep the distinction between measurement, a scoped acceptance pass and statistical validation. Full matrices remain opt-in. Gate thresholds are illustrative; a saved paid-leave gate does not establish dataset-wide or clinical quality.
 
 ## Monitoring and qualification extensions
 
-- [Metric history](step-28-metric-history.md): preserve provenance-bound measurements and compare new samples against explicit baselines.
-- [Performance](step-29-performance.md): run bounded health/RAG workloads with attempt timings and declared failure/latency gates.
-- [Paired bias checks](step-30-bias.md): vary employee descriptors while keeping policy acceptance fixed.
-- [Test plan](test-plan.md) and [educational qualification evidence](step-31-qualification-evidence.md): trace requirements to declared test matrices, preserve deviations and package selected IQ/OQ/PQ results.
+- [Metric history](evaluation-guide.md#metric-history-and-performance): preserve provenance-bound measurements and compare new samples against explicit baselines.
+- [Performance](evaluation-guide.md#metric-history-and-performance): run bounded health/RAG workloads with attempt timings and declared failure/latency gates.
+- [Paired bias checks](evaluation-guide.md#regression-suites-built-on-the-golden-cases): vary employee descriptors while keeping policy acceptance fixed.
+- [Test plan](test-plan.md) and [educational qualification evidence](evaluation-guide.md#qualification-evidence-educational-iqoqpq): trace requirements to declared test matrices, preserve deviations and package selected IQ/OQ/PQ results.
 
 A scoped pass is not complete statistical validation or GxP approval. Full matrices remain opt-in, and human review is recorded as pending.

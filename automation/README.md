@@ -41,7 +41,7 @@ Run commands from `automation` with its virtual environment activated.
 | Formatting check | `python -m yapf --diff --recursive src tests` | Development dependencies |
 | Offline Page Object regressions | `python -m pytest tests/browser --run-ui` | Chromium; no application/models |
 | Application health and API | `python -m pytest -m 'smoke or api'` | AnythingLLM; API key; embedding model for indexing |
-| API contract and negative cases ([step 41](../docs/step-41-api-contract.md)) | `python -m pytest tests/test_api_contract.py` | AnythingLLM; API key; no model calls |
+| API contract and negative cases | `python -m pytest tests/test_api_contract.py` | AnythingLLM; API key; no model calls |
 | RAG answers | `python -m pytest tests/test_rag.py --rag-model qwen3.5:4b` | AnythingLLM, API key, generation and embedding models |
 | Golden policy dataset (one case) | `python -m pytest tests/test_golden_rag.py --run-golden --rag-model qwen3.5:4b -k carryover_limit` | Same as RAG; broader catalog is opt-in |
 | Application UI | `python -m pytest tests/ui --run-ui` | Same as RAG, plus Chromium |
@@ -67,7 +67,7 @@ the workspace-template model and are not expanded by `--rag-model`.
 Conversation checks use the separate Chat profile and skip without
 `--run-conversation`. Their default is one model (`qwen3.5:4b`); an explicit model
 matrix and independent repetitions are supported. See the
-[conversation guide](../docs/step-32-conversation.md) for the contract and scope.
+[conversation guide](../docs/evaluation-guide.md#conversation-profile) for the contract and scope.
 
 For browser diagnostics, add:
 
@@ -80,13 +80,13 @@ Use a fresh output directory for each run. Omit `--alluredir` without reporting
 dependencies. The application UI fixture attaches retained browser artifacts to
 Allure when its reporter is enabled.
 
-See the [live quality guide](../docs/step-15-live-quality.md) for the explicit
+See the [live quality guide](../docs/evaluation-guide.md#combined-quality-report-and-gates) for the explicit
 one-answer/two-judge-call scenario, and the
-[offline quality guide](../docs/step-14-allure-quality-report.md) for saved evidence.
+[offline quality guide](../docs/evaluation-guide.md#combined-quality-report-and-gates) for saved evidence.
 
 ## Golden acceptance dataset
 
-The [golden dataset guide](../docs/step-22-golden-dataset.md) describes 16 source-bound
+The [golden dataset guide](../docs/evaluation-guide.md#golden-dataset) describes 16 source-bound
 cases covering policy facts, multi-part questions, boundaries and missing information.
 Cases have typed, validated references, acceptance rules and source anchors. Their
 version and checksum are recorded with model/configuration metadata.
@@ -98,7 +98,7 @@ checks, not a statistical model-accuracy benchmark or semantic correctness metri
 
 ## Factual correctness evaluation
 
-The [correctness guide](../docs/step-23-factual-correctness.md) describes reference-based
+The [correctness guide](../docs/evaluation-guide.md#semantic-metrics-on-a-captured-sample) describes reference-based
 RAGAS factual F1 with four bounded local judge calls and labelled controls. It is
 explicitly invoked for a captured golden case and can be added as optional saved
 evidence with `--correctness-report`. Existing live-quality budgets are unchanged.
@@ -128,14 +128,13 @@ validating other response fields. Each cleanup also verifies absence. Pytest
 reports test and teardown failures separately and still runs the remaining
 finalizers. A failed upload/indexing/check must not leave a workspace behind.
 
-Unit tests use plain pytest ([step 39](../docs/step-39-test-architecture.md)).
+Unit tests use plain pytest ([why](../docs/decisions.md#unit-tests-are-plain-pytest-verified-by-mutation-testing)).
 Each test shows its inputs, action and expected values; a rejection names the rule
 it enforces with `pytest.raises(..., match=...)` and has a paired acceptance test.
 Data shared by several test modules comes from public builders in
 `test_support/builders/<domain>.py`; data, fixtures and child-test sources used by
 one module live in that module. Plain `assert` keeps unit checks independent of
-application Assertions. Mutation testing (mutmut) measured each domain's tests;
-the scores are in the step 39 log.
+application Assertions. Mutation testing (mutmut) measured each domain's tests.
 Unit tests block Requests calls unless explicitly mocked; telemetry settings are
 scoped with `monkeypatch`. Lifecycle and CLI tests exercise real child pytest runs.
 
@@ -153,11 +152,6 @@ and judge imports remain lazy in supporting code.
 Builders return a fresh copy on every call, so a test may edit what it receives.
 Protocol field names and meaningful expected values stay explicit in checks.
 
-The [test readability guide](../docs/step-34-test-readability.md) explains these
-boundaries and the selection of representative unit cases.
-The [shared-check and fixture guide](../docs/step-35-unit-scenario-layers.md)
-records the earlier layered design that step 39 replaced.
-
 Use Playwright's retrying expectations instead of fixed sleeps. After sending a
 question, the Page Object targets the next persisted assistant reply; completion
 does not require a Sources button. Check source presence separately when the
@@ -170,37 +164,17 @@ visible and generation counts stay predictable.
   Revalidate them against the real application when upgrading it.
 - Required-fact patterns and source fragments are smoke checks, not a semantic
   proof: negations or contradictory statements can still contain matching facts.
-- Faithfulness remains an exploratory measurement with no calibrated pass/fail
-  threshold. Passing these tests is not a statistical estimate of model accuracy.
+- Semantic thresholds are experimental, not calibrated; factual correctness has
+  none. Passing these tests is not a statistical estimate of model accuracy.
 - Resource creation with a network timeout or an unusable/missing returned slug
   cannot guarantee cleanup: ownership cannot be established from that response.
 - Capture supports one non-streaming answer per temporary workspace; the UI uses
   its own streaming flow. Parallel live model/judge runs have not been validated.
 
-The current changes and validation are recorded in the
-[refactoring notes](../docs/step-21-framework-refactoring.md).
-The [second refactoring review (Russian)](../docs/automation-refactor-review.ru.md)
-documents report-integrity fixes, shared validation, baseline compatibility and
-the latest local verification after the expanded suites were added.
+## Opt-in evaluation suites
 
-Reference-based retrieval evaluation is described in [Context precision and recall](../docs/step-24-context-relevance.md). It reuses captured samples and adds two independently validated dimensions to the quality report.
-
-[Prompt regression](../docs/step-25-prompt-regression.md) compares versioned system prompts against unchanged golden expectations. The suite is opt-in and the comparison command requires an explicit case/model scope, with missing or uncontrolled runs treated as incomplete.
-
-[Adversarial inputs](../docs/step-26-adversarial-inputs.md) reuse golden policy expectations for six opt-in attacks. Document-injection scenarios require actual captured-context exposure; uploaded citations alone do not count as proof that the model saw an attack.
-
-[Quality gates and coverage](../docs/step-27-quality-gates.md) adds a 75% framework coverage floor in CI and opt-in experimental thresholds for all four saved semantic metrics. A reusable/manual workflow validates a producer's evidence artifact without model calls; local generation is not automatically available on hosted runners.
-
-[Judge suitability and disagreement review](../docs/step-36-judge-validation.md) adds eight source-bound controls for all four metrics, a serial 18-call judge experiment, and offline diagnostics for verified saved benchmarks. The observed reference-attribution mismatch keeps release suitability unestablished; thresholds remain experimental.
-
-[Real two-model comparison](../docs/step-37-two-model-benchmark.md) executes the curated benchmark on both installed models and records chat request durations in sample/JUnit evidence. Saved reports show per-model timing counts and mean/min/max; older samples retain unavailable timings.
-
-[Fresh AI CI](../docs/step-38-live-ai-ci.md) runs bounded generation and RAGAS evaluation in disposable GitHub-hosted services, then independently validates complete commit-bound evidence and saves Allure reports. Smoke and curated runs publish different commit statuses; smoke cannot satisfy the curated merge gate.
-
-[Metric history and baseline monitoring](../docs/step-28-metric-history.md) records immutable, provenance-bound measurements and compares new evidence to an explicit baseline without model calls.
-
-[Performance checks](../docs/step-29-performance.md) provide explicitly selected health or RAG batches, bounded concurrency, individual timing/error evidence and declared latency gates. They do not run model load on ordinary CI pushes.
-
-[Counterfactual bias checks](../docs/step-30-bias.md) compare three employee-descriptor pairs against identical policy acceptance criteria and expose asymmetric, shared-failure or incomplete outcomes.
-
-[Qualification plan and evidence](../docs/step-31-qualification-evidence.md) maps reviewed requirements to test selectors and declared matrices, labels JUnit/Allure results, and builds scoped educational IQ/OQ/PQ packages that retain missing cells and failures.
+Capture, semantic metrics and judge controls, quality reports and gates, golden
+and regression suites, the dataset benchmark, fresh AI CI, metric history,
+performance and qualification evidence are described, with commands, in the
+[evaluation guide](../docs/evaluation-guide.md). The reasons behind the framework's
+rules are in [decisions](../docs/decisions.md).

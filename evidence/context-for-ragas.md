@@ -15,7 +15,7 @@ In `server/utils/chats/stream.js`, the reviewed request flow was:
 context actually sent to the model. Disabling history reduces ambiguity without
 removing the need to inspect the actual request.
 
-The opt-in [step 10 adapter](../docs/step-10-context-capture.md) observes the
+The opt-in [capture adapter](../docs/evaluation-guide.md#capturing-the-actual-model-context) observes the
 Ollama SDK `chat` request after message compression. It preserves original
 messages and extracts document passages separately from instructions. Returned
 sources remain citation evidence, not the source of evaluation contexts. This

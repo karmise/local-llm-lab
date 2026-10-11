@@ -25,7 +25,7 @@ criteria, an IQ/OQ/PQ phase, actual pytest selectors and any required matrix axe
 The mapping is validated against test definitions before execution. Changes to
 policy/catalog/gate files require reviewing the baseline checksums in that plan.
 
-The [dataset benchmark](step-33-dataset-benchmark.md) is a supplemental bounded
+The [dataset benchmark](evaluation-guide.md#dataset-benchmark) is a supplemental bounded
 experiment, not an expansion of the declared requirement matrix. It evaluates
 all four semantic metrics for selected positive golden cases, reports refusal
 acceptance separately and preserves failed/missing cases in its planned denominator.
@@ -113,4 +113,4 @@ rerun affected checks and retain previous evidence separately. A reviewer should
 confirm intended use, expected results, budget, deviations and the meaning of any
 threshold. This project does not invent approval names, signatures or dates.
 
-Follow the [educational execution protocol](step-31-qualification-evidence.md).
+Follow the [educational execution protocol](evaluation-guide.md#qualification-evidence-educational-iqoqpq).

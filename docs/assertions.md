@@ -25,23 +25,12 @@ Malformed JSON produces an assertion failure with a clear message.
 
 ## Application checks
 
-- `assert_online(response)`
-- `assert_api_key_accepted(response)`
-- `assert_api_key_rejected(response)`
-- `assert_created_workspace(response, expected_name)`
-- `assert_workspace_matches(response, slug=..., workspace_id=..., name=..., configuration=...)`
-- `assert_workspace_absent(response, slug)`
-- `assert_operation_success(response, context=...)`
-- `assert_uploaded_document(response, folder=..., filename=...)`
-- `assert_embeddings_updated(response, slug=...)`
-- `assert_workspace_document_attached(response, slug=..., location=...)`
-- `assert_search_contains(response, document_title=..., fragments=...)`
-- `assert_document_folder_absent(response, folder=...)`
-- `assert_rag_answer(response, fact_patterns=..., document_title=..., source_fragments=...)`
-- `assert_completed_answer(response)`
-- `assert_document_sources(payload, document_title=..., fragments=...)`
-- `assert_missing_policy_information(response, document_title=..., source_fragments=...)`
-- `assert_model_available(models, name)`
+| Module | Checks |
+| --- | --- |
+| `api` | `assert_online`, `assert_api_key_accepted`, `assert_api_key_rejected`, `assert_created_workspace`, `assert_workspace_matches`, `assert_workspace_absent`, `assert_operation_success`, `assert_uploaded_document`, `assert_embeddings_updated`, `assert_workspace_document_attached`, `assert_search_contains`, `assert_document_folder_absent`, `assert_model_available`, `assert_models_available`, `assert_supported_runtime` |
+| `answers` | `assert_completed_answer`, `assert_rag_answer`, `assert_required_facts`, `assert_document_sources`, `assert_missing_policy_information`, `assert_missing_policy_answer`, `assert_golden_answer`, `assert_golden_text`, `assert_conversation_answer`, `assert_adversarial_answer`, `assert_adversarial_context`, `assert_attack_exposure`, `assert_bias_answer` |
+| `quality` | `assert_quality_score`, `assert_calibration_result`, `assert_quality_dimension`, `assert_quality_report`, `assert_benchmark_report`, `assert_benchmark_case`, `assert_performance_batch` |
+| `ui` | `assert_ui_question_visible`, `assert_ui_completed_answer`, `assert_ui_policy_answer`, `assert_ui_document_source`, `assert_ui_source_content`, `assert_ui_history_preserved` |
 
 These compose the general checks and express the AnythingLLM contract.
 `assert_created_workspace` returns the checked workspace for fixture ownership;
@@ -69,41 +58,20 @@ the framework package does not itself import pytest.
 Using direct assertions in pytest tests is valid. This project chooses reusable
 checks to centralize repeated contracts and keep scenario code concise.
 
-Verified after refactoring: all six application checks passed. Four unit tests
-exercise invalid inputs: integer instead of boolean, missing field, malformed
-JSON, and a non-object workspace entry. Unit tests require no application or key.
+Answer checks look for required facts, forbidden content and sources, and
+exclude the model's thinking from fact matching. `assert_required_facts` is shared
+by live RAG checks and saved-answer reports, so both apply the same rule.
 
-```bash
-python -m pytest -m unit -v
-python -m pytest -m 'api or smoke' -v
-```
+Quality checks validate evidence, not thresholds: `assert_quality_score` only
+requires a finite score between 0 and 1, and quality gates apply minimums
+separately. `assert_calibration_result` requires every labelled control claim to
+map to exactly one extracted statement with the expected verdict; matching average
+scores are not enough. `assert_quality_dimension` and `assert_quality_report`
+validate independent outcomes without averaging them.
 
-Document retrieval adds three unit cases for empty results, the wrong source
-document and a missing required fact. The current suite contains seven unit
-checks; see step 5 for application verification results.
-
-RAG validation adds five negative unit cases and excludes thinking from answer
-fact checks; see [step 6](step-06-rag-answer.md) for details. The current unit
-suite contained twelve checks at that step. [Step 7](step-07-missing-information.md)
-added six missing-information cases, bringing the unit suite to eighteen checks at that step.
-
-[Step 8](step-08-model-comparison.md) adds two model-selection cases (missing
-model and missing digest); the current unit suite contains twenty checks.
-
-New repeated checks should be added here with type annotations and descriptive
-messages. Avoid dumping complete HTTP responses or headers in diagnostics.
-
-[Step 11](step-11-faithfulness.md) adds `assert_quality_score(value)`; thresholds are applied by quality gates.
-It rejects nonnumeric, nonfinite and out-of-range values. An explicit minimum
-can be supplied after judge calibration; no default quality gate is enabled.
-
-[Step 12](step-12-judge-controls.md) adds `assert_calibration_result` to check
-hand-labelled control scores and individual claim verdicts. Claims must map
-one-to-one to extracted statements; matching average scores alone are insufficient.
-
-[Step 14](step-14-allure-quality-report.md) shares `assert_required_facts` between
-live RAG checks and saved-answer reporting. `assert_quality_dimension` and
-`assert_quality_report` validate independent outcomes without averaging scores
-or inventing a default faithfulness threshold.
+Unit tests for these checks live in `tests/unit/test_assertions.py` and use plain
+pytest, not this package, so a broken check cannot verify itself. Add new
+repeated checks to the relevant module with type annotations and descriptive
+messages; avoid dumping complete HTTP responses or headers in diagnostics.
 
 [pytest assertion rewriting documentation](https://docs.pytest.org/en/stable/how-to/assert.html#assertion-introspection-details)
