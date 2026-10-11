@@ -2,7 +2,7 @@
   "chatProvider": "ollama",
   "chatModel": "qwen3.5:4b",
   "chatMode": "query",
-  "openAiTemp": 0.1,
+  "openAiTemp": 0,
   "openAiHistory": 0,
   "topN": 4,
   "similarityThreshold": 0.25,
