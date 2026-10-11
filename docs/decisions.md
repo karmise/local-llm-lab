@@ -1,0 +1,165 @@
+# Design decisions
+
+The decisions that shape this framework, why they were made and where they live
+in the code. Read them before changing a threshold, adding a retry or reshaping
+a test layer: most of them were added after a concrete failure.
+
+## Scope
+
+### The corpus is deliberately small; the framework is the product
+
+The policy (`test_data/company-policy.txt`) is a few fictional rules: leave days,
+deadlines, travel and hotel limits, one approver and an explicit absence of gym
+benefits. It is small and fixed so that every expected answer can be checked by
+hand and every live run fits a local or CPU budget. What is being built and
+tested is the evaluation framework around it: capture, judges, controls, gates,
+provenance and reporting.
+
+The unit test count reflects the framework's code, not the corpus. A larger
+corpus adds dataset rows and live runs, not unit tests.
+
+**Known limit.** Each golden case is currently its own pytest test. That suits
+16 cases; with thousands of scenarios, cases should become dataset rows evaluated
+by a harness that reports aggregate metrics and thresholds per stratum (fact
+lookup, boundary, refusal, adversarial), with a small risk-based subset on PRs
+and the full set nightly or before release.
+
+### The numbers are illustrative, not a release claim
+
+Thresholds are labelled `experimental` in `test_data/quality-gates.json`. A green
+gate shows that an enforced acceptance mechanism works on a scoped curated slice.
+It is not a statistical accuracy estimate, a fairness validation or GxP approval,
+and the docs avoid claiming otherwise.
+
+## Test layers
+
+### The smallest layer that can answer the question
+
+Unit (mocked HTTP), offline browser (local HTML), API, RAG, golden, UI and
+quality layers answer different questions and have different costs. A transport
+or locator defect is reproduced offline before spending model calls on it.
+Expensive suites are opt-in (`--run-*` flags in `pytest_support/options.py`).
+Bare `python -m pytest` includes live API and RAG tests; `tests/unit` is the
+offline command.
+
+### Unit tests are plain pytest, verified by mutation testing
+
+Unit tests use plain `assert` and `pytest.raises(..., match=...)`, not the
+application `assertions` package, so a broken acceptance check cannot also
+verify itself. Each rejection test names its rule and has a paired acceptance
+test. Mutation testing (mutmut) showed which tests actually detect a broken
+rule, and raised scores per domain from 3.8–81.9% to 85.6–100%. Data shared by
+several modules comes from `test_support/builders`; anything used by one module
+stays in it.
+
+### Clients return raw responses; acceptance criteria live in one place
+
+`clients/` builds requests and returns responses unchanged; `assertions/` holds
+the rules (`fields`, `api`, `answers`, `quality`, `ui`). API, UI and quality
+scenarios share the same profiles in `test_data` and the same checks, so a rule
+changes in one place.
+
+### Resources clean up after themselves, and only their own
+
+A resource fixture registers cleanup as soon as creation returns a usable
+identifier, before validating anything else, and verifies absence afterwards
+(`test_support/fixtures/resources.py`). If creation returns no usable identifier,
+the framework does not guess and never deletes resources it cannot prove it owns.
+
+## Answer quality
+
+### Facts, not wording
+
+Answers are checked for required facts, forbidden content and sources, not
+compared with a fixed string; a model may paraphrase correctly. These regex
+checks are smoke contracts: a negated sentence can still contain the right
+number, which is why semantic metrics exist alongside them.
+
+### Evaluate the context the model actually received
+
+Cited sources are not the full prompt. The capture overlay (`compose.capture.yaml`,
+`observation/`) records the real Ollama request after AnythingLLM's message
+compression, and semantic metrics run on that context. A document-injection
+attack counts only if capture shows the attack text reached the model.
+
+### A judge is trusted only after it agrees with labelled controls
+
+An LLM judge can be wrong. Every benchmark first runs hand-labelled controls:
+supported paraphrases, wrong numbers, invented amounts, day-type substitutions.
+Each labelled claim must map to exactly one extracted statement with the expected
+verdict (`evaluation/control_match.py`); an equal average score is not enough.
+Statements are compared after spelled-out integers become digits
+(`core/number_words.py`), because the judge may write "five thousand" for 5000.
+A control mismatch fails the whole run.
+
+### Factual correctness is measured but not gated
+
+On answers with one or two claims, a single error by the 4B judge moves
+correctness F1 by 0.33 or more, and F1 also penalised true facts that the
+reference omitted. Its minimum is therefore `null`: the score is recorded as
+`measured (no threshold)` and reviewed when below 1, but cannot fail a run alone.
+Faithfulness and context precision/recall keep thresholds. A gate file must
+still contain at least one threshold (`reporting/gates.py`).
+
+### Refusals are not scored as perfect
+
+For missing-information cases, semantic metrics are N/A: neither zero, one nor a
+judge error. Refusals are accepted by their own rules: the answer acknowledges
+the gap, names the topic and proposes no amount.
+
+## Reproducibility
+
+### No retries; a repetition is an experiment
+
+Neither HTTP, the judge nor the benchmark retries a failed call or answer.
+Retrying until green would hide exactly the variability the suite measures.
+`--rag-repeat N` instead runs independent repetitions with fresh resources, and
+the stability report compares them. Timeouts are failures.
+
+### Determinism where the model allows it
+
+The benchmark workspace generates at temperature 0 (`config/workspace.json`); at
+0.1 a correct but hedged answer once failed faithfulness. The judge uses
+temperature 0, thinking disabled and a fixed seed. The manual conversation
+workspace keeps 0.1. None of this makes outputs fully deterministic, which is why
+answers are judged by facts and metrics, not exact text.
+
+### Evidence is bound by checksums
+
+The golden dataset, catalogs, gates and qualification plan are versioned and
+cross-referenced by SHA256 (`golden_dataset_sha256`, `data_sha256`). Judge
+reports are bound to the sample they scored, and history records carry model
+digest, prompt, policy and judge checksums. Changing reference data therefore
+forces a version bump and visible re-review. Checksums detect mismatches; they do
+not protect against someone rewriting both data and checksum.
+
+### Validation raises, it does not assert
+
+Framework validation raises `ValueError` instead of using `assert`, because
+`python -O` strips assert statements (`core/scores.py`, `control_match.py`).
+Malformed, incomplete or incomparable evidence is an error, never a pass.
+
+## CI and merging
+
+### Fresh evidence for every commit, revalidated independently
+
+`Fresh RAG quality` generates new answers in disposable services for the exact
+commit under review; earlier benchmarks are never reused. A second job downloads
+that evidence and revalidates it with zero model calls; the commit status
+`RAG benchmark quality` is published only if both jobs succeed. For a PR it marks
+the merge commit, and any new commit needs a new run. A `smoke` run publishes a
+different status, so it cannot satisfy the merge gate.
+
+### Automatic CI stays offline
+
+Every push runs lint, formatting, unit tests with a coverage floor and offline
+browser checks. Model runs are manual because a curated run takes about two
+hours on a CPU runner.
+
+### Pinned profiles, nothing implicit
+
+Dependencies are pinned in separate lock files (base, dev, UI, reporting,
+evaluation), so a unit task does not install a browser or judge stack. Tools
+used only for one-off analysis, such as mutmut, stay out of the lock files.
+Selectors and capture parsing target AnythingLLM 1.16.2 and must be revalidated
+on upgrade.

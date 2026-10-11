@@ -47,7 +47,7 @@ Open a pull request on GitHub to review and merge the branch. In PyCharm,
 the Commit and Push actions use the same repository and GitHub remote.
 
 Before merging, inspect required status checks and run the
-[fresh AI quality workflow](step-38-live-ai-ci.md) from main for the feature
+[fresh AI quality workflow](evaluation-guide.md#fresh-ai-evidence-in-ci) from main for the feature
 PR number with `profile=curated`; it resolves and tests the current merge SHA.
 A standalone branch-SHA experiment may differ from that merge candidate. A smoke result does not satisfy
 the curated gate. Updated commits require fresh evidence. Repository
