@@ -69,12 +69,12 @@ one end-to-end result as proof of everything.
 | --- | --- | --- | --- |
 | Unit | Does our framework handle valid, invalid and failure cases correctly? | HTTP is mocked; the capture-hook check needs Node.js. Some judge-adapter checks need evaluation libraries. | `tests/unit/` |
 | Offline browser | Do our Page Object and waiting rules behave correctly in a real browser? | Chromium and deterministic local HTML; no app or model. | `tests/browser/` |
-| Smoke/API | Is the app reachable, is authentication correct, and can documents/workspaces be managed and searched? | AnythingLLM, developer API key where needed; indexing needs the embedding provider. | `tests/test_health.py`, `test_authentication.py`, `test_workspace.py`, `test_documents.py` |
-| RAG integration | Does a real generated answer contain required policy facts and supporting sources, or acknowledge missing information? | Application, API key, embeddings and a generation model. | `tests/test_rag.py` |
-| Golden acceptance | Does each versioned policy case satisfy its required, forbidden and source criteria? | RAG environment; explicit `--run-golden`. | `tests/test_golden_rag.py` |
+| Smoke/API | Is the app reachable, is authentication correct, and can documents/workspaces be managed and searched? | AnythingLLM, developer API key where needed; indexing needs the embedding provider. | `tests/environment/test_health.py`, `tests/api/` |
+| RAG integration | Does a real generated answer contain required policy facts and supporting sources, or acknowledge missing information? | Application, API key, embeddings and a generation model. | `tests/rag/test_rag.py` |
+| Golden acceptance | Does each versioned policy case satisfy its required, forbidden and source criteria? | RAG environment; explicit `--run-golden`. | `tests/rag/test_golden_rag.py` |
 | Application UI | Can the user send a question, view an answer/source and reload its history? | The RAG environment plus Chromium. | `tests/ui/` |
-| Saved quality | Do deterministic checks and existing judge evidence describe the same captured answer? | Saved files and reporting dependencies; no new model calls. | `tests/test_quality.py` |
-| Live quality | Can we generate, capture, judge and report one answer with verified cleanup? | Capture overlay, app/models, evaluation and reporting dependencies. | `tests/test_live_quality.py` |
+| Saved quality | Do deterministic checks and existing judge evidence describe the same captured answer? | Saved files and reporting dependencies; no new model calls. | `tests/quality/test_quality.py` |
+| Live quality | Can we generate, capture, judge and report one answer with verified cleanup? | Capture overlay, app/models, evaluation and reporting dependencies. | `tests/quality/test_live_quality.py` |
 
 This separation helps locate failures and controls runtime. A URL-encoding bug
 should be reproduced with a mocked HTTP session. A stale-answer locator should
@@ -354,7 +354,7 @@ Run one layer at a time from `automation`:
 
 ```bash
 python -m pytest tests -m 'smoke or api'
-python -m pytest tests/test_rag.py --rag-model qwen3.5:4b
+python -m pytest tests/rag/test_rag.py --rag-model qwen3.5:4b
 python -m pytest tests/ui --run-ui -k source_details
 ```
 
@@ -430,7 +430,7 @@ lifecycle; it does not require a new transport class or another base-test class.
    not from a generated answer.
 2. Add a profile-loading fixture to `test_support/fixtures/environment.py` if the profile
    is consumed by tests. Keep shared scenario data out of individual test bodies.
-3. Add a test alongside `tests/test_rag.py`, using `rag_chat`, the uploaded document
+3. Add a test alongside `tests/rag/test_rag.py`, using `rag_chat`, the uploaded document
    and the profile. Give it a descriptive `@title` and the appropriate marker.
 4. Reuse `assert_rag_answer` for the positive fact/source contract. If a new rule
    needs richer checking, add a focused assertion and unit cases demonstrating

@@ -37,7 +37,7 @@ evaluation inputs.
 mkdir -p .runtime/ollama-capture
 docker compose -f compose.yaml -f compose.capture.yaml up -d anythingllm
 cd automation
-python -m pytest tests/test_rag.py -k paid_leave --rag-model qwen3.5:4b --capture-rag \
+python -m pytest tests/rag/test_rag.py -k paid_leave --rag-model qwen3.5:4b --capture-rag \
   --junitxml=reports/capture/results.xml
 ```
 
@@ -94,14 +94,14 @@ the judge and the reference disagree, for human review.
 
 ## Combined quality report and gates
 
-`tests/test_quality.py` turns saved evidence into an Allure report with
+`tests/quality/test_quality.py` turns saved evidence into an Allure report with
 independent dimensions: required facts, sources, faithfulness, correctness and
 context relevance. Every judge report is bound to the sample by SHA256. Without
 `--quality-gates`, scores are recorded as `measured`; with it, the thresholds in
 `test_data/quality-gates.json` apply. No model is called.
 
 ```bash
-python -m pytest tests/test_quality.py \
+python -m pytest tests/quality/test_quality.py \
   --quality-sample reports/evidence/sample.json \
   --faithfulness-report reports/evidence/faithfulness.json \
   --correctness-report reports/evidence/correctness.json \
@@ -113,12 +113,12 @@ npm --prefix tools/allure exec -- allure generate reports/quality/allure-results
   --output reports/quality/allure-report
 ```
 
-`tests/test_live_quality.py` does the whole chain for one answer — setup,
+`tests/quality/test_live_quality.py` does the whole chain for one answer — setup,
 capture, generation, faithfulness, report and verified cleanup — with at most
 three model calls. It needs the capture overlay:
 
 ```bash
-python -m pytest tests/test_live_quality.py --run-live-quality --capture-rag \
+python -m pytest tests/quality/test_live_quality.py --run-live-quality --capture-rag \
   --rag-model qwen3.5:4b --judge-model qwen3.5:4b \
   --alluredir=reports/live/allure-results --clean-alluredir --allure-no-capture \
   --junitxml=reports/live/results.xml
@@ -132,7 +132,7 @@ required and forbidden patterns and source anchors. Its version and checksum are
 recorded with every run. The full suite is 16 generations per model.
 
 ```bash
-python -m pytest tests/test_golden_rag.py --run-golden --rag-model qwen3.5:4b -k carryover_limit \
+python -m pytest tests/rag/test_golden_rag.py --run-golden --rag-model qwen3.5:4b -k carryover_limit \
   --junitxml=reports/golden/results.xml
 python -m llm_testkit.reporting.stability reports/golden/results.xml --output reports/golden/stability.json
 ```
@@ -153,15 +153,15 @@ uncontrolled runs as incomplete.
 | Counterfactual bias | Employee descriptors in three pairs (`bias-policy.json`) | `--run-bias` | `llm_testkit.reporting.bias` |
 
 ```bash
-python -m pytest tests/test_prompt_regression.py --run-prompt-regression --rag-model qwen3.5:4b \
+python -m pytest tests/regression/test_prompt_regression.py --run-prompt-regression --rag-model qwen3.5:4b \
   -k carryover_limit --junitxml=reports/prompt-regression/runs.xml
 python -m llm_testkit.reporting.prompt_regression reports/prompt-regression/runs.xml \
   --case carryover_limit --model qwen3.5:4b --output reports/prompt-regression/comparison.json
 
-python -m pytest tests/test_adversarial.py --run-adversarial --rag-model qwen3.5:4b -k user_override \
+python -m pytest tests/regression/test_adversarial.py --run-adversarial --rag-model qwen3.5:4b -k user_override \
   --junitxml=reports/adversarial/runs.xml
 
-python -m pytest tests/test_bias.py --run-bias --rag-model qwen3.5:4b -k gender_carryover \
+python -m pytest tests/regression/test_bias.py --run-bias --rag-model qwen3.5:4b -k gender_carryover \
   --junitxml reports/bias/runs.xml
 python -m llm_testkit.reporting.bias reports/bias/runs.xml --pair gender_carryover --model qwen3.5:4b \
   --output reports/bias/comparison.json
@@ -183,7 +183,7 @@ python -m llm_testkit.evaluation.benchmark_runner --output reports/benchmark --d
 python -m llm_testkit.evaluation.benchmark_runner --output reports/benchmark
 python -m llm_testkit.evaluation.benchmark_runner --model qwen3.5:4b --model qwen2.5:7b \
   --max-model-calls 80 --output reports/benchmark-two-models
-python -m pytest tests/test_benchmark_report.py --benchmark-report reports/benchmark/benchmark.json \
+python -m pytest tests/quality/test_benchmark_report.py --benchmark-report reports/benchmark/benchmark.json \
   --alluredir reports/benchmark/allure-results --allure-no-capture --junitxml reports/benchmark/results.xml
 ```
 
@@ -226,13 +226,13 @@ python -m llm_testkit.reporting.drift compare reports/history/<baseline>.json re
   --maximum-drop 0.05 --output reports/drift/comparison.json
 ```
 
-`tests/test_performance.py` runs bounded health or RAG batches with per-attempt
+`tests/performance/test_performance.py` runs bounded health or RAG batches with per-attempt
 timings and a declared p95 limit. It is never part of ordinary CI.
 
 ```bash
-python -m pytest tests/test_performance.py --run-performance --performance-mode health \
+python -m pytest tests/performance/test_performance.py --run-performance --performance-mode health \
   --performance-requests 6 --performance-users 2 --performance-p95 5
-python -m pytest tests/test_performance.py --run-performance --performance-mode rag --rag-model qwen3.5:4b \
+python -m pytest tests/performance/test_performance.py --run-performance --performance-mode rag --rag-model qwen3.5:4b \
   --performance-requests 1 --performance-users 1 --performance-p95 180
 python -m llm_testkit.performance.comparison reports/performance/<baseline>.json \
   reports/performance/<current>.json --maximum-growth 0.2 --output reports/performance/comparison.json
@@ -240,11 +240,11 @@ python -m llm_testkit.performance.comparison reports/performance/<baseline>.json
 
 ## Conversation profile
 
-`tests/conversation` checks the Chat-mode workspace used for manual work:
+`tests/rag/conversation` checks the Chat-mode workspace used for manual work:
 greetings, small talk and mixed policy questions, five sequential generations.
 
 ```bash
-python -m pytest tests/conversation --run-conversation --rag-model qwen3.5:4b
+python -m pytest tests/rag/conversation --run-conversation --rag-model qwen3.5:4b
 ```
 
 ## Qualification evidence (educational IQ/OQ/PQ)
@@ -255,8 +255,8 @@ packager rebuilds the trace from JUnit, plan, data and sources, keeping failures
 and missing cells. See the [test plan](test-plan.md) for the requirements.
 
 ```bash
-python -m pytest tests/test_installation.py tests/test_health.py --junitxml reports/qualification/iq.xml
-python -m pytest tests/test_authentication.py tests/test_documents.py tests/test_workspace.py \
+python -m pytest tests/environment/test_installation.py tests/environment/test_health.py --junitxml reports/qualification/iq.xml
+python -m pytest tests/api/test_authentication.py tests/api/test_documents.py tests/api/test_workspace.py \
   -k 'not configured_workspace' --junitxml reports/qualification/oq.xml
 python -m llm_testkit.qualification.package --phase IQ --phase OQ \
   --junit reports/qualification/iq.xml --junit reports/qualification/oq.xml \

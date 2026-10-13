@@ -36,8 +36,8 @@ def automation_root(tmp_path, monkeypatch):
     monkeypatch.delenv("ANYTHINGLLM_API_KEY_FILE", raising=False)
     root = tmp_path / "automation"
     shutil.copytree(TEST_DATA, root / "test_data")
-    (root / "tests").mkdir()
-    (root / "tests/test_golden_rag.py").write_text("")
+    (root / "tests/rag").mkdir(parents=True)
+    (root / "tests/rag/test_golden_rag.py").write_text("")
     (root / "reports/rag-samples").mkdir(parents=True)
     return root
 
@@ -79,7 +79,7 @@ def test_generation_command(generation):
     command = generation.subprocess_run.call_args.args[0]
     options = generation.subprocess_run.call_args.kwargs
     assert command == [
-            sys.executable, "-m", "pytest", f"tests/test_golden_rag.py::{NODE}", "--run-golden", "--capture-rag",
+            sys.executable, "-m", "pytest", f"tests/rag/test_golden_rag.py::{NODE}", "--run-golden", "--capture-rag",
             "--rag-model", MODEL, "--rag-repeat", "1", "--junitxml",
             str(generation.directory / "generation.xml"), "-o",
             "addopts=-ra --strict-markers --strict-config --import-mode=importlib", "-q"]
@@ -449,8 +449,8 @@ def test_cli_reports_failed_benchmark(cli):
 @pytest.mark.parametrize(("prepare", "arguments", "message"), [
         pytest.param(lambda state: state.output.mkdir(), [], "Output already exists", id="existing-output"),
         pytest.param(
-        lambda state: (state.root / "tests/test_golden_rag.py").unlink(), [], "Run from automation or provide --root",
-        id="not-an-automation-root"),
+        lambda state: (state.root / "tests/rag/test_golden_rag.py").unlink(), [],
+        "Run from automation or provide --root", id="not-an-automation-root"),
         pytest.param(lambda state: None, ["--case", "unknown"], "unique, known golden cases", id="invalid-plan"),
         pytest.param(lambda state: None, ["--max-model-calls", "10"], "needs at most 43 model calls", id="over-budget")
 ])

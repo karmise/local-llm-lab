@@ -35,8 +35,12 @@ automation/
     qualification/           IQ/OQ/PQ plan and packaging
     pytest_support/          CLI options and opt-in selection rules
   src/test_support/          fixtures (live resources) and builders (unit data)
-  tests/unit/                offline framework tests (~2000, plain pytest)
-  tests/*.py, ui/, browser/  live and browser suites, mostly opt-in
+  tests/                     grouped by level, then by feature:
+    unit/                    offline framework tests (~2000, plain pytest), mirrors src/llm_testkit
+    browser/                 Page Object checks on local HTML
+    environment/ api/        installation and API, no generation
+    rag/ regression/ ui/     generated answers; regression and UI are opt-in
+    quality/ performance/    evidence, gates and load
   test_data/                 policy, golden dataset, catalogs, gates, plan
 ```
 

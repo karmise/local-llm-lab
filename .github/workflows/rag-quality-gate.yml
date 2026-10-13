@@ -57,7 +57,7 @@ jobs:
           python -m pip check
       - name: Validate provenance and apply quality thresholds
         run: |
-          python -m pytest tests/test_quality.py -p allure_pytest.plugin \
+          python -m pytest tests/quality/test_quality.py -p allure_pytest.plugin \
             --quality-sample reports/input-evidence/sample.json \
             --faithfulness-report reports/input-evidence/faithfulness.json \
             --correctness-report reports/input-evidence/correctness.json \

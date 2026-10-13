@@ -132,7 +132,7 @@ jobs:
       - name: Check the developer API contract before any model call
         timeout-minutes: 5
         run: |
-          python -m pytest tests/test_health.py tests/test_authentication.py tests/test_api_contract.py \
+          python -m pytest tests/environment/test_health.py tests/api/test_authentication.py tests/api/test_api_contract.py \
             -q --junitxml=reports/ci/api/contract.xml
       - name: Capture actual context and evaluate the declared golden matrix
         id: benchmark

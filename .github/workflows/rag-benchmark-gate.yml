@@ -56,7 +56,7 @@ jobs:
       - name: Revalidate provenance and enforce every applicable quality dimension
         id: gate
         run: |
-          python -m pytest tests/test_ci_benchmark.py -p allure_pytest.plugin \
+          python -m pytest tests/quality/test_ci_benchmark.py -p allure_pytest.plugin \
             --benchmark-report reports/ci/benchmark/benchmark.json \
             --ci-profile "$CI_PROFILE" --ci-models "$CI_MODELS" --ci-revision "$CI_REVISION" \
             --alluredir reports/ci/gate/allure-results --allure-no-capture \

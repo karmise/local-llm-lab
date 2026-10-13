@@ -29,7 +29,7 @@ from llm_testkit.reporting.redaction import redact_files
 
 def generate_sample(root: Path, directory: Path, case_id: str, model: str) -> dict:
     """Reuse existing setup, capture, acceptance and verified teardown fixtures."""
-    node = f"tests/test_golden_rag.py::test_golden_policy_answer[{case_id}-{model}]"
+    node = f"tests/rag/test_golden_rag.py::test_golden_policy_answer[{case_id}-{model}]"
     command = [
             sys.executable, "-m", "pytest", node, "--run-golden", "--capture-rag", "--rag-model", model, "--rag-repeat",
             "1", "--junitxml",
@@ -177,7 +177,7 @@ def main() -> int:
     try:
         if output.exists():
             raise ValueError("Output already exists; choose a new directory")
-        if (root / "tests/test_golden_rag.py").is_file() is False:
+        if (root / "tests/rag/test_golden_rag.py").is_file() is False:
             raise ValueError("Run from automation or provide --root")
         dataset = load_golden_dataset(root / "test_data/golden-policy.json", root / "test_data/company-policy.txt")
         gates = load_quality_gates(root / "test_data/quality-gates.json")
