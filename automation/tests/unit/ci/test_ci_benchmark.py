@@ -162,7 +162,7 @@ def test_ci_run_rejects_foreign_sample(tmp_path, monkeypatch, field):
 
 @title("A golden test changed after the run makes its samples foreign")
 def test_ci_run_rejects_changed_golden_test(ci_run):
-    (ci_run.root / "tests/test_golden_rag.py").write_text("# Different golden test\n")
+    (ci_run.root / "tests/rag/test_golden_rag.py").write_text("# Different golden test\n")
 
     with pytest.raises(ValueError, match="CI sample was not produced by the tested framework and golden test"):
         ci_run.validate()

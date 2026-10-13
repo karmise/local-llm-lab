@@ -41,11 +41,11 @@ Run commands from `automation` with its virtual environment activated.
 | Formatting check | `python -m yapf --diff --recursive src tests` | Development dependencies |
 | Offline Page Object regressions | `python -m pytest tests/browser --run-ui` | Chromium; no application/models |
 | Application health and API | `python -m pytest -m 'smoke or api'` | AnythingLLM; API key; embedding model for indexing |
-| API contract and negative cases | `python -m pytest tests/test_api_contract.py` | AnythingLLM; API key; no model calls |
-| RAG answers | `python -m pytest tests/test_rag.py --rag-model qwen3.5:4b` | AnythingLLM, API key, generation and embedding models |
-| Golden policy dataset (one case) | `python -m pytest tests/test_golden_rag.py --run-golden --rag-model qwen3.5:4b -k carryover_limit` | Same as RAG; broader catalog is opt-in |
+| API contract and negative cases | `python -m pytest tests/api/test_api_contract.py` | AnythingLLM; API key; no model calls |
+| RAG answers | `python -m pytest tests/rag/test_rag.py --rag-model qwen3.5:4b` | AnythingLLM, API key, generation and embedding models |
+| Golden policy dataset (one case) | `python -m pytest tests/rag/test_golden_rag.py --run-golden --rag-model qwen3.5:4b -k carryover_limit` | Same as RAG; broader catalog is opt-in |
 | Application UI | `python -m pytest tests/ui --run-ui` | Same as RAG, plus Chromium |
-| Conversational assistant | `python -m pytest tests/conversation --run-conversation --rag-model qwen3.5:4b` | AnythingLLM, API key, generation and embedding models; five sequential generations |
+| Conversational assistant | `python -m pytest tests/rag/conversation --run-conversation --rag-model qwen3.5:4b` | AnythingLLM, API key, generation and embedding models; five sequential generations |
 
 To apply the shared formatting rules locally:
 
@@ -117,10 +117,28 @@ Correctness remains a measurement until explicit gates are supplied. Context pre
 | `src/test_support/builders/` | Public, per-domain test data builders and deterministic doubles shared by test modules |
 | `src/llm_testkit/datasets/` | Typed, source-bound golden dataset loading and validation |
 | `test_data/` | Fictional documents and shared question/reference/fact profiles |
-| `tests/unit/` | Framework behavior with HTTP calls mocked |
-| `tests/browser/` | Real browser with deterministic HTML; no model generation |
-| `tests/ui/` | End-to-end application browser scenarios |
-| `tests/conversation/` | Opt-in Chat behavior with a scoped conversational workspace profile |
+| `tests/` | Test suites grouped by level; see the layout below |
+
+### Test layout
+
+Suites are grouped by what they need to run, and then by feature:
+
+| Directory | Level | Needs | Contents |
+| --- | --- | --- | --- |
+| `tests/unit/` | Framework unit | Nothing; HTTP is blocked | Mirrors `src/llm_testkit`: `core`, `assertions`, `datasets`, `evaluation`, `reporting`, `ci`, `qualification`, `performance`, `pytest_support` |
+| `tests/browser/` | Page Object | Chromium and local HTML | Waiting and selection rules of the Page Object |
+| `tests/environment/` | Installation (IQ) | AnythingLLM, Ollama | Runtime versions, declared models, health |
+| `tests/api/` | API, no generation | AnythingLLM, API key | Authentication, API contract and negative cases, workspace and document lifecycle |
+| `tests/rag/` | Generated answers | Plus generation and embedding models | Answers and sources, golden dataset, `conversation/` (Chat mode) |
+| `tests/regression/` | Changed inputs, same criteria | As RAG, opt-in | Prompt regression, adversarial inputs, counterfactual bias |
+| `tests/ui/` | End-to-end UI | As RAG, plus Chromium | Chat, sources and history in the real application |
+| `tests/quality/` | Evidence and gates | Saved evidence; live quality also needs the capture overlay | Quality report, live quality, benchmark and CI benchmark reports |
+| `tests/performance/` | Load | As API or RAG, opt-in | Bounded health and RAG batches |
+
+Positive and negative cases of a feature stay in the same module, so the module
+reads as that feature's specification. Directory-scoped `conftest.py` files keep
+fixtures local: the Chat workspace profile applies only under `rag/conversation/`,
+and the UI teardown hook only under `ui/`.
 
 Keep fixtures function-scoped for mutable resources. Register cleanup as soon as
 a successful create response provides a usable resource identifier, before

@@ -1,6 +1,6 @@
 # Policy application test plan
 
-Plan baseline: `policy-lab-plan-v1`, defined by
+Plan baseline: `policy-lab-plan-v3`, defined by
 [`qualification-plan.json`](../automation/test_data/qualification-plan.json).
 Approval status: draft, pending human review. Scope: an educational local RAG
 application answering questions about a fictional company policy.

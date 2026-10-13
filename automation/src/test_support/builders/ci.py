@@ -21,15 +21,15 @@ from test_support.paths import AUTOMATION_ROOT
 REVISION = "a" * 40
 OTHER_REVISION = "b" * 40
 COMPARISON_MODEL = "qwen2.5:7b"
-GOLDEN_TEST = AUTOMATION_ROOT / "tests/test_golden_rag.py"
+GOLDEN_TEST = AUTOMATION_ROOT / "tests/rag/test_golden_rag.py"
 
 
 def ci_metadata(root: Path, case_id: str, model: str) -> dict[str, str]:
     """Sample metadata showing the sample came from the checkout's framework and golden test."""
     return {
             "framework_source_sha256": framework_checksum(root),
-            "test_source_sha256": hashlib.sha256((root / "tests/test_golden_rag.py").read_bytes()).hexdigest(),
-            "test_node_id": f"tests/test_golden_rag.py::test_golden_policy_answer[{case_id}-{model}]"}
+            "test_source_sha256": hashlib.sha256((root / "tests/rag/test_golden_rag.py").read_bytes()).hexdigest(),
+            "test_node_id": f"tests/rag/test_golden_rag.py::test_golden_policy_answer[{case_id}-{model}]"}
 
 
 @dataclass(frozen=True)
@@ -66,8 +66,8 @@ def save_ci_run(
     """
     root = tmp_path / "automation"
     shutil.copytree(TEST_DATA, root / "test_data")
-    (root / "tests").mkdir()
-    shutil.copyfile(GOLDEN_TEST, root / "tests/test_golden_rag.py")
+    (root / "tests/rag").mkdir(parents=True)
+    shutil.copyfile(GOLDEN_TEST, root / "tests/rag/test_golden_rag.py")
     (tmp_path / "config").mkdir()
     (tmp_path / "config/ci-models.json").write_text(
             json.dumps(lock or {

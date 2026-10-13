@@ -51,8 +51,9 @@ local-llm-lab/
 └── automation/               # standalone Python project
     ├── pyproject.toml
     ├── requirements.lock
-    ├── src/llm_testkit/       # settings, HTTP transport and API clients
-    ├── tests/
+    ├── src/llm_testkit/       # the testing framework
+    ├── tests/                # by level: unit, browser, environment, api, rag,
+    │                         # regression, ui, quality, performance
     ├── test_data/            # fictional policy documents
     ├── reports/              # local reports; excluded from Git
     └── .venv/                # local environment; excluded from Git

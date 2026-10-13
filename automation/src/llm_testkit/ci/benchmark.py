@@ -62,8 +62,8 @@ def validate_ci_benchmark(root: Path, path: Path, *, revision: str, profile: str
             continue  # The aggregate remains an error; missing evidence never becomes success.
         sample = json.loads((directory / row["artifact_directory"] / "sample.json").read_text())
         metadata = sample["metadata"]
-        node = f"tests/test_golden_rag.py::test_golden_policy_answer[{row['case_id']}-{row['model']}]"
-        source = hashlib.sha256((root / "tests/test_golden_rag.py").read_bytes()).hexdigest()
+        node = f"tests/rag/test_golden_rag.py::test_golden_policy_answer[{row['case_id']}-{row['model']}]"
+        source = hashlib.sha256((root / "tests/rag/test_golden_rag.py").read_bytes()).hexdigest()
         if (metadata.get("framework_source_sha256") != context["framework_source_sha256"]
                     or metadata.get("test_source_sha256") != source or metadata.get("test_node_id") != node):
             raise ValueError("CI sample was not produced by the tested framework and golden test")
