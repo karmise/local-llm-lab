@@ -152,7 +152,7 @@ it enforces with `pytest.raises(..., match=...)` and has a paired acceptance tes
 Data shared by several test modules comes from public builders in
 `test_support/builders/<domain>.py`; data, fixtures and child-test sources used by
 one module live in that module. Plain `assert` keeps unit checks independent of
-application Assertions. Mutation testing (mutmut) measured each domain's tests.
+the application `assertions` package. Mutation testing (mutmut) measured each domain's tests.
 Unit tests block Requests calls unless explicitly mocked; telemetry settings are
 scoped with `monkeypatch`. Lifecycle and CLI tests exercise real child pytest runs.
 
@@ -164,7 +164,7 @@ Register shared fixture plugins for live and browser suites in `tests/conftest.p
 re-export narrowly scoped fixtures from the relevant suite so an adversarial document
 override cannot affect ordinary RAG tests. Unit tests use inline `pytest.param(...,
 id=...)` tables. Keep scenario bodies linear: arrange, act, assert. Conditional setup, test doubles and browser simulation
-belong to test support; acceptance rules belong to `Assertions`. Optional browser
+belong to test support; acceptance rules belong to the `assertions` package. Optional browser
 and judge imports remain lazy in supporting code.
 
 Builders return a fresh copy on every call, so a test may edit what it receives.

@@ -1,54 +1,56 @@
-# Git Workflow
+# Git workflow
 
-The Git repository root is `local-llm-lab`. The `automation` directory is a
-Python project inside that repository. Use the `main` branch for the initial
-commit; subsequent changes can use feature branches.
+The Git repository root is `local-llm-lab`; `automation` is a Python project
+inside it. `main` is protected, so every change goes through a pull request.
 
-## First commit
-
-From `local-llm-lab`, after the GitHub remote has been connected:
+## Make a change
 
 ```bash
-git status
-git remote -v
-git add .
-git diff --cached --stat
+git switch main && git pull
+git switch -c refactor/short-description
+# Make the change, then run the offline checks from automation:
+cd automation
+python -m pytest tests/unit -q
+python -m ruff check src tests
+python -m isort --check-only --diff src tests
+python -m yapf --diff --recursive src tests
+cd ..
+git add -A automation docs
 git diff --cached
-git commit -m "Initialize LLM RAG testing project"
-git push -u origin main
+git commit -m "refactor: describe the change"
+git push -u origin refactor/short-description
+gh pr create --base main
 ```
 
-Review the staged changes before committing. Runtime secrets, virtual
-environments, IDE settings, reports and local application exports are excluded
-by `.gitignore`. Configuration examples and fictional test data are included.
+Commit messages use conventional prefixes: `feat:`, `fix:`, `docs:`, `refactor:`,
+`test:`, `ci:` and `style:`. Review staged changes before committing.
+`.gitignore` excludes runtime secrets, virtual environments, IDE settings,
+reports and local application exports. Configuration examples and fictional test
+data are tracked. The repository is public, so never commit keys or personal notes.
 
-If Git reports a missing author identity, configure it for this repository:
+## Merge a pull request
+
+`main` requires three checks:
+
+| Check | Source | When it runs |
+| --- | --- | --- |
+| `Ruff and unit tests` | `framework-checks.yml` | Automatically on every push |
+| `Offline Page Object checks` | `framework-checks.yml` | Automatically on every push |
+| `RAG benchmark quality` | `rag-live-quality.yml` ("Fresh RAG quality") | Manually, for the pull request |
+
+Start the live check from `main` with the pull request number. It tests the
+pull request's merge commit and takes about two hours on a CPU runner:
 
 ```bash
-git config user.name "Your Name"
-git config user.email "YOUR_GITHUB_COMMIT_EMAIL"
+gh workflow run rag-live-quality.yml --ref main -f pull-request=<number> -f profile=curated -f models=primary
 ```
 
-Replace the placeholders with your chosen commit identity. A GitHub-provided
-no-reply address can be used as the commit email.
+A `smoke` run publishes a different status and cannot satisfy the merge gate.
+Every new commit needs a new run, and a failed run is investigated, not repeated.
+When all three checks pass, squash-merge the pull request.
 
-## Subsequent changes
-
-```bash
-git switch -c feature/workspace-api
-# Make and verify the change.
-git add automation docs
-git diff --cached
-git commit -m "Add workspace API operations"
-git push -u origin feature/workspace-api
-```
-
-Open a pull request on GitHub to review and merge the branch. In PyCharm,
-the Commit and Push actions use the same repository and GitHub remote.
-
-Before merging, inspect required status checks and run the
-[fresh AI quality workflow](evaluation-guide.md#fresh-ai-evidence-in-ci) from main for the feature
-PR number with `profile=curated`; it resolves and tests the current merge SHA.
-A standalone branch-SHA experiment may differ from that merge candidate. A smoke result does not satisfy
-the curated gate. Updated commits require fresh evidence. Repository
-administrator bypass is a deliberate maintenance exception, not a quality pass.
+The live workflow runs main's version of the workflow files. A pull request
+that changes those files, for example test paths they call, cannot be checked by
+its own gate. In that case an administrator merge is a deliberate maintenance
+exception, followed by a gate run on `main` to confirm the change. It is never a
+quality pass.

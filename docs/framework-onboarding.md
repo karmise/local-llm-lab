@@ -50,8 +50,11 @@ leave starts. It also explicitly excludes gym reimbursement information.
 | RAG | Retrieval-augmented generation: the application retrieves relevant document context and includes it in the model request. |
 | Citation/source | A document reference shown with an answer. Useful evidence, but not necessarily the entire context sent to the model. |
 | Fixture | A pytest-managed dependency that prepares data/resources and can register cleanup. Tests request fixtures by parameter name. |
-| Assertion | A condition that must hold for a check to pass. |
+| Assertion | A condition that must hold for a check to pass. Application checks live in the `assertions` package. |
 | Judge | A model asked to assess an answer. It can make mistakes and must itself be checked. |
+| Capture | Recording the request AnythingLLM actually sends to the model, so metrics use the real context. |
+| Golden dataset | Versioned questions with reference answers and acceptance rules, written from the policy, not from model output. |
+| Quality gate | Minimum metric scores that a run must reach; here they are experimental, not calibrated. |
 
 The default generation model is `qwen3.5:4b`; ordinary RAG tests also use
 `qwen2.5:7b` when no model flag is supplied. The second model provides a comparison
@@ -75,6 +78,9 @@ one end-to-end result as proof of everything.
 | Application UI | Can the user send a question, view an answer/source and reload its history? | The RAG environment plus Chromium. | `tests/ui/` |
 | Saved quality | Do deterministic checks and existing judge evidence describe the same captured answer? | Saved files and reporting dependencies; no new model calls. | `tests/quality/test_quality.py` |
 | Live quality | Can we generate, capture, judge and report one answer with verified cleanup? | Capture overlay, app/models, evaluation and reporting dependencies. | `tests/quality/test_live_quality.py` |
+| Regression | Does a changed prompt, an attack or a different employee descriptor change the outcome under the same criteria? | RAG environment; explicit `--run-*` flags. | `tests/regression/` |
+| Benchmark | Do selected golden cases pass every check and metric after the judge passes its controls? | Capture overlay, app/models and the judge; run by a CLI or the CI workflow. | `evaluation/benchmark_runner.py`, `tests/quality/` |
+| Performance | How long do bounded health or RAG batches take? | App/models; explicit `--run-performance`. | `tests/performance/` |
 
 This separation helps locate failures and controls runtime. A URL-encoding bug
 should be reproduced with a mocked HTTP session. A stale-answer locator should
@@ -82,10 +88,19 @@ be reproduced with local HTML. Neither investigation needs a generated answer.
 A browser test is appropriate when the behavior depends on rendering or user
 interaction; an API test is simpler when only application state matters.
 
-Fast checks run in GitHub Actions: Ruff lint/format checks and offline unit tests
-in one job, and offline Chromium Page Object checks in another. Live API, RAG and
-application UI scenarios remain local. CI does not start AnythingLLM or download
-language models. See [the workflow](../.github/workflows/framework-checks.yml).
+GitHub Actions has two pipelines:
+
+- **On every push** ([framework-checks.yml](../.github/workflows/framework-checks.yml)):
+  Ruff, formatting, offline unit tests with a coverage floor, and offline Chromium
+  Page Object checks. No application or model is started.
+- **On demand for a pull request** ([rag-live-quality.yml](../.github/workflows/rag-live-quality.yml),
+  "Fresh RAG quality"): it starts disposable AnythingLLM and Ollama services,
+  checks the API contract before any model call, runs the benchmark, and then
+  revalidates the evidence in a separate job. Only then does it publish the
+  required status `RAG benchmark quality`. See the
+  [evaluation guide](evaluation-guide.md#fresh-ai-evidence-in-ci).
+
+Application UI, golden, regression and performance suites run locally.
 
 ## 3. Know where each responsibility belongs
 
@@ -95,7 +110,7 @@ package; they do not implement transport or resource ownership themselves.
 ```mermaid
 flowchart TB
     T[Test scenario] --> F[Fixtures<br/>setup and cleanup]
-    T --> C[Assertions]
+    T --> C[assertions]
     T --> API
     F --> API[Resource APIs<br/>workspaces, documents]
     API --> BC[BaseClient<br/>base path, API key, path encoding]
@@ -134,7 +149,7 @@ operations across these layers; it does not decide whether an answer is correct.
 | `reporting/` | Allure integration, combined quality evidence and stability summaries. | A reporter presents evidence; it must not silently retry or relax checks. |
 | [tests/conftest.py](../automation/tests/conftest.py) | Plugin registration and assertion rewriting. | This entry point stays small rather than accumulating all setup logic. |
 
-Integration tests use `Assertions` for application acceptance checks. Unit tests
+Integration tests use the `assertions` package for acceptance checks. Unit tests
 use plain pytest `assert` and `pytest.raises(..., match=...)`, so a broken
 application assertion cannot also verify its own output. Every rejection test
 names the rule it enforces and has a paired acceptance test; mutation testing
@@ -253,9 +268,9 @@ therefore defines a question, reference, required-fact patterns and source
 fragments. API and UI scenarios consume that profile.
 
 The reference documents the expected answer and is retained in captured samples.
-Ordinary RAG assertions do not compare the full answer with it. The current
-faithfulness metric evaluates response claims against captured contexts; a stored
-reference does not automatically become a separate correctness metric.
+Ordinary RAG assertions check required facts rather than comparing the full
+answer with it. Comparing claims with the reference is the job of the separate
+factual-correctness metric described below.
 
 Regex checks are deliberately small smoke contracts. They can miss a negation or
 contradiction that still includes the expected words/numbers. Their success means
@@ -280,15 +295,24 @@ non-streaming API scenario. Sample construction extracts its document contexts
 and validates the capture marker, model and question. The UI's streaming flow is
 separate and is not covered by that capture mechanism.
 
-RAGAS faithfulness splits an answer into claims and asks the local judge whether
-each is supported by those contexts. The current adapter permits at most two
-judge calls, uses structured JSON output and rejects truncated or malformed
-results without retrying. Its configured temperature is zero, thinking is disabled
-and a seed is supplied; these settings do not guarantee perfect judgment.
+Four RAGAS metrics use a local judge model:
+
+| Metric | Part checked | Question | Judge calls |
+| --- | --- | --- | ---: |
+| Context precision | Retrieval | Are the retrieved passages relevant, with the useful ones first? | ≤ 4 |
+| Context recall | Retrieval | Do they contain every fact of the reference? | 1 |
+| Faithfulness | Generation | Is every claim in the answer supported by the captured context? | ≤ 2 |
+| Factual correctness | Generation | Do the answer's claims match the reference (F1)? | ≤ 4 |
+
+The judge returns structured JSON. Truncated or malformed output is rejected
+without a retry. It runs at temperature zero with thinking disabled and a fixed
+seed; these settings do not guarantee perfect judgment.
 
 Hand-labeled judge controls contain supported, contradicted and invented claims,
 including paraphrases and working/calendar-day substitutions. They check whether
 the judge agrees with known labels, not just whether it returns a plausible score.
+The benchmark runs them on the first captured context before scoring the other
+cases, and any mismatch makes the whole run an error.
 
 The combined report keeps required facts, sources and faithfulness independent.
 It binds judge evidence to the captured sample with a SHA256 checksum and checks
@@ -296,10 +320,14 @@ claim coverage, binary verdicts and score consistency. A checksum detects a file
 mismatch; it is not proof that the judge is correct or protection against someone
 who rewrites both the data and its checksum.
 
-There is currently no calibrated faithfulness threshold. Any valid, completed
-measurement in the allowed score range can be recorded as `measured`. A perfect
-score cannot hide a missing required fact; a valid low score is also not an
-automatic threshold failure. Judge errors remain errors. Read the dimension
+Thresholds live in [quality-gates.json](../automation/test_data/quality-gates.json):
+faithfulness ≥ 0.9, context precision ≥ 0.8 and context recall ≥ 0.9. They are
+experimental, chosen for this small curated corpus rather than calibrated. Factual
+correctness has no threshold: on one- or two-claim answers a single judge error
+moves F1 by 0.33 or more, so it is recorded as `measured` and reviewed instead.
+Without `--quality-gates`, saved reports record every score as `measured`.
+Each check keeps its own status, so a perfect score cannot hide a missing
+required fact. Judge errors remain errors, never scores. Read the dimension
 statuses and evidence before interpreting a green report as model quality.
 
 ### Why model calls are limited and retries are disabled
@@ -433,6 +461,9 @@ an offline check before spending more generation calls on the investigation.
 For example, the fictional policy also specifies travel allowance and hotel
 limits. A new API RAG scenario can reuse the existing document and workspace
 lifecycle; it does not require a new transport class or another base-test class.
+A new endpoint becomes a method on the matching resource API
+(`clients/anythingllm/workspaces.py` or `documents.py`), which inherits the base
+path, API key and path encoding from `BaseClient`.
 
 1. Define the question, reference and expected facts/source fragments in a new
    English profile under `test_data/`. Derive its expected amounts from the policy,
@@ -451,23 +482,13 @@ lifecycle; it does not require a new transport class or another base-test class.
 
 For a UI-only change, place locators/actions in the Page Object and add an offline
 browser regression when it protects a real waiting/selection issue. Put acceptance
-criteria in Assertions. Tests should describe the interaction and checks; Allure
+criteria in the `assertions` package. Tests should describe the interaction and checks; Allure
 step contexts, screenshots and endpoint construction belong to existing layers.
 
 Mutable resources remain function-scoped so tests own independent state. Reuse
 fixture code, not one session-wide mutable workspace. Do not add blanket retries,
 parallel model execution or new evaluation thresholds as incidental refactoring.
 Each requires its own evidence and a deliberate change in test meaning.
-
-## Golden dataset extension
-
-The [golden dataset guide](evaluation-guide.md#golden-dataset) adds 16 versioned policy
-scenarios with references, required/forbidden criteria and source fragments.
-The suite is opt-in with `--run-golden`; start with one case on one model.
-Catalog validation and reference checks run offline in the unit suite. The dataset stage does not introduce calibrated gates. The subsequent
-[correctness guide](evaluation-guide.md#semantic-metrics-on-a-captured-sample) adds optional reference-based
-RAGAS factual F1 and a fourth saved-report dimension, with four bounded judge
-calls. It remains a measurement without a calibrated pass/fail threshold.
 
 ## 9. Check your understanding
 
@@ -479,7 +500,7 @@ Before adding your first scenario, explain these points in your own words:
 - How does the Page Object avoid accepting an earlier answer for a new question?
 - Why are fact matching, cited sources and captured model context separate checks?
 - What does a recorded faithfulness score prove, and what does it leave unresolved?
-- Why are shared unit expectations independent of application Assertions?
+- Why do unit tests use plain `assert` instead of the application `assertions` package?
 - Which file would you change for an endpoint, a locator, a fixture, a scenario or a report?
 
 If you can follow the paid-leave scenario through its fixtures, client/Page Object,
@@ -487,6 +508,16 @@ assertions and cleanup, you have the core navigation skills for this framework.
 Use [automation/README.md](../automation/README.md) for the current operational
 reference and [decisions.md](decisions.md) for the reasons
 behind the structure.
+
+## Golden dataset
+
+The [golden dataset](evaluation-guide.md#golden-dataset) holds 16 versioned policy
+cases in four categories: facts, multi-part questions, boundaries and missing
+information. Each has a reference, required and forbidden patterns and source
+fragments. The suite is opt-in with `--run-golden`; start with one case on one
+model. Catalog validation and reference checks run offline in the unit suite.
+Prompt regression, adversarial and bias suites reuse these cases with their
+acceptance criteria unchanged.
 
 ## Evaluation extensions
 
@@ -497,7 +528,7 @@ Follow these guides after the basic paid-leave walkthrough:
 - [Adversarial inputs](evaluation-guide.md#regression-suites-built-on-the-golden-cases): reuse golden expectations for poisoned questions and document notes; confirm actual document-attack exposure.
 - [Quality gates](evaluation-guide.md#combined-quality-report-and-gates): apply explicit experimental thresholds to validated saved evidence, and enforce framework coverage in CI.
 - [Judge suitability](evaluation-guide.md#hand-labelled-judge-controls): compare all four metrics against source-bound engineering labels and inspect reference/judge disagreements before proposing release criteria.
-- [Real two-model comparison](evaluation-guide.md#dataset-benchmark): inspect the executed eight-case matrix, answer request timings and preserved semantic failures.
+- [Two-model comparison](evaluation-guide.md#dataset-benchmark): run the same benchmark cases on both models and compare checks, metrics and answer request timings.
 - [Fresh AI CI](evaluation-guide.md#fresh-ai-evidence-in-ci): produce new answers on a hosted runner, independently validate the complete evidence and bind the quality verdict to the exact commit.
 
 Keep the distinction between measurement, a scoped acceptance pass and statistical validation. Full matrices remain opt-in. Gate thresholds are illustrative; a saved paid-leave gate does not establish dataset-wide or clinical quality.

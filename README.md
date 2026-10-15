@@ -136,8 +136,8 @@ string matches.
 This changes the generation model for `Company Policy Lab`. Refresh the browser
 page afterwards. Both models remain installed. The global default is Qwen3.5 4B.
 BGE-M3 and the index remain unchanged, so switching generation models does not
-require re-embedding documents. The helper currently uses an internal UI API;
-the framework will use the documented developer API for subsequent operations.
+require re-embedding documents. `lab.sh` uses AnythingLLM's internal UI API for
+this switch; the test framework itself uses only the documented developer API.
 
 For comparisons, record the model digest, prompt, temperature, thinking mode and
 question set. A failure that occurs consistently with one model indicates a
