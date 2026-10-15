@@ -9,12 +9,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from llm_testkit import assertions
-from llm_testkit.performance import comparison, reporting, runner
-from llm_testkit.performance.comparison import compare_batches
-from llm_testkit.performance.reporting import record_batch
-from llm_testkit.performance.runner import run_batch, validate_batch, validate_budget
-from llm_testkit.reporting.steps import title
+import assertions
+from performance import comparison, reporting, runner
+from performance.comparison import compare_batches
+from performance.reporting import record_batch
+from performance.runner import run_batch, validate_batch, validate_budget
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

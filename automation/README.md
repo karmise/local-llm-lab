@@ -36,9 +36,9 @@ Run commands from `automation` with its virtual environment activated.
 | Purpose | Command | External requirements |
 | --- | --- | --- |
 | Framework unit tests | `python -m pytest tests/unit -q` | No running services; Node for the capture-hook test |
-| Static checks | `python -m ruff check src tests` | Development dependencies |
-| Import order check | `python -m isort --check-only --diff src tests` | Development dependencies |
-| Formatting check | `python -m yapf --diff --recursive src tests` | Development dependencies |
+| Static checks | `python -m ruff check .` | Development dependencies |
+| Import order check | `python -m isort --check-only --diff .` | Development dependencies |
+| Formatting check | `python -m yapf --diff --recursive .` | Development dependencies |
 | Offline Page Object regressions | `python -m pytest tests/browser --run-ui` | Chromium; no application/models |
 | Application health and API | `python -m pytest -m 'smoke or api'` | AnythingLLM; API key; embedding model for indexing |
 | API contract and negative cases | `python -m pytest tests/api/test_api_contract.py` | AnythingLLM; API key; no model calls |
@@ -50,8 +50,8 @@ Run commands from `automation` with its virtual environment activated.
 To apply the shared formatting rules locally:
 
 ```bash
-python -m isort src tests
-python -m yapf --in-place --recursive src tests
+python -m isort .
+python -m yapf --in-place --recursive .
 ```
 
 Use YAPF for automatic formatting in the editor as well; running `ruff format`
@@ -108,16 +108,23 @@ Correctness remains a measurement until explicit gates are supplied. Context pre
 
 | Location | Responsibility |
 | --- | --- |
-| `src/llm_testkit/core/` | HTTP session lifetime, timeouts, no implicit redirects or retries |
-| `src/llm_testkit/clients/` | `BaseClient` (base path, API key, path encoding) and the API clients built on it: `AnythingLLMClient` with `.workspaces` and `.documents`, and `OllamaClient`; they return raw responses |
-| `src/llm_testkit/pages/` | `BasePage` (URL, navigation, timeouts) and `WorkspacePage` (locators and actions) |
-| `src/llm_testkit/assertions/` | Acceptance criteria by area: `fields`, `api`, `answers`, `quality`, `ui` |
-| `src/llm_testkit/pytest_plugin/options.py` | CLI selection, model matrix, opt-in validation after `-k`/`-m` |
-| `src/test_support/fixtures/` | Scoped setup, dependencies, resource ownership, evidence and cleanup |
-| `src/test_support/builders/` | Public, per-domain test data builders and deterministic doubles shared by test modules |
-| `src/llm_testkit/datasets/` | Typed, source-bound golden dataset loading and validation |
-| `test_data/` | Fictional documents and shared question/reference/fact profiles |
-| `tests/` | Test suites grouped by level; see the layout below |
+Each layer is a top-level folder in `automation/`; inside it, one module per area.
+
+| Folder | Layer |
+| --- | --- |
+| `api/` | `HttpClient` transport (timeouts, no implicit redirects or retries), `BaseClient` (base path, API key, path encoding) and the clients built on it: `AnythingLLMClient` with `.workspaces` and `.documents`, and `OllamaClient`. They return raw responses |
+| `pages/` | `BasePage` (URL, navigation, timeouts) and `WorkspacePage` (locators and actions) |
+| `fixtures/` | Scoped setup, dependencies, resource ownership, evidence and cleanup |
+| `models/` | Typed, source-bound test cases loaded and validated from `data/` |
+| `data/` | Fictional policy, golden dataset, catalogs, quality gates and the qualification plan |
+| `helpers/` | Small shared helpers: number words, score checks, capture markers, paths |
+| `assertions/` | Acceptance criteria by area: `fields`, `api`, `answers`, `quality`, `ui` |
+| `evaluation/`, `reporting/`, `qualification/` | RAGAS metrics and the judge; reports, gates and drift; IQ/OQ/PQ |
+| `observation/`, `ci/`, `performance/` | Context capture; live CI orchestration; load batches |
+| `plugins/` | pytest plugin: CLI selection, model matrix, opt-in validation after `-k`/`-m` |
+| `builders/` | Test data builders and deterministic doubles shared by unit test modules |
+| `config.py` | Settings from environment variables |
+| `tests/` | Only tests, grouped by level; see the layout below |
 
 ### Test layout
 
@@ -125,7 +132,7 @@ Suites are grouped by what they need to run, and then by feature:
 
 | Directory | Level | Needs | Contents |
 | --- | --- | --- | --- |
-| `tests/unit/` | Framework unit | Nothing; HTTP is blocked | Mirrors `src/llm_testkit`: `core`, `assertions`, `datasets`, `evaluation`, `reporting`, `ci`, `qualification`, `performance`, `pages`, `pytest_plugin`; `fixtures` covers the live fixture lifecycle |
+| `tests/unit/` | Framework unit | Nothing; HTTP is blocked | Mirrors the layer folders: `api`, `pages`, `fixtures`, `models`, `helpers`, `assertions`, `evaluation`, `reporting`, `qualification`, `observation`, `ci`, `performance`, `plugins` |
 | `tests/browser/` | Page Object | Chromium and local HTML | Waiting and selection rules of the Page Object |
 | `tests/environment/` | Installation (IQ) | AnythingLLM, Ollama | Runtime versions, declared models, health |
 | `tests/api/` | API, no generation | AnythingLLM, API key | Authentication, API contract and negative cases, workspace and document lifecycle |
@@ -150,13 +157,13 @@ Unit tests use plain pytest ([why](../docs/decisions.md#unit-tests-are-plain-pyt
 Each test shows its inputs, action and expected values; a rejection names the rule
 it enforces with `pytest.raises(..., match=...)` and has a paired acceptance test.
 Data shared by several test modules comes from public builders in
-`test_support/builders/<domain>.py`; data, fixtures and child-test sources used by
+`builders/<domain>.py`; data, fixtures and child-test sources used by
 one module live in that module. Plain `assert` keeps unit checks independent of
 the application `assertions` package. Mutation testing (mutmut) measured each domain's tests.
 Unit tests block Requests calls unless explicitly mocked; telemetry settings are
 scoped with `monkeypatch`. Lifecycle and CLI tests exercise real child pytest runs.
 
-Put shared questions, references and acceptance patterns in `test_data`. API, UI
+Put shared questions, references and acceptance patterns in `data`. API, UI
 and quality scenarios should consume the same profiles. `rag_chat` and
 `workspace_page` declare their metadata/setup dependencies directly.
 

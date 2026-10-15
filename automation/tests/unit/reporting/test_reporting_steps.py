@@ -4,9 +4,9 @@ from unittest.mock import MagicMock, Mock, call
 
 import pytest
 
-from llm_testkit.reporting import steps
-from llm_testkit.reporting.live_quality import generate_captured_answer
-from llm_testkit.reporting.steps import title
+from reporting import steps
+from reporting.live_quality import generate_captured_answer
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

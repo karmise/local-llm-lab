@@ -15,25 +15,25 @@ from unittest.mock import ANY, AsyncMock, Mock
 
 import pytest
 
-from llm_testkit.config import Settings
-from llm_testkit.evaluation.correctness import (
-        METRIC_CONFIGURATION, bind_case, check_control, check_correctness_evidence, evaluate_correctness_report, main,
-        result_from_calls, score_correctness, validate_control, validate_result)
-from llm_testkit.reporting.quality import build_quality_report
-from llm_testkit.reporting.steps import title
-from test_support.builders.correctness import (
+from builders.correctness import (
         CONTROLS_FILE, judge_calls, judge_outputs, labelled_claims, make_correctness_evidence,
         make_faithfulness_evidence, make_result)
-from test_support.builders.golden import (
+from builders.golden import (
         GOLDEN_DATASET, GOLDEN_DATASET_FILE, PAID_LEAVE, POLICY_FILE, TEST_DATA, make_paid_leave_sample)
-from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
-from test_support.builders.ollama import chat_response, model_catalog
-from test_support.builders.optional import load_ollama_judge
-from test_support.paths import AUTOMATION_ROOT
+from builders.identities import MODEL_DIGEST, TEST_MODEL
+from builders.ollama import chat_response, model_catalog
+from builders.optional import load_ollama_judge
+from config import Settings
+from evaluation.correctness import (
+        METRIC_CONFIGURATION, bind_case, check_control, check_correctness_evidence, evaluate_correctness_report, main,
+        result_from_calls, score_correctness, validate_control, validate_result)
+from helpers.paths import AUTOMATION_ROOT
+from reporting.quality import build_quality_report
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
-SCORE = "llm_testkit.evaluation.correctness.score_correctness"
+SCORE = "evaluation.correctness.score_correctness"
 LEAVE_ENTITLEMENT = "Each employee receives 23 working days of paid leave."
 NOTICE_PERIOD = "A request needs 12 calendar days before leave starts."
 MANAGER_APPROVAL = "The direct manager approves the request."
@@ -384,9 +384,9 @@ def offline_service(tmp_path, monkeypatch):
     service.http_class = Mock(return_value=service.transport)
     service.ollama_class = Mock(return_value=service.ollama)
     service.judge_class = Mock(return_value=service.judge)
-    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.HttpClient", service.http_class)
-    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.OllamaClient", service.ollama_class)
-    monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", service.judge_class)
+    monkeypatch.setattr("evaluation.judge_connection.HttpClient", service.http_class)
+    monkeypatch.setattr("evaluation.judge_connection.OllamaClient", service.ollama_class)
+    monkeypatch.setattr("evaluation.ollama_judge.OllamaJudge", service.judge_class)
     return service
 
 
@@ -499,7 +499,7 @@ def cli_evaluation(monkeypatch):
     """The CLI's evaluation step, replaced so that argument handling and exit codes are checked offline."""
     monkeypatch.delenv("ANYTHINGLLM_API_KEY_FILE", raising=False)
     evaluation = Mock(return_value={"status": "completed"})
-    monkeypatch.setattr("llm_testkit.evaluation.correctness.evaluate_correctness_report", evaluation)
+    monkeypatch.setattr("evaluation.correctness.evaluate_correctness_report", evaluation)
     return evaluation
 
 
@@ -522,9 +522,9 @@ def test_cli_writes_completed_report(run_cli, cli_evaluation, tmp_path, capsys):
     assert json.loads(output.read_text()) == {"status": "completed"}
     assert "Correctness: completed" in capsys.readouterr().out
     cli_evaluation.assert_called_once_with(
-            Path("sample.json"), dataset_path=Path("test_data/golden-policy.json"),
-            policy_file=Path("test_data/company-policy.txt"), case_id=PAID_LEAVE.id, settings=ANY,
-            judge_model="qwen3.5:4b", control=None)
+            Path("sample.json"), dataset_path=Path("data/golden-policy.json"),
+            policy_file=Path("data/company-policy.txt"), case_id=PAID_LEAVE.id, settings=ANY, judge_model="qwen3.5:4b",
+            control=None)
     assert isinstance(cli_evaluation.call_args.kwargs["settings"], Settings)
 
 
@@ -585,7 +585,7 @@ def test_cli_refuses_existing_output(run_cli, cli_evaluation, tmp_path, capsys):
 
 @title("The CLI refuses to run without the evaluation dependencies")
 def test_cli_requires_evaluation_dependencies(run_cli, cli_evaluation, tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr("llm_testkit.evaluation.correctness.find_spec", lambda name: None)
+    monkeypatch.setattr("evaluation.correctness.find_spec", lambda name: None)
 
     with pytest.raises(SystemExit) as stopped:
         run_cli("--output", str(tmp_path / "out.json"))

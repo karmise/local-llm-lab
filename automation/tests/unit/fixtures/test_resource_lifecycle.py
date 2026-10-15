@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from llm_testkit.reporting.steps import title
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -18,9 +18,9 @@ from unittest.mock import Mock
 import pytest
 from requests import Response
 
-from llm_testkit.config import Settings
+from config import Settings
 
-pytest_plugins = ["test_support.fixtures.resources"]
+pytest_plugins = ["fixtures.resources"]
 FAILURE = os.environ["LIFECYCLE_FAILURE"]
 calls = []
 

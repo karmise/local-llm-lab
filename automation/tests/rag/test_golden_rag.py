@@ -4,9 +4,9 @@ from typing import Any
 import pytest
 from requests import Response
 
-from llm_testkit import assertions
-from llm_testkit.datasets.golden import GoldenCase
-from llm_testkit.reporting.steps import title
+import assertions
+from models.golden import GoldenCase
+from reporting.steps import title
 
 pytestmark = [pytest.mark.rag, pytest.mark.golden]
 

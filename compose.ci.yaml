@@ -32,7 +32,7 @@ services:
       LLM_TESTKIT_CAPTURE_SHARED_READ: "true"
     volumes:
       - anythingllm-storage:/app/server/storage
-      - ./automation/src/llm_testkit/observation/ollama-preload.cjs:/app/llm-testkit/ollama-preload.cjs:ro
+      - ./automation/observation/ollama-preload.cjs:/app/llm-testkit/ollama-preload.cjs:ro
       - ./.runtime/ollama-capture:/app/llm-testkit/captures
 volumes:
   anythingllm-storage:

@@ -8,14 +8,14 @@ from unittest.mock import Mock
 
 import pytest
 
-from llm_testkit.datasets.prompts import load_prompt_catalog
-from llm_testkit.reporting import prompt_regression as reporting
-from llm_testkit.reporting.prompt_regression import compare_prompts, main
-from llm_testkit.reporting.steps import title
-from test_support.builders.golden import GOLDEN_DATASET, GOLDEN_DATASET_FILE, POLICY_FILE, TEST_DATA
-from test_support.builders.junit_xml import write_junit
-from test_support.builders.prompt_regression import CLASSNAME, PROMPTS_FILE, catalog_json, prompt_catalog, prompt_run
-from test_support.paths import AUTOMATION_ROOT
+from builders.golden import GOLDEN_DATASET, GOLDEN_DATASET_FILE, POLICY_FILE, TEST_DATA
+from builders.junit_xml import write_junit
+from builders.prompt_regression import CLASSNAME, PROMPTS_FILE, catalog_json, prompt_catalog, prompt_run
+from helpers.paths import AUTOMATION_ROOT
+from models.prompts import load_prompt_catalog
+from reporting import prompt_regression as reporting
+from reporting.prompt_regression import compare_prompts, main
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -328,8 +328,8 @@ def test_cli_saves_comparison(cli, tmp_path, capsys):
     assert json.loads(output.read_text()) == compare.return_value
     assert "Prompt comparison: passed; expected runs: 2" in capsys.readouterr().out
     compare.assert_called_once_with(
-            Path("runs.xml"), catalog_path=Path("test_data/prompt-variants.json"),
-            dataset_path=Path("test_data/golden-policy.json"), policy_file=Path("test_data/company-policy.txt"),
+            Path("runs.xml"), catalog_path=Path("data/prompt-variants.json"),
+            dataset_path=Path("data/golden-policy.json"), policy_file=Path("data/company-policy.txt"),
             case_ids=["paid_leave"], models=["model"], candidate="grounded_v2", repeat=1)
 
 
@@ -393,8 +393,8 @@ def test_cli_requires_scope_and_output(cli, monkeypatch, tmp_path, arguments):
 
 @title("Prompt regression collects an opt-in case/model/prompt matrix")
 def test_selection_is_opt_in(framework_pytester):
-    shutil.copytree(TEST_DATA, framework_pytester.path / "test_data")
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_plugin.options"]')
+    shutil.copytree(TEST_DATA, framework_pytester.path / "data")
+    framework_pytester.makeconftest('pytest_plugins = ["plugins.options"]')
     framework_pytester.makepyfile(
             """
         import pytest

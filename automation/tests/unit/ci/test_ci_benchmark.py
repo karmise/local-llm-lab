@@ -6,14 +6,14 @@ from unittest.mock import Mock
 
 import pytest
 
-from llm_testkit.ci import benchmark as ci
-from llm_testkit.ci.benchmark import BASELINES, execution_context, inputs
-from llm_testkit.datasets.benchmark import manifest
-from llm_testkit.qualification.plan import framework_checksum
-from llm_testkit.reporting.steps import title
-from test_support.builders.benchmark import JUDGE_DIGEST, MODEL
-from test_support.builders.ci import COMPARISON_MODEL, OTHER_REVISION, REVISION, ci_metadata, save_ci_run
-from test_support.paths import AUTOMATION_ROOT
+from builders.benchmark import JUDGE_DIGEST, MODEL
+from builders.ci import COMPARISON_MODEL, OTHER_REVISION, REVISION, ci_metadata, save_ci_run
+from ci import benchmark as ci
+from ci.benchmark import BASELINES, execution_context, inputs
+from helpers.paths import AUTOMATION_ROOT
+from models.benchmark import manifest
+from qualification.plan import framework_checksum
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -237,7 +237,7 @@ def test_cli_plan(tmp_path, monkeypatch):
     assert code == 0
     assert planned["context"] == execution_context(AUTOMATION_ROOT, REVISION, "smoke", "primary")
     dataset, gates, plan = inputs(AUTOMATION_ROOT, "smoke", "primary")
-    expected = manifest(plan, dataset, gates, AUTOMATION_ROOT / "test_data/faithfulness-controls.json")
+    expected = manifest(plan, dataset, gates, AUTOMATION_ROOT / "data/faithfulness-controls.json")
     assert {
             k: v
             for k, v in planned["manifest"].items() if k != "created_at"} == {

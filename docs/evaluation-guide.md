@@ -55,41 +55,41 @@ truncated or malformed judge output without retrying. Install
 
 | Metric | What it measures | Judge calls | Command module |
 | --- | --- | ---: | --- |
-| Faithfulness | Share of answer claims supported by the captured contexts | ≤ 2 | `llm_testkit.evaluation.faithfulness` |
-| Factual correctness | Claim-level F1 against the golden reference | ≤ 4 | `llm_testkit.evaluation.correctness` |
-| Context precision/recall | Usefulness of retrieved contexts and coverage of the reference | ≤ 5 | `llm_testkit.evaluation.relevance` |
+| Faithfulness | Share of answer claims supported by the captured contexts | ≤ 2 | `evaluation.faithfulness` |
+| Factual correctness | Claim-level F1 against the golden reference | ≤ 4 | `evaluation.correctness` |
+| Context precision/recall | Usefulness of retrieved contexts and coverage of the reference | ≤ 5 | `evaluation.relevance` |
 
 ```bash
-python -m llm_testkit.evaluation.faithfulness reports/rag-samples/<capture-id>.json \
+python -m evaluation.faithfulness reports/rag-samples/<capture-id>.json \
   --judge-model qwen3.5:4b --output reports/evidence/faithfulness.json
-python -m llm_testkit.evaluation.correctness reports/rag-samples/<capture-id>.json \
+python -m evaluation.correctness reports/rag-samples/<capture-id>.json \
   --case paid_leave --judge-model qwen3.5:4b --output reports/evidence/correctness.json
-python -m llm_testkit.evaluation.relevance reports/rag-samples/<capture-id>.json \
+python -m evaluation.relevance reports/rag-samples/<capture-id>.json \
   --case paid_leave --output reports/evidence/relevance.json
 ```
 
 ### Hand-labelled judge controls
 
 A judge score is trusted only after the judge agrees with known labels. The
-controls in `test_data/faithfulness-controls.json` and
-`test_data/correctness-controls.json` include supported paraphrases, wrong
+controls in `data/faithfulness-controls.json` and
+`data/correctness-controls.json` include supported paraphrases, wrong
 numbers, invented amounts, incomplete answers and working/calendar-day
 substitutions. Each claim must map to exactly one extracted statement with the
 expected verdict; a matching average score is not enough.
 
 ```bash
-python -m llm_testkit.evaluation.calibration reports/rag-samples/<capture-id>.json \
-  --controls test_data/faithfulness-controls.json \
+python -m evaluation.calibration reports/rag-samples/<capture-id>.json \
+  --controls data/faithfulness-controls.json \
   --control supported_answer --control wrong_numbers --control unsupported_gym_amount \
   --judge-model qwen3.5:4b --output reports/judge-controls.json
-python -m llm_testkit.evaluation.correctness reports/rag-samples/<capture-id>.json \
+python -m evaluation.correctness reports/rag-samples/<capture-id>.json \
   --case paid_leave --control incomplete --output reports/correctness-controls.json
 ```
 
-`llm_testkit.evaluation.judge_validation` runs the wider source-bound control set
-in `test_data/judge-validation.json` for all four metrics (use `--dry-run` to see
+`evaluation.judge_validation` runs the wider source-bound control set
+in `data/judge-validation.json` for all four metrics (use `--dry-run` to see
 the plan and `--control … --max-judge-calls N` to narrow it).
-`llm_testkit.reporting.judge_review <benchmark.json>` lists, offline, the cases where
+`reporting.judge_review <benchmark.json>` lists, offline, the cases where
 the judge and the reference disagree, for human review.
 
 ## Combined quality report and gates
@@ -98,7 +98,7 @@ the judge and the reference disagree, for human review.
 independent dimensions: required facts, sources, faithfulness, correctness and
 context relevance. Every judge report is bound to the sample by SHA256. Without
 `--quality-gates`, scores are recorded as `measured`; with it, the thresholds in
-`test_data/quality-gates.json` apply. No model is called.
+`data/quality-gates.json` apply. No model is called.
 
 ```bash
 python -m pytest tests/quality/test_quality.py \
@@ -106,7 +106,7 @@ python -m pytest tests/quality/test_quality.py \
   --faithfulness-report reports/evidence/faithfulness.json \
   --correctness-report reports/evidence/correctness.json \
   --relevance-report reports/evidence/relevance.json \
-  --quality-gates test_data/quality-gates.json \
+  --quality-gates data/quality-gates.json \
   --alluredir reports/quality/allure-results --junitxml reports/quality/results.xml
 npm --prefix tools/allure ci
 npm --prefix tools/allure exec -- allure generate reports/quality/allure-results \
@@ -126,7 +126,7 @@ python -m pytest tests/quality/test_live_quality.py --run-live-quality --capture
 
 ## Golden dataset
 
-`test_data/golden-policy.json` holds 16 versioned, source-bound cases: facts,
+`data/golden-policy.json` holds 16 versioned, source-bound cases: facts,
 multi-part questions, boundaries and missing information. Each has a reference,
 required and forbidden patterns and source anchors. Its version and checksum are
 recorded with every run. The full suite is 16 generations per model.
@@ -134,7 +134,7 @@ recorded with every run. The full suite is 16 generations per model.
 ```bash
 python -m pytest tests/rag/test_golden_rag.py --run-golden --rag-model qwen3.5:4b -k carryover_limit \
   --junitxml=reports/golden/results.xml
-python -m llm_testkit.reporting.stability reports/golden/results.xml --output reports/golden/stability.json
+python -m reporting.stability reports/golden/results.xml --output reports/golden/stability.json
 ```
 
 Repeat with `--rag-repeat N` to measure variability; each repetition gets fresh
@@ -148,14 +148,14 @@ uncontrolled runs as incomplete.
 
 | Suite | Changes | Enable | Comparison tool |
 | --- | --- | --- | --- |
-| Prompt regression | Versioned system prompts from `prompt-variants.json` | `--run-prompt-regression` (`--rag-prompt ID` to select) | `llm_testkit.reporting.prompt_regression` |
+| Prompt regression | Versioned system prompts from `prompt-variants.json` | `--run-prompt-regression` (`--rag-prompt ID` to select) | `reporting.prompt_regression` |
 | Adversarial | Six attacks in the question or the document (`adversarial-policy.json`) | `--run-adversarial` | — |
-| Counterfactual bias | Employee descriptors in three pairs (`bias-policy.json`) | `--run-bias` | `llm_testkit.reporting.bias` |
+| Counterfactual bias | Employee descriptors in three pairs (`bias-policy.json`) | `--run-bias` | `reporting.bias` |
 
 ```bash
 python -m pytest tests/regression/test_prompt_regression.py --run-prompt-regression --rag-model qwen3.5:4b \
   -k carryover_limit --junitxml=reports/prompt-regression/runs.xml
-python -m llm_testkit.reporting.prompt_regression reports/prompt-regression/runs.xml \
+python -m reporting.prompt_regression reports/prompt-regression/runs.xml \
   --case carryover_limit --model qwen3.5:4b --output reports/prompt-regression/comparison.json
 
 python -m pytest tests/regression/test_adversarial.py --run-adversarial --rag-model qwen3.5:4b -k user_override \
@@ -163,7 +163,7 @@ python -m pytest tests/regression/test_adversarial.py --run-adversarial --rag-mo
 
 python -m pytest tests/regression/test_bias.py --run-bias --rag-model qwen3.5:4b -k gender_carryover \
   --junitxml reports/bias/runs.xml
-python -m llm_testkit.reporting.bias reports/bias/runs.xml --pair gender_carryover --model qwen3.5:4b \
+python -m reporting.bias reports/bias/runs.xml --pair gender_carryover --model qwen3.5:4b \
   --output reports/bias/comparison.json
 ```
 
@@ -172,16 +172,16 @@ the model context; a citation alone is not proof.
 
 ## Dataset benchmark
 
-`llm_testkit.evaluation.benchmark_runner` evaluates selected golden cases with all
+`evaluation.benchmark_runner` evaluates selected golden cases with all
 four metrics plus the faithfulness controls, serially and with a hard call budget.
 The default four curated cases on one model allow at most 43 calls; two models
 allow at most 80. Refusal cases are judged by their answer rules; their semantic
 metrics are N/A, not zero or one. It needs the capture overlay.
 
 ```bash
-python -m llm_testkit.evaluation.benchmark_runner --output reports/benchmark --dry-run
-python -m llm_testkit.evaluation.benchmark_runner --output reports/benchmark
-python -m llm_testkit.evaluation.benchmark_runner --model qwen3.5:4b --model qwen2.5:7b \
+python -m evaluation.benchmark_runner --output reports/benchmark --dry-run
+python -m evaluation.benchmark_runner --output reports/benchmark
+python -m evaluation.benchmark_runner --model qwen3.5:4b --model qwen2.5:7b \
   --max-model-calls 80 --output reports/benchmark-two-models
 python -m pytest tests/quality/test_benchmark_report.py --benchmark-report reports/benchmark/benchmark.json \
   --alluredir reports/benchmark/allure-results --allure-no-capture --junitxml reports/benchmark/results.xml
@@ -213,16 +213,16 @@ and its timings are not comparable with local Apple Silicon results.
 
 ## Metric history and performance
 
-`llm_testkit.reporting.drift` records provenance-bound measurements and compares a
+`reporting.drift` records provenance-bound measurements and compares a
 new record with an explicit baseline. A different case, policy, dataset, prompt,
 judge or retrieval configuration makes the pair `incomparable`; a changed
 generation model is allowed and flagged, since comparing models is a valid use.
 
 ```bash
-python -m llm_testkit.reporting.drift record --sample reports/evidence/sample.json \
+python -m reporting.drift record --sample reports/evidence/sample.json \
   --faithfulness reports/evidence/faithfulness.json --correctness reports/evidence/correctness.json \
   --relevance reports/evidence/relevance.json
-python -m llm_testkit.reporting.drift compare reports/history/<baseline>.json reports/history/<current>.json \
+python -m reporting.drift compare reports/history/<baseline>.json reports/history/<current>.json \
   --maximum-drop 0.05 --output reports/drift/comparison.json
 ```
 
@@ -234,7 +234,7 @@ python -m pytest tests/performance/test_performance.py --run-performance --perfo
   --performance-requests 6 --performance-users 2 --performance-p95 5
 python -m pytest tests/performance/test_performance.py --run-performance --performance-mode rag --rag-model qwen3.5:4b \
   --performance-requests 1 --performance-users 1 --performance-p95 180
-python -m llm_testkit.performance.comparison reports/performance/<baseline>.json \
+python -m performance.comparison reports/performance/<baseline>.json \
   reports/performance/<current>.json --maximum-growth 0.2 --output reports/performance/comparison.json
 ```
 
@@ -249,7 +249,7 @@ python -m pytest tests/rag/conversation --run-conversation --rag-model qwen3.5:4
 
 ## Qualification evidence (educational IQ/OQ/PQ)
 
-`test_data/qualification-plan.json` maps requirements to pytest selectors and
+`data/qualification-plan.json` maps requirements to pytest selectors and
 declared matrices, and pins the checksums of the data they depend on. The
 packager rebuilds the trace from JUnit, plan, data and sources, keeping failures
 and missing cells. See the [test plan](test-plan.md) for the requirements.
@@ -258,10 +258,10 @@ and missing cells. See the [test plan](test-plan.md) for the requirements.
 python -m pytest tests/environment/test_installation.py tests/environment/test_health.py --junitxml reports/qualification/iq.xml
 python -m pytest tests/api/test_authentication.py tests/api/test_documents.py tests/api/test_workspace.py \
   -k 'not configured_workspace' --junitxml reports/qualification/oq.xml
-python -m llm_testkit.qualification.package --phase IQ --phase OQ \
+python -m qualification.package --phase IQ --phase OQ \
   --junit reports/qualification/iq.xml --junit reports/qualification/oq.xml \
   --output reports/qualification/iq-oq-package
-python -c "from pathlib import Path; from llm_testkit.qualification.package import verify_package; \
+python -c "from pathlib import Path; from qualification.package import verify_package; \
 verify_package(Path('reports/qualification/iq-oq-package'))"
 ```
 

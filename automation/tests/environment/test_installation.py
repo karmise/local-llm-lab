@@ -1,8 +1,8 @@
 import pytest
 
-from llm_testkit import assertions
-from llm_testkit.reporting.steps import title
-from test_support.builders.installation import DECLARED_MODELS, PINNED_LIBRARIES
+import assertions
+from builders.installation import DECLARED_MODELS, PINNED_LIBRARIES
+from reporting.steps import title
 
 pytestmark = pytest.mark.iq
 

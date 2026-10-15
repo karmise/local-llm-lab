@@ -9,14 +9,14 @@ from unittest.mock import Mock
 
 import pytest
 
-from llm_testkit import assertions
-from llm_testkit.reporting import quality
-from llm_testkit.reporting.allure_report import present_quality_report
-from llm_testkit.reporting.quality import build_quality_report
-from llm_testkit.reporting.steps import title
-from test_support.builders.quality_report import (
+import assertions
+from builders.quality_report import (
         DOCUMENT, FULL_ANSWER, GENERATION_MODEL, JUDGE_DIGEST, QUESTION, policy_context, quality_inputs)
-from test_support.paths import AUTOMATION_ROOT
+from helpers.paths import AUTOMATION_ROOT
+from reporting import quality
+from reporting.allure_report import present_quality_report
+from reporting.quality import build_quality_report
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -329,7 +329,7 @@ def test_missing_relevance_evidence_is_two_errors(tmp_path):
 
 @title("Quality gates reject a report whose gated semantic evidence was not supplied")
 def test_saved_report_gates_require_all_evidence(tmp_path):
-    gates = AUTOMATION_ROOT / "test_data/quality-gates.json"
+    gates = AUTOMATION_ROOT / "data/quality-gates.json"
 
     report = build_quality_report(*quality_inputs(tmp_path).paths(), gates_path=gates)
 

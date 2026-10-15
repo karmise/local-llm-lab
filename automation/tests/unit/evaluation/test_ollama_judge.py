@@ -7,11 +7,11 @@ from unittest.mock import Mock
 import pytest
 from requests import HTTPError
 
-from llm_testkit.clients.ollama import OllamaClient
-from llm_testkit.reporting.steps import title
-from test_support.builders.identities import TEST_MODEL
-from test_support.builders.ollama import chat_response
-from test_support.builders.optional import load_ollama_judge
+from api.ollama import OllamaClient
+from builders.identities import TEST_MODEL
+from builders.ollama import chat_response
+from builders.optional import load_ollama_judge
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

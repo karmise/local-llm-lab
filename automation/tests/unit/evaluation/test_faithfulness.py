@@ -11,17 +11,17 @@ from unittest.mock import ANY, AsyncMock, Mock
 
 import pytest
 
-from llm_testkit.config import Settings
-from llm_testkit.evaluation.faithfulness import evaluate_sample_report, load_sample, main, score_sample, validate_result
-from llm_testkit.reporting.steps import title
-from test_support.builders.faithfulness import make_result, make_sample
-from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
-from test_support.builders.ollama import chat_response, model_catalog
-from test_support.builders.optional import load_ollama_judge
+from builders.faithfulness import make_result, make_sample
+from builders.identities import MODEL_DIGEST, TEST_MODEL
+from builders.ollama import chat_response, model_catalog
+from builders.optional import load_ollama_judge
+from config import Settings
+from evaluation.faithfulness import evaluate_sample_report, load_sample, main, score_sample, validate_result
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
-SCORE = "llm_testkit.evaluation.faithfulness.score_sample"
+SCORE = "evaluation.faithfulness.score_sample"
 EXTRACTED = {"statements": ["Supported claim.", "Unsupported claim."]}
 VERIFIED = {
         "statements": [{
@@ -200,9 +200,9 @@ def offline_service(tmp_path, monkeypatch):
     service.http_class = Mock(return_value=service.transport)
     service.ollama_class = Mock(return_value=service.ollama)
     service.judge_class = Mock(return_value=service.judge)
-    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.HttpClient", service.http_class)
-    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.OllamaClient", service.ollama_class)
-    monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", service.judge_class)
+    monkeypatch.setattr("evaluation.judge_connection.HttpClient", service.http_class)
+    monkeypatch.setattr("evaluation.judge_connection.OllamaClient", service.ollama_class)
+    monkeypatch.setattr("evaluation.ollama_judge.OllamaJudge", service.judge_class)
     return service
 
 
@@ -291,7 +291,7 @@ def cli_evaluation(monkeypatch):
     """The CLI's evaluation step, replaced so that argument handling and exit codes are checked offline."""
     monkeypatch.delenv("ANYTHINGLLM_API_KEY_FILE", raising=False)
     evaluation = Mock(return_value={"status": "completed", "result": {"value": 0.5}})
-    monkeypatch.setattr("llm_testkit.evaluation.faithfulness.evaluate_sample_report", evaluation)
+    monkeypatch.setattr("evaluation.faithfulness.evaluate_sample_report", evaluation)
     return evaluation
 
 
@@ -352,7 +352,7 @@ def test_cli_refuses_existing_output(run_cli, cli_evaluation, tmp_path, capsys):
 
 @title("The CLI refuses to run without the evaluation dependencies")
 def test_cli_requires_evaluation_dependencies(run_cli, cli_evaluation, tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr("llm_testkit.evaluation.faithfulness.import_module", Mock(side_effect=ImportError))
+    monkeypatch.setattr("evaluation.faithfulness.import_module", Mock(side_effect=ImportError))
 
     with pytest.raises(SystemExit) as stopped:
         run_cli("--output", str(tmp_path / "report.json"))

@@ -5,10 +5,10 @@ from copy import deepcopy
 
 import pytest
 
-from llm_testkit.qualification.plan import expected_cells, framework_checksum, load_plan, matching_requirements
-from llm_testkit.reporting.steps import title
-from test_support.builders.qualification import SELECTOR, qualification_lab, reviewed_plan
-from test_support.paths import AUTOMATION_ROOT
+from builders.qualification import SELECTOR, qualification_lab, reviewed_plan
+from helpers.paths import AUTOMATION_ROOT
+from qualification.plan import expected_cells, framework_checksum, load_plan, matching_requirements
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -20,7 +20,7 @@ def lab(tmp_path):
 
 @title("The committed plan maps 13 requirements to real tests with complete model and prompt matrices")
 def test_committed_plan_matches_real_tests():
-    plan = load_plan(AUTOMATION_ROOT / "test_data/qualification-plan.json", AUTOMATION_ROOT)
+    plan = load_plan(AUTOMATION_ROOT / "data/qualification-plan.json", AUTOMATION_ROOT)
 
     requirements = {row["id"]: row for row in plan["requirements"]}
     assert len(requirements) == 13
@@ -129,7 +129,7 @@ def test_load_plan_rejects_linked_test_outside_root(lab, tmp_path):
 @title("A data file that resolves outside the data root through a link is rejected")
 def test_load_plan_rejects_linked_data_outside_root(lab, tmp_path):
     (tmp_path / "outside.txt").write_bytes(b"x")
-    (lab.root / "test_data/linked.txt").symlink_to(tmp_path / "outside.txt")
+    (lab.root / "data/linked.txt").symlink_to(tmp_path / "outside.txt")
     plan = reviewed_plan()
     plan["data_sha256"] = {"linked.txt": hashlib.sha256(b"x").hexdigest()}
     lab.write_plan(plan)
@@ -170,32 +170,36 @@ def test_load_plan_with_data_root(lab, tmp_path):
     other = tmp_path / "data"
     other.mkdir()
     (other / "policy.txt").write_bytes(b"Six days\n")
-    (lab.root / "test_data/policy.txt").write_text("changed")
+    (lab.root / "data/policy.txt").write_text("changed")
 
     assert load_plan(lab.plan_path, lab.root, data_root=other)["version"] == "example-v1"
 
 
-@title("Framework provenance covers sources, lock files, project settings and nested fixtures, nothing else")
+@title(
+        "Framework provenance covers packages, root modules, lock files, project settings and nested fixtures, nothing else"
+)
 def test_framework_checksum_sources(lab):
     before = framework_checksum(lab.root)
-    (lab.root / "src/notes.md").write_text("ignored")
+    (lab.root / "runtime/notes.md").write_text("ignored")
     (lab.root / "tests/test_other.py").write_text("ignored")
+    (lab.root / "scripts").mkdir()
+    (lab.root / "scripts/tool.py").write_text("ignored: not a package")
     unchanged = framework_checksum(lab.root)
     changes = []
-    for path, content in (("src/hook.cjs", "x"), ("requirements-dev.lock", "x"), ("pyproject.toml", "x"),
-            ("tests/ui/conftest.py", "x"), ("src/runtime.py", "VERSION = 2\n")):
+    for path, content in (("runtime/hook.cjs", "x"), ("requirements-dev.lock", "x"), ("pyproject.toml", "x"),
+            ("tests/ui/conftest.py", "x"), ("config.py", "x"), ("runtime/version.py", "VERSION = 2\n")):
         (lab.root / path).parent.mkdir(parents=True, exist_ok=True)
         (lab.root / path).write_text(content)
         changes.append(framework_checksum(lab.root))
 
     assert unchanged == before
-    assert len({before, *changes}) == 6
+    assert len({before, *changes}) == 7
 
 
 @title("Framework provenance includes file names, so a rename changes it")
 def test_framework_checksum_includes_names(lab):
     before = framework_checksum(lab.root)
-    (lab.root / "src/runtime.py").rename(lab.root / "src/renamed.py")
+    (lab.root / "runtime/version.py").rename(lab.root / "runtime/renamed.py")
 
     assert framework_checksum(lab.root) != before
 

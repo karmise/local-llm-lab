@@ -2,10 +2,10 @@ from typing import Any
 
 import pytest
 
-from llm_testkit import assertions
-from llm_testkit.clients.anythingllm import AnythingLLMClient
-from llm_testkit.config import Settings
-from llm_testkit.reporting.steps import title
+import assertions
+from api.anythingllm import AnythingLLMClient
+from config import Settings
+from reporting.steps import title
 
 
 @pytest.mark.api

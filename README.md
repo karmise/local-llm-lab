@@ -2,8 +2,8 @@
 
 [![Framework checks](https://github.com/karmise/local-llm-lab/actions/workflows/framework-checks.yml/badge.svg)](https://github.com/karmise/local-llm-lab/actions/workflows/framework-checks.yml)
 
-A local AnythingLLM + Ollama RAG application and a Python framework,
-`llm_testkit`, for testing it at every layer: API contract, grounded answers,
+A local AnythingLLM + Ollama RAG application and a Python test framework for
+testing it at every layer: API contract, grounded answers,
 golden dataset, UI, prompt/adversarial/bias regression and performance. Answers
 are evaluated on the context the model actually received, with RAGAS metrics and
 a local judge that must first agree with hand-labelled controls. A manual GitHub
@@ -51,10 +51,14 @@ local-llm-lab/
 └── automation/               # standalone Python project
     ├── pyproject.toml
     ├── requirements.lock
-    ├── src/llm_testkit/       # the testing framework
-    ├── tests/                # by level: unit, browser, environment, api, rag,
-    │                         # regression, ui, quality, performance
-    ├── test_data/            # fictional policy documents
+    ├── api/ pages/           # API clients and Page Objects, each on a base layer
+    ├── fixtures/             # pytest fixtures by area
+    ├── models/ data/         # typed test cases and the JSON catalogs and policy they load
+    ├── helpers/ assertions/  # shared helpers and acceptance checks
+    ├── evaluation/           # RAGAS metrics, LLM judge, benchmark
+    ├── reporting/ …          # reports, gates, qualification, CI, plugin
+    ├── tests/                # only tests, by level: unit, browser, environment,
+    │                         # api, rag, regression, ui, quality, performance
     ├── reports/              # local reports; excluded from Git
     └── .venv/                # local environment; excluded from Git
 ```
@@ -151,7 +155,7 @@ its result across repeated runs with the same configuration.
 - Runtime configuration and secrets: `.runtime/anythingllm.env`, excluded from Git.
 - Ollama models: `~/.ollama/models`.
 - Configuration templates: `config/anythingllm.env.example` and `config/workspace.json`.
-- Fictional English policy: `automation/test_data/company-policy.txt`.
+- Fictional English policy: `automation/data/company-policy.txt`.
 - Environment versions and verification summaries: `evidence/`.
 
 The English policy and workspace configuration are templates. Editing these files

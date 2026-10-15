@@ -12,18 +12,18 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
-from llm_testkit.config import Settings
-from llm_testkit.datasets.benchmark import CONTROL_IDS, make_plan
-from llm_testkit.evaluation import benchmark_runner as runner
-from llm_testkit.evaluation import judge_connection
-from llm_testkit.observation.evaluation_sample import write_sample
-from llm_testkit.reporting.steps import title
-from test_support.builders.benchmark import (
+from builders.benchmark import (
         JUDGE_DIGEST, MODEL, QUALITY_GATES, make_benchmark_sample, make_calibrate_stub, make_calibration,
         make_definition, make_generate_stub)
-from test_support.builders.calibration import CONTROLS_FILE
-from test_support.builders.golden import GOLDEN_DATASET, PAID_LEAVE, TEST_DATA, make_case_sample
-from test_support.builders.ollama import model_catalog
+from builders.calibration import CONTROLS_FILE
+from builders.golden import GOLDEN_DATASET, PAID_LEAVE, TEST_DATA, make_case_sample
+from builders.ollama import model_catalog
+from config import Settings
+from evaluation import benchmark_runner as runner
+from evaluation import judge_connection
+from models.benchmark import CONTROL_IDS, make_plan
+from observation.evaluation_sample import write_sample
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -36,7 +36,7 @@ def automation_root(tmp_path, monkeypatch):
     monkeypatch.delenv("ANYTHINGLLM_API_KEY", raising=False)
     monkeypatch.delenv("ANYTHINGLLM_API_KEY_FILE", raising=False)
     root = tmp_path / "automation"
-    shutil.copytree(TEST_DATA, root / "test_data")
+    shutil.copytree(TEST_DATA, root / "data")
     (root / "tests/rag").mkdir(parents=True)
     (root / "tests/rag/test_golden_rag.py").write_text("")
     (root / "reports/rag-samples").mkdir(parents=True)
@@ -225,7 +225,7 @@ def judge_controls(tmp_path, monkeypatch):
             "status": "matched"}] * 3))
     monkeypatch.setattr(judge_connection, "HttpClient", state.http_class)
     monkeypatch.setattr(judge_connection, "OllamaClient", Mock(return_value=state.ollama))
-    monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", state.judge_class)
+    monkeypatch.setattr("evaluation.ollama_judge.OllamaJudge", state.judge_class)
     monkeypatch.setattr(runner, "evaluate_controls", state.evaluate)
     state.calibrate = lambda: runner.calibrate(sample_path, CONTROLS_FILE, Settings(), MODEL, JUDGE_DIGEST)
     return state
@@ -483,10 +483,10 @@ def test_cli_requires_evaluation_dependencies(cli, monkeypatch, capsys):
 @title("The answer request duration is measured around the chat call and recorded in JUnit metadata")
 def test_chat_duration_is_measured(monkeypatch, tmp_path):
     # Imported here: a module-level import would register rag_chat as a fixture of this module.
-    from test_support.fixtures.rag import rag_chat
+    from fixtures.rag import rag_chat
 
     clock = Mock(side_effect=(100.0, 112.5))
-    monkeypatch.setattr("test_support.fixtures.rag.perf_counter", clock)
+    monkeypatch.setattr("fixtures.rag.perf_counter", clock)
     client, record_property = Mock(), Mock()
     chat = rag_chat.__wrapped__(
             request=Mock(), rag_environment=None, automation_root=tmp_path, authenticated_anythingllm_api=client,

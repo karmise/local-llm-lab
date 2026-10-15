@@ -2,10 +2,9 @@
 
 import pytest
 
-pytest.register_assert_rewrite("llm_testkit.assertions")
+pytest.register_assert_rewrite("assertions")
 
 pytest_plugins = (
-        "test_support.fixtures.ci", "test_support.fixtures.conversation", "pytester",
-        "llm_testkit.pytest_plugin.options", "llm_testkit.pytest_plugin.evidence", "test_support.fixtures.evidence",
-        "test_support.fixtures.quality", "test_support.fixtures.performance", "test_support.fixtures.environment",
-        "test_support.fixtures.installation", "test_support.fixtures.resources", "test_support.fixtures.rag")
+        "fixtures.ci", "fixtures.conversation", "pytester", "plugins.options", "plugins.evidence", "fixtures.evidence",
+        "fixtures.quality", "fixtures.performance", "fixtures.environment", "fixtures.installation",
+        "fixtures.resources", "fixtures.rag")

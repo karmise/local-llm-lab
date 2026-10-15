@@ -1,18 +1,13 @@
 """Developer API contract: protected routes reject missing credentials, and unknown or malformed requests change
 nothing. None of these requests reaches a model."""
 
-from uuid import uuid4
-
 import pytest
 
-from llm_testkit import assertions
-from llm_testkit.config import Settings
-from llm_testkit.core.http_client import HttpClient
-from llm_testkit.reporting.steps import title
+import assertions
+from api.anythingllm import AnythingLLMClient
+from reporting.steps import title
 
 pytestmark = pytest.mark.api
-
-MISSING = "automation-missing-{}"
 
 PROTECTED_ROUTES = [
         pytest.param("GET", "workspaces", None, id="list-workspaces"),
@@ -27,43 +22,26 @@ PROTECTED_ROUTES = [
         pytest.param("POST", "document/create-folder", {"name": "unauthorised"}, id="create-folder")]
 
 
-@pytest.fixture
-def missing_slug() -> str:
-    """A workspace and folder name that does not exist."""
-    return MISSING.format(uuid4().hex)
-
-
-def developer_request(http_client: HttpClient, method: str, path: str, *, key: str | None, headers=None, **kwargs):
-    """A raw developer API request, for shapes the client never sends."""
-    authorization = {"Authorization": f"Bearer {key}"} if key else {}
-    return http_client.request(method, f"/api/v1/{path}", headers=authorization | (headers or {}), **kwargs)
-
-
-def workspace_slugs(http_client: HttpClient, settings: Settings) -> list[str]:
-    response = developer_request(http_client, "GET", "workspaces", key=settings.api_key)
-    assertions.assert_status_code(response, 200, context="Workspace list")
-    workspaces = assertions.assert_field_type(assertions.assert_json_object(response), "workspaces", list)
-    return sorted(workspace["slug"] for workspace in workspaces)
-
-
 @pytest.mark.parametrize(
         "key", [pytest.param(None, id="missing-key"),
         pytest.param("invalid-test-key", id="invalid-key")])
 @pytest.mark.parametrize(("method", "path", "body"), PROTECTED_ROUTES)
 @title("Every protected developer route rejects a missing or invalid API key with the documented error [{param_id}]")
 def test_protected_route_rejects_unauthenticated_request(http_client, missing_slug, method, path, body, key):
-    response = developer_request(http_client, method, path.format(slug=missing_slug), key=key, json=body)
+    api = AnythingLLMClient(http_client, api_key=key)
+
+    response = api.raw_request(method, path.format(slug=missing_slug), json=body)
 
     assertions.assert_api_key_rejected(response)
 
 
 @title("Unauthenticated create requests leave no workspace behind")
-def test_unauthenticated_create_changes_nothing(authenticated_anythingllm_api, http_client, settings):
-    before = workspace_slugs(http_client, settings)
+def test_unauthenticated_create_changes_nothing(anythingllm_api, workspace_slugs):
+    before = workspace_slugs()
 
-    developer_request(http_client, "POST", "workspace/new", key=None, json={"name": "unauthorised"})
+    anythingllm_api.workspaces.create("unauthorised")
 
-    assert workspace_slugs(http_client, settings) == before
+    assert workspace_slugs() == before
 
 
 @title("Looking up an unknown workspace returns an empty list, not an error")
@@ -101,26 +79,24 @@ def test_search_unknown_workspace_is_rejected(authenticated_anythingllm_api, mis
         pytest.param(lambda api, slug: api.workspaces.update(slug, {"openAiTemp": 0.1}), id="update"),
         pytest.param(lambda api, slug: api.workspaces.add_documents(slug, [], timeout=10), id="index")])
 @title("Changing an unknown workspace is rejected and creates nothing [{param_id}]")
-def test_change_unknown_workspace_is_rejected(
-        authenticated_anythingllm_api, http_client, settings, missing_slug, operation):
-    before = workspace_slugs(http_client, settings)
+def test_change_unknown_workspace_is_rejected(authenticated_anythingllm_api, workspace_slugs, missing_slug, operation):
+    before = workspace_slugs()
 
     response = operation(authenticated_anythingllm_api, missing_slug)
 
     assertions.assert_status_code(response, 400, context="Change unknown workspace")
-    assert workspace_slugs(http_client, settings) == before
+    assert workspace_slugs() == before
 
 
 @title("Malformed JSON when creating a workspace is rejected and creates nothing")
-def test_malformed_workspace_request_is_rejected(authenticated_anythingllm_api, http_client, settings):
-    before = workspace_slugs(http_client, settings)
+def test_malformed_workspace_request_is_rejected(authenticated_anythingllm_api, workspace_slugs):
+    before = workspace_slugs()
 
-    response = developer_request(
-            http_client, "POST", "workspace/new", key=settings.api_key, data="not-json",
-            headers={"Content-Type": "application/json"})
+    response = authenticated_anythingllm_api.raw_request(
+            "POST", "workspace/new", data="not-json", headers={"Content-Type": "application/json"})
 
     assertions.assert_status_code(response, 400, context="Malformed workspace request")
-    assert workspace_slugs(http_client, settings) == before
+    assert workspace_slugs() == before
 
 
 @title("An unknown document folder is reported as absent")
@@ -138,8 +114,8 @@ def test_remove_unknown_folder_is_idempotent(authenticated_anythingllm_api, miss
 
 
 @title("An upload without a file is rejected and stores no document")
-def test_upload_without_file_is_rejected(authenticated_anythingllm_api, http_client, settings, missing_slug):
-    response = developer_request(http_client, "POST", f"document/upload/{missing_slug}", key=settings.api_key)
+def test_upload_without_file_is_rejected(authenticated_anythingllm_api, missing_slug):
+    response = authenticated_anythingllm_api.raw_request("POST", f"document/upload/{missing_slug}")
 
     # AnythingLLM 1.16.2 answers 500 rather than 4xx: rejected, but reported as a server error.
     assert response.status_code >= 400, f"Upload without a file must be rejected, got HTTP {response.status_code}"
@@ -148,8 +124,8 @@ def test_upload_without_file_is_rejected(authenticated_anythingllm_api, http_cli
 
 
 @title("An unknown API route answers with the web app page, which JSON checks reject")
-def test_unknown_route_is_not_json(http_client, settings):
-    response = developer_request(http_client, "GET", "no-such-endpoint", key=settings.api_key)
+def test_unknown_route_is_not_json(authenticated_anythingllm_api):
+    response = authenticated_anythingllm_api.raw_request("GET", "no-such-endpoint")
 
     with pytest.raises(AssertionError, match="Response body is not valid JSON"):
         assertions.assert_json_object(response)

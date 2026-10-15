@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from llm_testkit import assertions
-from llm_testkit.reporting.steps import title
-from test_support.fixtures.browser import chat_simulation as chat_simulation
-from test_support.fixtures.browser import workspace as workspace
+import assertions
+from fixtures.browser import chat_simulation as chat_simulation
+from fixtures.browser import workspace as workspace
+from reporting.steps import title
 
 if TYPE_CHECKING:
-    from llm_testkit.pages.workspace_page import WorkspacePage
+    from pages.workspace_page import WorkspacePage
 
 pytestmark = pytest.mark.browser
 

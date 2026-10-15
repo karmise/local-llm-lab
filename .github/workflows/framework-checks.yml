@@ -54,13 +54,13 @@ jobs:
 
       - name: Check Python with Ruff
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: python -m ruff check src tests --config pyproject.toml --output-format concise | tee reports/ci/ruff.txt
+        run: python -m ruff check . --config pyproject.toml --output-format concise | tee reports/ci/ruff.txt
 
       - name: Check Python formatting
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: |
-          python -m isort --check-only --diff src tests | tee reports/ci/imports.txt
-          python -m yapf --diff --recursive src tests | tee reports/ci/format.txt
+          python -m isort --check-only --diff . | tee reports/ci/imports.txt
+          python -m yapf --diff --recursive . | tee reports/ci/format.txt
 
       - name: Run unit tests with branch coverage
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}

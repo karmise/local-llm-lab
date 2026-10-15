@@ -8,7 +8,7 @@ a test layer: most of them were added after a concrete failure.
 
 ### The corpus is deliberately small; the framework is the product
 
-The policy (`test_data/company-policy.txt`) is a few fictional rules: leave days,
+The policy (`data/company-policy.txt`) is a few fictional rules: leave days,
 deadlines, travel and hotel limits, one approver and an explicit absence of gym
 benefits. It is small and fixed so that every expected answer can be checked by
 hand and every live run fits a local or CPU budget. What is being built and
@@ -26,7 +26,7 @@ and the full set nightly or before release.
 
 ### The numbers are illustrative, not a release claim
 
-Thresholds are labelled `experimental` in `test_data/quality-gates.json`. A green
+Thresholds are labelled `experimental` in `data/quality-gates.json`. A green
 gate shows that an enforced acceptance mechanism works on a scoped curated slice.
 It is not a statistical accuracy estimate, a fairness validation or GxP approval,
 and the docs avoid claiming otherwise.
@@ -38,7 +38,7 @@ and the docs avoid claiming otherwise.
 Unit (mocked HTTP), offline browser (local HTML), API, RAG, golden, UI and
 quality layers answer different questions and have different costs. A transport
 or locator defect is reproduced offline before spending model calls on it.
-Expensive suites are opt-in (`--run-*` flags in `pytest_plugin/options.py`).
+Expensive suites are opt-in (`--run-*` flags in `plugins/options.py`).
 Bare `python -m pytest` includes live API and RAG tests; `tests/unit` is the
 offline command.
 
@@ -49,13 +49,24 @@ application `assertions` package, so a broken acceptance check cannot also
 verify itself. Each rejection test names its rule and has a paired acceptance
 test. Mutation testing (mutmut) showed which tests actually detect a broken
 rule, and raised scores per domain from 3.8–81.9% to 85.6–100%. Data shared by
-several modules comes from `test_support/builders`; anything used by one module
+several modules comes from `builders`; anything used by one module
 stays in it.
+
+### One top-level folder per layer; tests hold only tests
+
+`automation/` is laid out like a test automation repository rather than a
+library: `api/`, `pages/`, `fixtures/`, `models/`, `data/`, `helpers/`,
+`assertions/`, then the LLM-specific `evaluation/`, `reporting/` and
+`qualification/`. A reader sees the layers at once instead of looking under
+`src/`. `tests/` contains only test modules: a request shape, a setup step or a
+lookup that a test needs lives in `api/` or `fixtures/`. Typed test cases are
+called `models/`, not `datasets/`, because a top-level `datasets` package would
+shadow the HuggingFace library that RAGAS imports.
 
 ### Layers, each built on a base layer
 
 Tests call fixtures, resource APIs and Page Objects; those call a base layer;
-the base layer calls the transport. `BaseClient` (`clients/base_client.py`) owns
+the base layer calls the transport. `BaseClient` (`api/base_client.py`) owns
 the base path, the API key header and one-segment path encoding, so
 `WorkspacesApi`, `DocumentsApi` and `OllamaClient` only name operations.
 `BasePage` (`pages/base_page.py`) owns the application URL, navigation and the
@@ -66,16 +77,16 @@ between tests would hide it.
 
 ### Clients return raw responses; acceptance criteria live in one place
 
-`clients/` builds requests and returns responses unchanged; `assertions/` holds
+`api/` builds requests and returns responses unchanged; `assertions/` holds
 the rules (`fields`, `api`, `answers`, `quality`, `ui`). API, UI and quality
-scenarios share the same profiles in `test_data` and the same checks, so a rule
+scenarios share the same profiles in `data` and the same checks, so a rule
 changes in one place.
 
 ### Resources clean up after themselves, and only their own
 
 A resource fixture registers cleanup as soon as creation returns a usable
 identifier, before validating anything else, and verifies absence afterwards
-(`test_support/fixtures/resources.py`). If creation returns no usable identifier,
+(`fixtures/resources.py`). If creation returns no usable identifier,
 the framework does not guess and never deletes resources it cannot prove it owns.
 
 ## Answer quality
@@ -101,7 +112,7 @@ supported paraphrases, wrong numbers, invented amounts, day-type substitutions.
 Each labelled claim must map to exactly one extracted statement with the expected
 verdict (`evaluation/control_match.py`); an equal average score is not enough.
 Statements are compared after spelled-out integers become digits
-(`core/number_words.py`), because the judge may write "five thousand" for 5000.
+(`helpers/number_words.py`), because the judge may write "five thousand" for 5000.
 A control mismatch fails the whole run.
 
 ### Factual correctness is measured but not gated
@@ -148,7 +159,7 @@ not protect against someone rewriting both data and checksum.
 ### Validation raises, it does not assert
 
 Framework validation raises `ValueError` instead of using `assert`, because
-`python -O` strips assert statements (`core/scores.py`, `control_match.py`).
+`python -O` strips assert statements (`helpers/scores.py`, `evaluation/control_match.py`).
 Malformed, incomplete or incomparable evidence is an error, never a pass.
 
 ## CI and merging
