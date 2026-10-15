@@ -10,12 +10,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from llm_testkit import assertions
-from llm_testkit.clients.ollama_client import OllamaClient
 from llm_testkit.config import Settings
-from llm_testkit.core.http_client import HttpClient
 from llm_testkit.datasets.golden import GoldenCase, GoldenDataset, load_golden_dataset
 from llm_testkit.evaluation.correctness import bind_case
 from llm_testkit.evaluation.faithfulness import load_sample
+from llm_testkit.evaluation.judge_connection import judge_client
 from llm_testkit.observation.evaluation_sample import write_sample
 
 if TYPE_CHECKING:
@@ -83,7 +82,6 @@ def evaluate_relevance_report(
             "judge_model": judge_model,
             "threshold": None,
             "interpretation": "Reference-based average precision and claim recall; exploratory measurements"}
-    http = None
     precision_judge = recall_judge = None
     try:
         sample, checksum = load_sample(sample_path)
@@ -95,27 +93,21 @@ def evaluate_relevance_report(
         report.update(
                 sample_sha256=checksum, golden_dataset_sha256=dataset.sha256, golden_case_id=case.id,
                 reference=case.reference, question=case.question)
-        http = HttpClient(settings.ollama_base_url, settings.http_timeout)
-        client = OllamaClient(http)
-        catalog = client.list_models()
-        assertions.assert_status_code(catalog, 200, context="Relevance judge catalog")
-        report["judge_model_digest"] = assertions.assert_model_available(catalog.json()["models"], judge_model)
-        precision_judge = OllamaJudge(client, judge_model, settings.llm_timeout, max_calls=count)
-        recall_judge = OllamaJudge(client, judge_model, settings.llm_timeout, max_calls=1)
-        report["judge_configuration"] = {
-                "options": precision_judge.options,
-                "think": False,
-                "retries": 0,
-                "maximum_calls": count + 1}
-        report["result"] = asyncio.run(score_relevance(sample, case, precision_judge, recall_judge))
+        with judge_client(settings, judge_model) as (client, report["judge_model_digest"]):
+            precision_judge = OllamaJudge(client, judge_model, settings.llm_timeout, max_calls=count)
+            recall_judge = OllamaJudge(client, judge_model, settings.llm_timeout, max_calls=1)
+            report["judge_configuration"] = {
+                    "options": precision_judge.options,
+                    "think": False,
+                    "retries": 0,
+                    "maximum_calls": count + 1}
+            report["result"] = asyncio.run(score_relevance(sample, case, precision_judge, recall_judge))
         report["status"] = "completed"
     except Exception as error:
         report["error"] = {"type": type(error).__name__, "message": str(error)}
     finally:
         report["precision_calls"] = precision_judge.calls if precision_judge else []
         report["recall_calls"] = recall_judge.calls if recall_judge else []
-        if http:
-            http.close()
     return report
 
 

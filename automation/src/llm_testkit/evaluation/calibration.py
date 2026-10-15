@@ -10,12 +10,10 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Callable
 
-from llm_testkit import assertions
-from llm_testkit.clients.ollama_client import OllamaClient
 from llm_testkit.config import Settings
-from llm_testkit.core.http_client import HttpClient
 from llm_testkit.evaluation.control_match import calibration_mismatch
 from llm_testkit.evaluation.faithfulness import load_sample, score_sample
+from llm_testkit.evaluation.judge_connection import judge_client
 from llm_testkit.observation.evaluation_sample import write_sample
 
 
@@ -127,30 +125,23 @@ def main() -> int:
             "controls_path": str(args.controls.resolve()),
             "interpretation": "Small hand-labelled control check, not statistical judge calibration",
             "response_origin": "synthetic_hand_labelled_controls"}
-    http = None
     try:
         sample, report["sample_sha256"] = load_sample(args.sample)
         cases, report["controls_sha256"] = load_controls(args.controls, sample["retrieved_contexts"])
         cases = select_controls(cases, args.control_ids)
         report["selected_controls"] = [case["id"] for case in cases]
         settings = Settings.from_env()
-        http = HttpClient(settings.ollama_base_url, settings.http_timeout)
-        client = OllamaClient(http)
-        catalog = client.list_models()
-        assertions.assert_status_code(catalog, 200, context="Calibration judge model catalog")
-        report["judge_model_digest"] = assertions.assert_model_available(catalog.json()["models"], args.judge_model)
-        configuration = OllamaJudge(client, args.judge_model, settings.llm_timeout)
-        report["judge_configuration"] = {"options": configuration.options, "think": False, "retries": 0}
-        report["results"] = asyncio.run(
-                evaluate_controls(sample, cases, lambda: OllamaJudge(client, args.judge_model, settings.llm_timeout)))
+        with judge_client(settings, args.judge_model) as (client, report["judge_model_digest"]):
+            configuration = OllamaJudge(client, args.judge_model, settings.llm_timeout)
+            report["judge_configuration"] = {"options": configuration.options, "think": False, "retries": 0}
+            report["results"] = asyncio.run(
+                    evaluate_controls(
+                    sample, cases, lambda: OllamaJudge(client, args.judge_model, settings.llm_timeout)))
         statuses = [row["status"] for row in report["results"]]
         report["status"] = (
                 "error" if "error" in statuses else "matched" if all(s == "matched" for s in statuses) else "mismatch")
     except Exception as error:
         report["error"] = {"type": type(error).__name__, "message": str(error)}
-    finally:
-        if http:
-            http.close()
     write_sample(args.output, report)
     for row in report.get("results", []):
         value = row.get("result", {}).get("value", "unavailable")

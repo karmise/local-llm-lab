@@ -13,8 +13,8 @@ import pytest
 from requests import Response
 
 from llm_testkit import assertions
-from llm_testkit.clients.anythingllm_client import AnythingLLMClient
-from llm_testkit.clients.ollama_client import OllamaClient
+from llm_testkit.clients.anythingllm import AnythingLLMClient
+from llm_testkit.clients.ollama import OllamaClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.datasets.prompts import PromptVariant, load_prompt_catalog
@@ -73,7 +73,7 @@ def rag_environment(
         authenticated_anythingllm_api: AnythingLLMClient, indexed_workspace: dict[str,
         Any], workspace_configuration: dict[str, Any], policy_file: Path, record_property: Callable[[str, object],
         None]) -> None:
-    response = authenticated_anythingllm_api.get_workspace(indexed_workspace["slug"])
+    response = authenticated_anythingllm_api.workspaces.get(indexed_workspace["slug"])
     assertions.assert_workspace_matches(response, slug=indexed_workspace["slug"], configuration=workspace_configuration)
     if prompt_variant is not None:
         catalog = load_prompt_catalog(automation_root / "test_data/prompt-variants.json")
@@ -101,7 +101,8 @@ def rag_chat(
         Any], policy_file: Path, record_property: Callable[[str, object], None]) -> Callable[[str, str], Response]:
     def chat(question: str, reference: str) -> Response:
         started = perf_counter()
-        response = authenticated_anythingllm_api.chat(indexed_workspace["slug"], question, timeout=settings.llm_timeout)
+        response = authenticated_anythingllm_api.workspaces.chat(
+                indexed_workspace["slug"], question, timeout=settings.llm_timeout)
         answer_request_seconds = perf_counter() - started
         record_property("answer_request_seconds", answer_request_seconds)
         if capture_id:

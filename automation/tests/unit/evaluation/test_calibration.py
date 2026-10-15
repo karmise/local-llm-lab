@@ -102,8 +102,7 @@ def test_two_claims_cannot_share_one_statement():
 @title("A recorded control accepts the judge spelling its numbers as words")
 def test_number_words_match_digit_patterns(curated_controls):
     result = {
-            "value":
-            0.0,
+            "value": 0.0,
             "verdicts": [{
             "statement": "Each employee receives thirty working days of paid leave per year.",
             "verdict": 0}, {
@@ -121,8 +120,7 @@ def test_number_words_match_digit_patterns(curated_controls):
 @title("Control matching still rejects a changed number, a changed unit or an unsupported large value [{param_id}]")
 def test_changed_numbers_do_not_match(curated_controls, statement):
     result = {
-            "value":
-            0.0,
+            "value": 0.0,
             "verdicts": [{
             "statement": statement,
             "verdict": 0}, {
@@ -312,9 +310,9 @@ def offline_cli(tmp_path, monkeypatch):
     cli.judges = [Mock(calls=[], options={"temperature": 0}) for _ in range(4)]
     cli.http_class = Mock(return_value=cli.transport)
     cli.judge_class = Mock(side_effect=cli.judges)
-    monkeypatch.setattr("llm_testkit.evaluation.calibration.HttpClient", cli.http_class)
+    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.HttpClient", cli.http_class)
     cli.ollama_class = Mock(return_value=cli.ollama)
-    monkeypatch.setattr("llm_testkit.evaluation.calibration.OllamaClient", cli.ollama_class)
+    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.OllamaClient", cli.ollama_class)
     monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", cli.judge_class)
 
     def run(*arguments: str) -> int:
@@ -413,7 +411,7 @@ def test_cli_requires_reachable_model_catalog(offline_cli, monkeypatch):
 
     offline_cli.run("--control", "supported_answer")
 
-    assert "Calibration judge model catalog: expected HTTP 200, got 503" in offline_cli.report()["error"]["message"]
+    assert "Judge model catalog: expected HTTP 200, got 503" in offline_cli.report()["error"]["message"]
 
 
 @pytest.mark.parametrize(("arguments", "message"), [

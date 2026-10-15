@@ -368,7 +368,7 @@ def test_cli_requires_scope_and_output(cli, monkeypatch, tmp_path, arguments):
 @title("Bias variants collect as independent opt-in case/model runs")
 def test_selection_is_opt_in(framework_pytester):
     shutil.copytree(TEST_DATA, framework_pytester.path / "test_data")
-    framework_pytester.makeconftest('pytest_plugins=["llm_testkit.pytest_support.options"]')
+    framework_pytester.makeconftest('pytest_plugins=["llm_testkit.pytest_plugin.options"]')
     framework_pytester.makepyfile(
             """
         import pytest

@@ -1,11 +1,12 @@
-"""Benchmark summary: row outcomes, the planned denominator, judge controls, the Markdown report and review sheet."""
+"""Benchmark summary and its presentation: row status, aggregation, Markdown, review worksheet and Allure steps."""
 
 from unittest.mock import Mock, call
 
 import pytest
 
-from llm_testkit.reporting import benchmark as reporting
-from llm_testkit.reporting.benchmark import markdown, review_worksheet, row_status, summarize
+from llm_testkit.reporting import benchmark_presentation as presentation
+from llm_testkit.reporting.benchmark import row_status, summarize
+from llm_testkit.reporting.benchmark_presentation import markdown, review_worksheet
 from llm_testkit.reporting.steps import title
 from test_support.builders.benchmark import MINIMA, MODEL, make_calibration, make_definition, make_row
 
@@ -468,11 +469,11 @@ def test_review_worksheet_requires_passed_checks_for_flag(definition, calibratio
 @title("Presenting a passing benchmark attaches the results, the summary and every case")
 def test_present_passing_benchmark(definition, calibration, monkeypatch):
     attach, metadata = Mock(), Mock()
-    monkeypatch.setattr(reporting, "attach_text", attach)
-    monkeypatch.setattr(reporting, "set_metadata", metadata)
+    monkeypatch.setattr(presentation, "attach_text", attach)
+    monkeypatch.setattr(presentation, "set_metadata", metadata)
     report = summarize(definition, complete_rows(), calibration)
 
-    reporting.present_benchmark_report(report)
+    presentation.present_benchmark_report(report)
 
     metadata.assert_called_once_with(feature="RAG quality", story="Dataset benchmark")
     names = [attached.kwargs["name"] for attached in attach.call_args_list]
@@ -485,13 +486,13 @@ def test_present_passing_benchmark(definition, calibration, monkeypatch):
 @title("Presenting a failed benchmark attaches every case before the aggregate check fails")
 def test_present_failed_benchmark(definition, calibration, monkeypatch):
     attach = Mock()
-    monkeypatch.setattr(reporting, "attach_text", attach)
+    monkeypatch.setattr(presentation, "attach_text", attach)
     rows = complete_rows()
     rows[0]["dimensions"][0].update(status="failed", error="Missing annual allowance")
     report = summarize(definition, rows, calibration)
 
     with pytest.raises(AssertionError, match="did not pass: failed"):
-        reporting.present_benchmark_report(report)
+        presentation.present_benchmark_report(report)
 
     assert [attached.kwargs["name"]
             for attached in attach.call_args_list][-2:] == ["paid_leave / qwen3.5:4b", "gym_missing / qwen3.5:4b"]
@@ -500,10 +501,10 @@ def test_present_failed_benchmark(definition, calibration, monkeypatch):
 @title("A report without a summary is attached without a Markdown summary")
 def test_present_report_without_summary(monkeypatch):
     attach = Mock()
-    monkeypatch.setattr(reporting, "attach_text", attach)
+    monkeypatch.setattr(presentation, "attach_text", attach)
 
     with pytest.raises(AssertionError, match="did not pass: error"):
-        reporting.present_benchmark_report({"schema_version": 1, "status": "error", "results": []})
+        presentation.present_benchmark_report({"schema_version": 1, "status": "error", "results": []})
 
     assert [attached.kwargs["name"] for attached in attach.call_args_list] == ["Benchmark results and case diagnostics"]
 

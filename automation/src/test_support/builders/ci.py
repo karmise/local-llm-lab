@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from llm_testkit.ci.benchmark import execution_context, inputs, validate_ci_benchmark
+from llm_testkit.clients.ollama import OllamaClient
 from llm_testkit.datasets.benchmark import manifest
 from llm_testkit.evaluation import benchmark_runner as runner
 from llm_testkit.observation.evaluation_sample import write_sample
@@ -75,7 +76,7 @@ def save_ci_run(
             COMPARISON_MODEL: JUDGE_DIGEST}))
     monkeypatch.delenv("ANYTHINGLLM_API_KEY", raising=False)
     monkeypatch.setattr(
-            runner.OllamaClient, "list_models", lambda _: model_catalog((MODEL, JUDGE_DIGEST),
+            OllamaClient, "list_models", lambda _: model_catalog((MODEL, JUDGE_DIGEST),
             (COMPARISON_MODEL, JUDGE_DIGEST)))
     dataset, gates, plan = inputs(root, "smoke", models)
     definition = manifest(plan, dataset, gates, root / "test_data/faithfulness-controls.json")

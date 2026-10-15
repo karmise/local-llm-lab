@@ -67,25 +67,18 @@ def compare_batches(baseline: dict[str, Any], current: dict[str, Any], *, maximu
             "incomparable"
             if differences else "regression" if current["failed"] or growth > maximum_growth + 1e-12 else "passed")
     return {
-            "schema_version":
-            1,
-            "status":
-            status,
-            "maximum_growth":
-            maximum_growth,
-            "p95_growth":
-            growth,
-            "baseline_p95":
-            base,
-            "current_p95":
-            current["latency_seconds"]["p95"],
-            "incomparable_fields":
-            differences,
+            "schema_version": 1,
+            "status": status,
+            "maximum_growth": maximum_growth,
+            "p95_growth": growth,
+            "baseline_p95": base,
+            "current_p95": current["latency_seconds"]["p95"],
+            "incomparable_fields": differences,
             "model_changed": (before.get("generation_model"), before.get("model_digest"))
             != (after.get("generation_model"), after.get("model_digest")),
-            "interpretation":
-            "Bounded performance regression signal for comparable workload/machine metadata, not a statistically significant capacity estimate"
-    }
+            "interpretation": (
+            "Bounded performance regression signal for comparable workload/machine metadata, not a "
+            "statistically significant capacity estimate")}
 
 
 def main() -> int:

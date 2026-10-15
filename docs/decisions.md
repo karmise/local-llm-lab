@@ -38,7 +38,7 @@ and the docs avoid claiming otherwise.
 Unit (mocked HTTP), offline browser (local HTML), API, RAG, golden, UI and
 quality layers answer different questions and have different costs. A transport
 or locator defect is reproduced offline before spending model calls on it.
-Expensive suites are opt-in (`--run-*` flags in `pytest_support/options.py`).
+Expensive suites are opt-in (`--run-*` flags in `pytest_plugin/options.py`).
 Bare `python -m pytest` includes live API and RAG tests; `tests/unit` is the
 offline command.
 
@@ -51,6 +51,18 @@ test. Mutation testing (mutmut) showed which tests actually detect a broken
 rule, and raised scores per domain from 3.8–81.9% to 85.6–100%. Data shared by
 several modules comes from `test_support/builders`; anything used by one module
 stays in it.
+
+### Layers, each built on a base layer
+
+Tests call fixtures, resource APIs and Page Objects; those call a base layer;
+the base layer calls the transport. `BaseClient` (`clients/base_client.py`) owns
+the base path, the API key header and one-segment path encoding, so
+`WorkspacesApi`, `DocumentsApi` and `OllamaClient` only name operations.
+`BasePage` (`pages/base_page.py`) owns the application URL, navigation and the
+answer timeout, so `WorkspacePage` only holds locators and actions. A rule such
+as "encode a slug as one path segment" therefore exists once. There is no base
+test class: pytest fixtures already provide shared setup, and inheritance
+between tests would hide it.
 
 ### Clients return raw responses; acceptance criteria live in one place
 

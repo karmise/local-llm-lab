@@ -28,13 +28,15 @@ config/                      workspace templates (benchmark: temperature 0)
 docs/                        onboarding, evaluation guide, decisions, test plan
 automation/
   src/llm_testkit/           the framework
-    core/ clients/ pages/    HTTP transport, API client, Page Objects
+    core/                    HttpClient transport and shared helpers
+    clients/                 BaseClient → AnythingLLMClient (.workspaces, .documents), OllamaClient
+    pages/                   BasePage → WorkspacePage
     assertions/              acceptance checks: fields, api, answers, quality, ui
     evaluation/              RAGAS metrics, judge controls, benchmark runner
     reporting/               Allure, gates, drift, stability, CI evidence
     qualification/           IQ/OQ/PQ plan and packaging
-    pytest_support/          CLI options and opt-in selection rules
-  src/test_support/          fixtures (live resources) and builders (unit data)
+    pytest_plugin/           the framework's pytest plugin: CLI options, opt-in selection, evidence labels
+  src/test_support/          what tests use: fixtures (live resources) and builders (unit data)
   tests/                     grouped by level, then by feature:
     unit/                    offline framework tests (~2000, plain pytest), mirrors src/llm_testkit
     browser/                 Page Object checks on local HTML

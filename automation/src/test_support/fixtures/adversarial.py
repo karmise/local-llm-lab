@@ -17,9 +17,10 @@ def adversarial_metadata(automation_root: Path, adversarial_case: AdversarialCas
     if adversarial_case not in cases:
         pytest.fail("Adversarial inputs changed after collection", pytrace=False)
     for name, value in {"adversarial_case_id": adversarial_case.id, "adversarial_category": adversarial_case.category,
-            "adversarial_catalog_sha256": adversarial_case.catalog_sha256, "adversarial_catalog_version":
-            adversarial_case.catalog_version, "golden_case_id": adversarial_case.golden_case.id,
-            "golden_dataset_sha256": dataset.sha256, "adversarial_base_policy_sha256": dataset.policy_sha256}.items():
+            "adversarial_catalog_sha256": adversarial_case.catalog_sha256,
+            "adversarial_catalog_version": adversarial_case.catalog_version,
+            "golden_case_id": adversarial_case.golden_case.id, "golden_dataset_sha256": dataset.sha256,
+            "adversarial_base_policy_sha256": dataset.policy_sha256}.items():
         record_property(name, value)
 
 

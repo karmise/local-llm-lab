@@ -16,12 +16,9 @@ POLICY = b"Six days\n"
 def reviewed_plan() -> dict[str, Any]:
     """One high-risk OQ requirement that needs both golden cases of the example test."""
     return {
-            "schema_version":
-            1,
-            "version":
-            "example-v1",
-            "educational_only":
-            True,
+            "schema_version": 1,
+            "version": "example-v1",
+            "educational_only": True,
             "data_sha256": {
             "policy.txt": hashlib.sha256(POLICY).hexdigest()},
             "requirements": [{

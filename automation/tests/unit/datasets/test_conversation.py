@@ -230,8 +230,8 @@ def test_chat_fixture_uses_chat_mode():
     api = Mock()
     chat = conversation_chat.__wrapped__(None, {"chatMode": "chat"}, api, {"slug": "temporary"}, Settings())
 
-    assert chat("Hello!") is api.chat.return_value
-    api.chat.assert_called_once_with("temporary", "Hello!", mode="chat", timeout=Settings().llm_timeout)
+    assert chat("Hello!") is api.workspaces.chat.return_value
+    api.workspaces.chat.assert_called_once_with("temporary", "Hello!", mode="chat", timeout=Settings().llm_timeout)
 
 
 @title("The conversation fixture rejects a document-only Query profile")
@@ -251,7 +251,7 @@ def test_metadata_rejects_changed_case():
 @pytest.fixture
 def conversation_suite(framework_pytester):
     shutil.copytree(TEST_DATA, framework_pytester.path / "test_data")
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.options"]')
+    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_plugin.options"]')
     framework_pytester.makepyfile(
             """
         import pytest

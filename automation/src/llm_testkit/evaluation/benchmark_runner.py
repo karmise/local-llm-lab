@@ -12,16 +12,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from llm_testkit import assertions
-from llm_testkit.clients.ollama_client import OllamaClient
 from llm_testkit.config import Settings
-from llm_testkit.core.http_client import HttpClient
 from llm_testkit.datasets.benchmark import CONTROL_IDS, make_plan, manifest
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.evaluation.benchmark import check_sample, evaluate_case
 from llm_testkit.evaluation.calibration import evaluate_controls, load_controls, select_controls
 from llm_testkit.evaluation.faithfulness import load_sample
+from llm_testkit.evaluation.judge_connection import ollama_client
 from llm_testkit.observation.evaluation_sample import write_sample
-from llm_testkit.reporting.benchmark import markdown, review_worksheet, summarize
+from llm_testkit.reporting.benchmark import summarize
+from llm_testkit.reporting.benchmark_presentation import markdown, review_worksheet
 from llm_testkit.reporting.gates import load_quality_gates
 from llm_testkit.reporting.junit import read_junit
 from llm_testkit.reporting.redaction import redact_files
@@ -80,8 +80,7 @@ def calibrate(sample_path: Path, controls: Path, settings: Settings, model: str,
         cases = select_controls(cases, list(CONTROL_IDS))
         # Preserve declared order, independently of catalog order.
         cases = sorted(cases, key=lambda c: CONTROL_IDS.index(c["id"]))
-        with HttpClient(settings.ollama_base_url, settings.http_timeout) as http:
-            client = OllamaClient(http)
+        with ollama_client(settings) as client:
             report["results"] = asyncio.run(
                     evaluate_controls(sample, cases, lambda: OllamaJudge(client, model, settings.llm_timeout)))
         statuses = {r["status"] for r in report["results"]}
@@ -106,8 +105,8 @@ def run(root: Path, output: Path, plan, dataset, gates: dict, *, notify=print) -
     calibration = {"status": "error", "error": "No paid-leave sample was available for judge controls"}
     digests = {}
     try:
-        with HttpClient(settings.ollama_base_url, settings.http_timeout) as http:
-            catalog = OllamaClient(http).list_models()
+        with ollama_client(settings) as client:
+            catalog = client.list_models()
             assertions.assert_status_code(catalog, 200, context="Benchmark model catalog")
             for model in (*plan.models, plan.judge_model):
                 digests[model] = assertions.assert_model_available(catalog.json()["models"], model)
@@ -189,9 +188,9 @@ def main() -> int:
             return 0
         if importlib.util.find_spec("ragas") is None:
             raise ValueError("Install requirements-evaluation.lock before running a benchmark")
-        print(
-                f"Serial benchmark: {len(plan.case_ids) * len(plan.models)} generations; at most {plan.maximum_calls} generation/judge calls; no retries.",
-                flush=True)
+        print((
+                f"Serial benchmark: {len(plan.case_ids) * len(plan.models)} generations; at most "
+                f"{plan.maximum_calls} generation/judge calls; no retries."), flush=True)
         report = run(root, output, plan, dataset, gates)
     except (ValueError, OSError, AssertionError) as error:
         parser.error(str(error))

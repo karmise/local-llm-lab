@@ -15,6 +15,7 @@ import pytest
 from llm_testkit.config import Settings
 from llm_testkit.datasets.benchmark import CONTROL_IDS, make_plan
 from llm_testkit.evaluation import benchmark_runner as runner
+from llm_testkit.evaluation import judge_connection
 from llm_testkit.observation.evaluation_sample import write_sample
 from llm_testkit.reporting.steps import title
 from test_support.builders.benchmark import (
@@ -222,8 +223,8 @@ def judge_controls(tmp_path, monkeypatch):
             sample_path=sample_path, http=http, http_class=Mock(return_value=http), ollama=Mock(),
             judge_class=Mock(return_value=Mock()), evaluate=AsyncMock(return_value=[{
             "status": "matched"}] * 3))
-    monkeypatch.setattr(runner, "HttpClient", state.http_class)
-    monkeypatch.setattr(runner, "OllamaClient", Mock(return_value=state.ollama))
+    monkeypatch.setattr(judge_connection, "HttpClient", state.http_class)
+    monkeypatch.setattr(judge_connection, "OllamaClient", Mock(return_value=state.ollama))
     monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", state.judge_class)
     monkeypatch.setattr(runner, "evaluate_controls", state.evaluate)
     state.calibrate = lambda: runner.calibrate(sample_path, CONTROLS_FILE, Settings(), MODEL, JUDGE_DIGEST)
@@ -245,9 +246,9 @@ def test_calibrate_runs_declared_controls(judge_controls):
     assert [case["id"] for case in cases] == list(CONTROL_IDS)
     factory()
     judge_controls.judge_class.assert_called_once_with(judge_controls.ollama, MODEL, Settings().llm_timeout)
-    runner.OllamaClient.assert_called_once_with(judge_controls.http)
+    judge_connection.OllamaClient.assert_called_once_with(judge_controls.http)
     judge_controls.http_class.assert_called_once_with(Settings().ollama_base_url, Settings().http_timeout)
-    judge_controls.http.__exit__.assert_called_once()
+    judge_controls.http.close.assert_called_once()
 
 
 @pytest.mark.parametrize(("statuses", "status"), [
@@ -278,7 +279,7 @@ def benchmark_run(automation_root, monkeypatch):
     definition = make_definition()
     state = SimpleNamespace(root=automation_root, output=automation_root.parent / "run", notify=Mock())
     state.catalog = model_catalog((MODEL, JUDGE_DIGEST))
-    monkeypatch.setattr(runner.OllamaClient, "list_models", lambda _: state.catalog)
+    monkeypatch.setattr(judge_connection.OllamaClient, "list_models", lambda _: state.catalog)
     state.calibrate = Mock(side_effect=make_calibrate_stub(make_calibration(definition)))
     monkeypatch.setattr(runner, "calibrate", state.calibrate)
     state.generate = Mock(side_effect=make_generate_stub(GOLDEN_DATASET, monkeypatch))
@@ -340,7 +341,7 @@ def test_run_refuses_existing_output(benchmark_run):
         pytest.param(lambda _: model_catalog(status_code=503), id="catalog-error")])
 @title("A failed model preflight records every planned row as an error without any generation [{param_id}]")
 def test_run_preflight_failure(benchmark_run, monkeypatch, catalog):
-    monkeypatch.setattr(runner.OllamaClient, "list_models", catalog)
+    monkeypatch.setattr(judge_connection.OllamaClient, "list_models", catalog)
 
     report = benchmark_run.run()
 
@@ -495,6 +496,6 @@ def test_chat_duration_is_measured(monkeypatch, tmp_path):
 
     result = chat("Leave?", "Reference")
 
-    assert result is client.chat.return_value
+    assert result is client.workspaces.chat.return_value
     record_property.assert_called_once_with("answer_request_seconds", 12.5)
     assert clock.call_count == 2

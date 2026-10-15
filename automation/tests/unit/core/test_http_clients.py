@@ -1,4 +1,4 @@
-"""HTTP clients: one shared transport and the exact AnythingLLM and Ollama requests each operation sends."""
+"""HTTP clients: the transport, the base client and the exact request each AnythingLLM and Ollama operation sends."""
 
 from unittest.mock import Mock
 from urllib.parse import quote
@@ -6,8 +6,9 @@ from urllib.parse import quote
 import pytest
 import requests
 
-from llm_testkit.clients.anythingllm_client import AnythingLLMClient
-from llm_testkit.clients.ollama_client import OllamaClient
+from llm_testkit.clients.anythingllm import AnythingLLMClient
+from llm_testkit.clients.base_client import BaseClient
+from llm_testkit.clients.ollama import OllamaClient
 from llm_testkit.core import http_client
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.reporting.steps import title
@@ -74,6 +75,46 @@ def test_transport_does_not_retry(session):
     session.close.assert_called_once_with()
 
 
+class ExampleClient(BaseClient):
+    """The smallest client: one operation that sends whatever it is given."""
+    def send(self, path, **kwargs):
+        return self._request("GET", path, **kwargs)
+
+
+@pytest.mark.parametrize(("base_path", "path", "url"), [
+        pytest.param("", "/api/tags", "http://localhost/api/tags", id="no-base-path"),
+        pytest.param("/api/v1", "auth", "http://localhost/api/v1/auth", id="relative-path"),
+        pytest.param("/api/v1/", "/auth", "http://localhost/api/v1/auth", id="extra-slashes")])
+@title("A client joins its base path and the operation path with one slash [{param_id}]")
+def test_base_client_joins_base_path(session, base_path, path, url):
+    response = ExampleClient(HttpClient("http://localhost", 5), base_path=base_path).send(path)
+
+    assert response is session.request.return_value
+    assert session.request.call_args.kwargs["url"] == url
+
+
+@title("Default headers are merged with a request's own headers and are not changed by them")
+def test_base_client_merges_default_headers(session):
+    client = ExampleClient(HttpClient("http://localhost", 5), headers={"Authorization": "Bearer a"})
+
+    client.send("first", headers={"Accept": "text/plain"})
+    client.send("second")
+
+    assert [c.kwargs["headers"] for c in session.request.call_args_list] == [{
+            "Authorization": "Bearer a",
+            "Accept": "text/plain"}, {
+            "Authorization": "Bearer a"}]
+
+
+@title("A client without default headers passes a request's options through unchanged")
+def test_base_client_without_headers(session):
+    ExampleClient(HttpClient("http://localhost", 5)).send("path", headers={"Accept": "text/plain"}, timeout=9)
+
+    session.request.assert_called_once_with(
+            method="GET", url="http://localhost/path", headers={"Accept": "text/plain"}, timeout=9,
+            allow_redirects=False)
+
+
 @title("Clients sharing one transport do not share authentication")
 def test_shared_transport_does_not_leak_authentication(session):
     http = HttpClient("http://localhost", 5)
@@ -81,7 +122,7 @@ def test_shared_transport_does_not_leak_authentication(session):
     AnythingLLMClient(http, api_key="test-key").verify_authentication()
     AnythingLLMClient(http).verify_authentication()
 
-    assert [c.kwargs["headers"] for c in session.request.call_args_list] == [KEY, {}]
+    assert [c.kwargs.get("headers") for c in session.request.call_args_list] == [KEY, None]
 
 
 @title("The health check is an unauthenticated ping")
@@ -99,60 +140,60 @@ ENCODED = quote(SLUG, safe="")
 
 @pytest.mark.parametrize(("operation", "method", "path", "options"), [
         pytest.param(lambda api: api.verify_authentication(), "GET", "auth", {}, id="verify-authentication"),
-        pytest.param(lambda api: api.get_workspace(SLUG), "GET", f"workspace/{ENCODED}", {}, id="get-workspace"),
+        pytest.param(lambda api: api.workspaces.get(SLUG), "GET", f"workspace/{ENCODED}", {}, id="get-workspace"),
         pytest.param(
-        lambda api: api.update_workspace(SLUG, {"chatMode": "chat"}), "POST", f"workspace/{ENCODED}/update",
+        lambda api: api.workspaces.update(SLUG, {"chatMode": "chat"}), "POST", f"workspace/{ENCODED}/update",
         {"json": {
         "chatMode": "chat"}}, id="update-workspace"),
         pytest.param(
-        lambda api: api.create_workspace("temporary", {"chatModel": "qwen"}), "POST", "workspace/new",
+        lambda api: api.workspaces.create("temporary", {"chatModel": "qwen"}), "POST", "workspace/new",
         {"json": {
         "chatModel": "qwen",
         "name": "temporary"}}, id="create-workspace"),
         pytest.param(
-        lambda api: api.create_workspace("temporary"), "POST", "workspace/new", {"json": {
+        lambda api: api.workspaces.create("temporary"), "POST", "workspace/new", {"json": {
         "name": "temporary"}}, id="create-workspace-without-configuration"),
         pytest.param(
-        lambda api: api.delete_workspace(SLUG), "DELETE", f"workspace/{ENCODED}", {}, id="delete-workspace"),
+        lambda api: api.workspaces.delete(SLUG), "DELETE", f"workspace/{ENCODED}", {}, id="delete-workspace"),
         pytest.param(
-        lambda api: api.create_document_folder("folder"), "POST", "document/create-folder",
+        lambda api: api.documents.create_folder("folder"), "POST", "document/create-folder",
         {"json": {
         "name": "folder"}}, id="create-folder"),
         pytest.param(
-        lambda api: api.delete_document_folder("folder"), "DELETE", "document/remove-folder", {
+        lambda api: api.documents.delete_folder("folder"), "DELETE", "document/remove-folder", {
         "json": {
         "name": "folder"},
         "timeout": 180}, id="delete-folder"),
         pytest.param(
-        lambda api: api.delete_document_folder("folder", timeout=7), "DELETE", "document/remove-folder", {
+        lambda api: api.documents.delete_folder("folder", timeout=7), "DELETE", "document/remove-folder", {
         "json": {
         "name": "folder"},
         "timeout": 7}, id="delete-folder-timeout"),
         pytest.param(
-        lambda api: api.get_document_folder("a/b c"), "GET", "documents/folder/a%2Fb%20c", {}, id="get-folder"),
+        lambda api: api.documents.get_folder("a/b c"), "GET", "documents/folder/a%2Fb%20c", {}, id="get-folder"),
         pytest.param(
-        lambda api: api.add_workspace_documents(SLUG, ["folder/policy.json"]), "POST",
+        lambda api: api.workspaces.add_documents(SLUG, ["folder/policy.json"]), "POST",
         f"workspace/{ENCODED}/update-embeddings", {
         "json": {
         "adds": ["folder/policy.json"],
         "deletes": []},
         "timeout": 180}, id="index-documents"),
         pytest.param(
-        lambda api: api.add_workspace_documents(SLUG, [], timeout=9), "POST", f"workspace/{ENCODED}/update-embeddings",
+        lambda api: api.workspaces.add_documents(SLUG, [], timeout=9), "POST", f"workspace/{ENCODED}/update-embeddings",
         {
         "json": {
         "adds": [],
         "deletes": []},
         "timeout": 9}, id="index-documents-timeout"),
         pytest.param(
-        lambda api: api.search_workspace(SLUG, "leave?"), "POST", f"workspace/{ENCODED}/vector-search", {
+        lambda api: api.workspaces.search(SLUG, "leave?"), "POST", f"workspace/{ENCODED}/vector-search", {
         "json": {
         "query": "leave?",
         "topN": 4,
         "scoreThreshold": 0.25},
         "timeout": 180}, id="search"),
         pytest.param(
-        lambda api: api.search_workspace(SLUG, "leave?", top_n=2, score_threshold=0.5, timeout=8), "POST",
+        lambda api: api.workspaces.search(SLUG, "leave?", top_n=2, score_threshold=0.5, timeout=8), "POST",
         f"workspace/{ENCODED}/vector-search", {
         "json": {
         "query": "leave?",
@@ -160,13 +201,13 @@ ENCODED = quote(SLUG, safe="")
         "scoreThreshold": 0.5},
         "timeout": 8}, id="search-options"),
         pytest.param(
-        lambda api: api.chat(SLUG, "hello"), "POST", f"workspace/{ENCODED}/chat", {
+        lambda api: api.workspaces.chat(SLUG, "hello"), "POST", f"workspace/{ENCODED}/chat", {
         "json": {
         "message": "hello",
         "mode": "query"},
         "timeout": 300}, id="chat"),
         pytest.param(
-        lambda api: api.chat(SLUG, "hello", mode="chat", timeout=30), "POST", f"workspace/{ENCODED}/chat", {
+        lambda api: api.workspaces.chat(SLUG, "hello", mode="chat", timeout=30), "POST", f"workspace/{ENCODED}/chat", {
         "json": {
         "message": "hello",
         "mode": "chat"},
@@ -184,7 +225,7 @@ def test_anythingllm_operations(session, operation, method, path, options):
 @pytest.mark.parametrize("slug", ["a/b", "a b", "x?query#fragment", "non-ascii-\N{SNOWMAN}"])
 @title("Workspace slugs are encoded as one path segment [{slug}]")
 def test_workspace_slugs_are_one_path_segment(session, slug):
-    AnythingLLMClient(HttpClient("http://localhost", 5)).get_workspace(slug)
+    AnythingLLMClient(HttpClient("http://localhost", 5)).workspaces.get(slug)
 
     assert session.request.call_args.kwargs["url"] == f"http://localhost/api/v1/workspace/{quote(slug, safe='')}"
 
@@ -194,8 +235,8 @@ def test_workspace_configuration_is_not_mutated(session):
     configuration = {"name": "template", "chatModel": "qwen"}
     api = AnythingLLMClient(HttpClient("http://localhost", 5))
 
-    api.create_workspace("temporary", configuration)
-    api.update_workspace("temporary", configuration)
+    api.workspaces.create("temporary", configuration)
+    api.workspaces.update("temporary", configuration)
 
     assert configuration == {"name": "template", "chatModel": "qwen"}
     assert session.request.call_args_list[0].kwargs["json"] == {"name": "temporary", "chatModel": "qwen"}
@@ -229,7 +270,7 @@ def test_upload_document(session, policy):
     uploads = capture_upload(session)
 
     response = AnythingLLMClient(HttpClient("http://localhost", 5),
-            api_key="test-key").upload_document(policy, "my folder", filename="unique-policy.txt", timeout=42)
+            api_key="test-key").documents.upload(policy, "my folder", filename="unique-policy.txt", timeout=42)
 
     upload, = uploads
     assert response is session.response
@@ -245,7 +286,7 @@ def test_upload_document(session, policy):
 def test_upload_document_defaults(session, policy):
     uploads = capture_upload(session)
 
-    AnythingLLMClient(HttpClient("http://localhost", 5)).upload_document(policy, "folder")
+    AnythingLLMClient(HttpClient("http://localhost", 5)).documents.upload(policy, "folder")
 
     assert (uploads[0]["name"], session.request.call_args.kwargs["timeout"]) == ("policy.txt", 180)
 
@@ -255,7 +296,7 @@ def test_upload_closes_document_on_failure(session, policy):
     uploads = capture_upload(session, error=requests.Timeout("Upload timed out"))
 
     with pytest.raises(requests.Timeout, match="Upload timed out"):
-        AnythingLLMClient(HttpClient("http://localhost", 5)).upload_document(policy, "folder")
+        AnythingLLMClient(HttpClient("http://localhost", 5)).documents.upload(policy, "folder")
 
     assert uploads[0]["document"].closed
 

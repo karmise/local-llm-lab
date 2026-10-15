@@ -164,7 +164,7 @@ def test_attack_exposure_requires_inputs(contexts, attack):
 def attack_suite(framework_pytester):
     """A child pytest project with the reviewed data and one parametrised adversarial test."""
     shutil.copytree(TEST_DATA, framework_pytester.path / "test_data")
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.options"]')
+    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_plugin.options"]')
     framework_pytester.makepyfile(
             """
         import pytest

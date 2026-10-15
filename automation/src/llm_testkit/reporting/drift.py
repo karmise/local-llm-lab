@@ -171,33 +171,22 @@ def compare_snapshots(baseline: dict[str, Any], current: dict[str, Any], *, maxi
             "incomparable"
             if differences else "duplicate" if duplicate else "regression" if drops or failed else "passed")
     return {
-            "schema_version":
-            1,
-            "status":
-            status,
-            "baseline_run":
-            baseline["run_id"],
-            "current_run":
-            current["run_id"],
-            "baseline_sha256":
-            baseline["snapshot_sha256"],
-            "current_sha256":
-            current["snapshot_sha256"],
-            "maximum_drop":
-            maximum_drop,
-            "deltas":
-            deltas,
-            "dropped_metrics":
-            drops,
-            "failed_acceptance":
-            failed,
-            "incomparable_fields":
-            differences,
+            "schema_version": 1,
+            "status": status,
+            "baseline_run": baseline["run_id"],
+            "current_run": current["run_id"],
+            "baseline_sha256": baseline["snapshot_sha256"],
+            "current_sha256": current["snapshot_sha256"],
+            "maximum_drop": maximum_drop,
+            "deltas": deltas,
+            "dropped_metrics": drops,
+            "failed_acceptance": failed,
+            "incomparable_fields": differences,
             "generation_model_changed": (baseline["model"], baseline["model_digest"])
             != (current["model"], current["model_digest"]),
-            "interpretation":
-            "Scoped quality-regression signal against an explicit baseline; not statistical drift detection or an attribution of its cause"
-    }
+            "interpretation": (
+            "Scoped quality-regression signal against an explicit baseline; not statistical drift "
+            "detection or an attribution of its cause")}
 
 
 def main() -> int:

@@ -39,7 +39,7 @@ the other scenario checks return `None`. A failed check raises `AssertionError`.
 Example test validation:
 
 ```python
-response = authenticated_anythingllm_api.get_workspace(temporary_workspace["slug"])
+response = authenticated_anythingllm_api.workspaces.get(temporary_workspace["slug"])
 assertions.assert_workspace_matches(
     response,
     slug=temporary_workspace["slug"],

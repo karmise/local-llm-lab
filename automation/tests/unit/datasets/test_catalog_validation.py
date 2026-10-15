@@ -17,8 +17,8 @@ pytestmark = pytest.mark.unit
 # catalog: (reviewed file, key of its rows, loader, rows loaded from the reviewed file)
 CATALOGS = {
         "golden": (GOLDEN_DATASET_FILE, "cases", lambda path: load_golden_dataset(path, POLICY_FILE).cases),
-        "adversarial":
-        (TEST_DATA / "adversarial-policy.json", "cases", lambda path: load_adversarial_cases(path, GOLDEN_DATASET)),
+        "adversarial": (
+        TEST_DATA / "adversarial-policy.json", "cases", lambda path: load_adversarial_cases(path, GOLDEN_DATASET)),
         "bias": (TEST_DATA / "bias-policy.json", "pairs", lambda path: load_bias_cases(path, GOLDEN_DATASET)),
         "prompts": (TEST_DATA / "prompt-variants.json", "variants", lambda path: load_prompt_catalog(path).variants)}
 

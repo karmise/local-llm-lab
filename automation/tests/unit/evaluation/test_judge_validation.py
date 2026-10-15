@@ -11,7 +11,7 @@ import pytest
 
 from llm_testkit.config import Settings
 from llm_testkit.datasets.judge_controls import maximum_calls
-from llm_testkit.evaluation import judge_validation
+from llm_testkit.evaluation import judge_connection, judge_validation
 from llm_testkit.evaluation.judge_validation import (
         evaluate_judge_controls, label_mismatches, main, result_from_evidence, score_control, summarize_validation)
 from llm_testkit.reporting.steps import title
@@ -333,8 +333,8 @@ def cli(tmp_path, monkeypatch):
             "id": "receipt_condition_supported",
             "status": "matched",
             "judge_calls": [{}, {}]}])
-    monkeypatch.setattr(judge_validation, "HttpClient", state.http_class)
-    monkeypatch.setattr(judge_validation, "OllamaClient", Mock(return_value=state.ollama))
+    monkeypatch.setattr(judge_connection, "HttpClient", state.http_class)
+    monkeypatch.setattr(judge_connection, "OllamaClient", Mock(return_value=state.ollama))
     monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", state.judge_class)
     monkeypatch.setattr(judge_validation, "evaluate_judge_controls", state.evaluate)
 

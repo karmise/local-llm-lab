@@ -9,8 +9,9 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from llm_testkit.qualification import package
-from llm_testkit.qualification.package import build_package, trace_results, verify_package
+from llm_testkit.qualification.package import build_package, verify_package
 from llm_testkit.qualification.plan import load_plan
+from llm_testkit.qualification.trace import trace_results
 from llm_testkit.reporting.steps import title
 from test_support.builders.qualification import SELECTOR, qualification_lab, reviewed_plan, run
 
@@ -47,16 +48,11 @@ def test_trace_passes(lab):
             "review_status": "pending human review",
             "compliance_claim": False}
     assert result["requirements"] == [{
-            "id":
-            "REQ-EXAMPLE",
-            "phase":
-            "OQ",
-            "risk":
-            "high",
-            "acceptance":
-            "Both cases pass",
-            "status":
-            "passed",
+            "id": "REQ-EXAMPLE",
+            "phase": "OQ",
+            "risk": "high",
+            "acceptance": "Both cases pass",
+            "status": "passed",
             "cells": [{
             "test": SELECTOR,
             "axes": {
@@ -549,7 +545,7 @@ def test_pytest_traceability(framework_pytester, lab):
     plan["data_sha256"] = {}
     plan["requirements"][0]["axes"] = {}
     (child / "test_data/qualification-plan.json").write_text(json.dumps(plan))
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.evidence"]')
+    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_plugin.evidence"]')
 
     result = framework_pytester.runpytest_subprocess("-q", "--junitxml=results.xml")
 
@@ -572,7 +568,7 @@ def test_pytest_traceability_rejects_unknown_test(framework_pytester, lab):
     plan["data_sha256"] = {}
     plan["requirements"][0]["tests"] = ["tests/test_example.py::test_unknown"]
     (child / "test_data/qualification-plan.json").write_text(json.dumps(plan))
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.evidence"]')
+    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_plugin.evidence"]')
 
     result = framework_pytester.runpytest_subprocess("-q")
 

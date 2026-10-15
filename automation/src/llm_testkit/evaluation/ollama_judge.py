@@ -7,7 +7,7 @@ from typing import Any, TypeVar
 from pydantic import BaseModel
 from ragas.llms.base import InstructorBaseRagasLLM
 
-from llm_testkit.clients.ollama_client import OllamaClient
+from llm_testkit.clients.ollama import OllamaClient
 
 T = TypeVar("T", bound=BaseModel)
 

@@ -392,14 +392,10 @@ def assembly(tmp_path, monkeypatch):
     """A captured paid-leave sample, judge evidence and a stubbed quality report built from them."""
     sample = make_paid_leave_sample()
     sample["metadata"] = {
-            "policy_sha256":
-            GOLDEN_DATASET.policy_sha256,
-            "model_digest":
-            "b" * 64,
-            "thinking_mode":
-            "default",
-            "workspace_configuration":
-            configuration(
+            "policy_sha256": GOLDEN_DATASET.policy_sha256,
+            "model_digest": "b" * 64,
+            "thinking_mode": "default",
+            "workspace_configuration": configuration(
             chatModel=sample["observation"]["request"]["model"],
             openAiPrompt=f"{PROMPT}\n[LLM_TESTKIT_CAPTURE:{CAPTURE_ID}]")}
     sample_path = tmp_path / "sample.json"
@@ -408,14 +404,10 @@ def assembly(tmp_path, monkeypatch):
     for name, path in evidence.items():
         path.write_text(json.dumps(JUDGE | {"judge_model": f"{name}-judge"}))
     report = {
-            "status":
-            "checks_passed",
-            "generation_model":
-            sample["observation"]["request"]["model"],
-            "sample_sha256":
-            hashlib.sha256(sample_path.read_bytes()).hexdigest(),
-            "golden_dataset_sha256":
-            GOLDEN_DATASET.sha256,
+            "status": "checks_passed",
+            "generation_model": sample["observation"]["request"]["model"],
+            "sample_sha256": hashlib.sha256(sample_path.read_bytes()).hexdigest(),
+            "golden_dataset_sha256": GOLDEN_DATASET.sha256,
             "evidence_sha256": {
             name: hashlib.sha256(path.read_bytes()).hexdigest()
             for name, path in evidence.items()},

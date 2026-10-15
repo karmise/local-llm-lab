@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
+from llm_testkit.clients.ollama import OllamaClient
 from llm_testkit.datasets.benchmark import make_plan, manifest
 from llm_testkit.datasets.golden import GoldenCase
 from llm_testkit.evaluation import benchmark as evaluation
@@ -76,18 +77,12 @@ def make_metric_evidence(case: GoldenCase, sample_path: Path) -> dict[str, dict[
             "reference_verdicts": [verdict]}
     correctness = {
             **common,
-            **golden, "metric":
-            "factual_correctness",
-            "response_origin":
-            "application_sample",
-            "metric_configuration":
-            METRIC_CONFIGURATION,
-            "response":
-            case.reference,
-            "reference_sha256":
-            hashlib.sha256(case.reference.encode()).hexdigest(),
-            "result":
-            correctness_result,
+            **golden, "metric": "factual_correctness",
+            "response_origin": "application_sample",
+            "metric_configuration": METRIC_CONFIGURATION,
+            "response": case.reference,
+            "reference_sha256": hashlib.sha256(case.reference.encode()).hexdigest(),
+            "result": correctness_result,
             "judge_calls": [{
             "output": {
             "claims": [case.reference]}}, {
@@ -186,10 +181,8 @@ def make_calibrate_stub(calibration):
                     "verdict": c["verdict"],
                     "reason": "Control label"} for s, c in zip(statements, control["claims"], strict=True)]
             calibrated["results"].append({
-                    "status":
-                    "matched",
-                    "control":
-                    control,
+                    "status": "matched",
+                    "control": control,
                     "result": {
                     "value": control["expected_score"],
                     "statements": statements,
@@ -250,7 +243,7 @@ def save_benchmark_run(tmp_path: Path, monkeypatch, *, catalog=None, dispute_cor
     root = tmp_path / "automation"
     shutil.copytree(TEST_DATA, root / "test_data")
     monkeypatch.delenv("ANYTHINGLLM_API_KEY", raising=False)
-    monkeypatch.setattr(runner.OllamaClient, "list_models", catalog or (lambda _: model_catalog((MODEL, JUDGE_DIGEST))))
+    monkeypatch.setattr(OllamaClient, "list_models", catalog or (lambda _: model_catalog((MODEL, JUDGE_DIGEST))))
     definition = make_definition()
     monkeypatch.setattr(runner, "calibrate", make_calibrate_stub(make_calibration(definition)))
     generate = make_generate_stub(GOLDEN_DATASET, monkeypatch)

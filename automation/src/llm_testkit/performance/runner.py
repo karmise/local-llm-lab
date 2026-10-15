@@ -36,32 +36,23 @@ def run_batch(operation: Callable[[], None], *, requests: int = 1, users: int = 
     values = sorted(row["elapsed_seconds"] for row in attempts)
     completed = sum(row["status"] == "passed" for row in attempts)
     return {
-            "schema_version":
-            1,
-            "kind":
-            "performance_batch",
-            "created_at":
-            datetime.now(timezone.utc).isoformat(),
-            "requests":
-            requests,
-            "users":
-            users,
-            "attempts":
-            attempts,
-            "failed":
-            requests - completed,
-            "wall_seconds":
-            elapsed,
-            "completed_requests_per_second":
-            completed / elapsed,
+            "schema_version": 1,
+            "kind": "performance_batch",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "requests": requests,
+            "users": users,
+            "attempts": attempts,
+            "failed": requests - completed,
+            "wall_seconds": elapsed,
+            "completed_requests_per_second": completed / elapsed,
             "latency_seconds": {
             "minimum": values[0],
             "median": median(values),
             "p95": values[math.ceil(0.95 * requests) - 1],
             "maximum": values[-1]},
-            "interpretation":
-            "Bounded closed-loop batch; end-to-end non-streaming HTTP latency including validation; not TTFT or server-only inference time"
-    }
+            "interpretation": (
+            "Bounded closed-loop batch; end-to-end non-streaming HTTP latency including validation; "
+            "not TTFT or server-only inference time")}
 
 
 def validate_batch(report: dict[str, Any]) -> None:

@@ -68,14 +68,14 @@ def test_unauthenticated_create_changes_nothing(authenticated_anythingllm_api, h
 
 @title("Looking up an unknown workspace returns an empty list, not an error")
 def test_unknown_workspace_lookup(authenticated_anythingllm_api, missing_slug):
-    response = authenticated_anythingllm_api.get_workspace(missing_slug)
+    response = authenticated_anythingllm_api.workspaces.get(missing_slug)
 
     assertions.assert_workspace_absent(response, missing_slug)
 
 
 @title("Chat with an unknown workspace is aborted before any generation and names the workspace")
 def test_chat_with_unknown_workspace_is_aborted(authenticated_anythingllm_api, missing_slug):
-    response = authenticated_anythingllm_api.chat(missing_slug, "What is the leave policy?", timeout=10)
+    response = authenticated_anythingllm_api.workspaces.chat(missing_slug, "What is the leave policy?", timeout=10)
 
     assertions.assert_status_code(response, 400, context="Chat with unknown workspace")
     payload = assertions.assert_json_object(response)
@@ -88,7 +88,7 @@ def test_chat_with_unknown_workspace_is_aborted(authenticated_anythingllm_api, m
 
 @title("Vector search on an unknown workspace is rejected with a message naming it")
 def test_search_unknown_workspace_is_rejected(authenticated_anythingllm_api, missing_slug):
-    response = authenticated_anythingllm_api.search_workspace(missing_slug, "leave", timeout=10)
+    response = authenticated_anythingllm_api.workspaces.search(missing_slug, "leave", timeout=10)
 
     assertions.assert_status_code(response, 400, context="Search unknown workspace")
     assertions.assert_field_equals(
@@ -97,9 +97,9 @@ def test_search_unknown_workspace_is_rejected(authenticated_anythingllm_api, mis
 
 @pytest.mark.parametrize(
         "operation", [
-        pytest.param(lambda api, slug: api.delete_workspace(slug), id="delete"),
-        pytest.param(lambda api, slug: api.update_workspace(slug, {"openAiTemp": 0.1}), id="update"),
-        pytest.param(lambda api, slug: api.add_workspace_documents(slug, [], timeout=10), id="index")])
+        pytest.param(lambda api, slug: api.workspaces.delete(slug), id="delete"),
+        pytest.param(lambda api, slug: api.workspaces.update(slug, {"openAiTemp": 0.1}), id="update"),
+        pytest.param(lambda api, slug: api.workspaces.add_documents(slug, [], timeout=10), id="index")])
 @title("Changing an unknown workspace is rejected and creates nothing [{param_id}]")
 def test_change_unknown_workspace_is_rejected(
         authenticated_anythingllm_api, http_client, settings, missing_slug, operation):
@@ -125,14 +125,14 @@ def test_malformed_workspace_request_is_rejected(authenticated_anythingllm_api, 
 
 @title("An unknown document folder is reported as absent")
 def test_unknown_document_folder_is_absent(authenticated_anythingllm_api, missing_slug):
-    response = authenticated_anythingllm_api.get_document_folder(missing_slug)
+    response = authenticated_anythingllm_api.documents.get_folder(missing_slug)
 
     assertions.assert_document_folder_absent(response, folder=missing_slug)
 
 
 @title("Removing an unknown document folder succeeds, so cleanup is idempotent")
 def test_remove_unknown_folder_is_idempotent(authenticated_anythingllm_api, missing_slug):
-    response = authenticated_anythingllm_api.delete_document_folder(missing_slug, timeout=10)
+    response = authenticated_anythingllm_api.documents.delete_folder(missing_slug, timeout=10)
 
     assertions.assert_operation_success(response, context="Remove unknown folder")
 
@@ -144,7 +144,7 @@ def test_upload_without_file_is_rejected(authenticated_anythingllm_api, http_cli
     # AnythingLLM 1.16.2 answers 500 rather than 4xx: rejected, but reported as a server error.
     assert response.status_code >= 400, f"Upload without a file must be rejected, got HTTP {response.status_code}"
     assertions.assert_document_folder_absent(
-            authenticated_anythingllm_api.get_document_folder(missing_slug), folder=missing_slug)
+            authenticated_anythingllm_api.documents.get_folder(missing_slug), folder=missing_slug)
 
 
 @title("An unknown API route answers with the web app page, which JSON checks reject")

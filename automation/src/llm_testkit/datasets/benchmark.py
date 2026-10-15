@@ -48,26 +48,16 @@ def make_plan(
 def manifest(plan: BenchmarkPlan, dataset: GoldenDataset, gates: dict, controls: Path) -> dict:
     cases = {case.id: case for case in dataset.cases}
     return {
-            "schema_version":
-            1,
-            "scope":
-            "Curated policy benchmark; not a population accuracy estimate",
-            "golden_dataset_sha256":
-            dataset.sha256,
-            "golden_dataset_version":
-            dataset.version,
-            "policy_sha256":
-            dataset.policy_sha256,
-            "quality_gates":
-            gates,
-            "controls_sha256":
-            hashlib.sha256(controls.read_bytes()).hexdigest(),
-            "control_ids":
-            list(CONTROL_IDS),
-            "judge_model":
-            plan.judge_model,
-            "maximum_model_calls":
-            plan.maximum_calls,
+            "schema_version": 1,
+            "scope": "Curated policy benchmark; not a population accuracy estimate",
+            "golden_dataset_sha256": dataset.sha256,
+            "golden_dataset_version": dataset.version,
+            "policy_sha256": dataset.policy_sha256,
+            "quality_gates": gates,
+            "controls_sha256": hashlib.sha256(controls.read_bytes()).hexdigest(),
+            "control_ids": list(CONTROL_IDS),
+            "judge_model": plan.judge_model,
+            "maximum_model_calls": plan.maximum_calls,
             "execution": {
             "concurrency": 1,
             "retries": 0,
@@ -76,8 +66,7 @@ def manifest(plan: BenchmarkPlan, dataset: GoldenDataset, gates: dict, controls:
             "case_id": i,
             "category": cases[i].category,
             "model": model} for model in plan.models for i in plan.case_ids],
-            "human_review":
-            "pending"}
+            "human_review": "pending"}
 
 
 def configuration_hash(configuration: dict) -> str:

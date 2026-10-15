@@ -13,13 +13,11 @@ from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
-from llm_testkit import assertions
-from llm_testkit.clients.ollama_client import OllamaClient
 from llm_testkit.config import Settings
-from llm_testkit.core.http_client import HttpClient
 from llm_testkit.core.scores import require_score
 from llm_testkit.datasets.golden import GoldenCase, GoldenDataset, load_golden_dataset
 from llm_testkit.evaluation.faithfulness import load_sample
+from llm_testkit.evaluation.judge_connection import judge_client
 from llm_testkit.observation.evaluation_sample import write_sample
 
 METRIC_CONFIGURATION = {"mode": "f1", "beta": 1.0, "atomicity": "high", "coverage": "high"}
@@ -148,7 +146,6 @@ def evaluate_correctness_report(
             "response_origin": "synthetic_control" if control is not None else "application_sample",
             "judge_model": judge_model}
     judge = None
-    http = None
     try:
         sample, checksum = load_sample(sample_path)
         dataset = load_golden_dataset(dataset_path, policy_file)
@@ -166,14 +163,10 @@ def evaluate_correctness_report(
             report["control"] = control
         report["response"] = sample["response"]
         report["same_generation_and_judge_model"] = report["generation_model"] == judge_model
-        http = HttpClient(settings.ollama_base_url, settings.http_timeout)
-        client = OllamaClient(http)
-        catalog = client.list_models()
-        assertions.assert_status_code(catalog, 200, context="Correctness judge catalog")
-        report["judge_model_digest"] = assertions.assert_model_available(catalog.json()["models"], judge_model)
-        judge = OllamaJudge(client, judge_model, settings.llm_timeout, max_calls=4)
-        report["judge_configuration"] = {"options": judge.options, "think": False, "retries": 0, "max_calls": 4}
-        report["result"] = asyncio.run(score_correctness(sample, judge))
+        with judge_client(settings, judge_model) as (client, report["judge_model_digest"]):
+            judge = OllamaJudge(client, judge_model, settings.llm_timeout, max_calls=4)
+            report["judge_configuration"] = {"options": judge.options, "think": False, "retries": 0, "max_calls": 4}
+            report["result"] = asyncio.run(score_correctness(sample, judge))
         report["status"] = "completed"
         if control is not None:
             try:
@@ -186,8 +179,6 @@ def evaluate_correctness_report(
     finally:
         if judge:
             report["judge_calls"] = judge.calls
-        if http:
-            http.close()
     return report
 
 

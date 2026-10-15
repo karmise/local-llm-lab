@@ -5,7 +5,7 @@ import hashlib
 import pytest
 
 from llm_testkit import assertions
-from llm_testkit.clients.anythingllm_client import AnythingLLMClient
+from llm_testkit.clients.anythingllm import AnythingLLMClient
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.datasets.golden import load_golden_dataset
 
@@ -52,7 +52,7 @@ def rag_workload(settings, rag_environment, indexed_workspace, uploaded_policy_d
     def request_answer():
         # Concurrent requests own their transport; setup/indexing is outside timing.
         with HttpClient(settings.base_url, settings.http_timeout) as http:
-            response = AnythingLLMClient(http, settings.api_key).chat(
+            response = AnythingLLMClient(http, settings.api_key).workspaces.chat(
                     indexed_workspace["slug"], performance_case.question, timeout=settings.llm_timeout)
             assertions.assert_golden_answer(
                     response, case=performance_case, document_title=uploaded_policy_document["title"])

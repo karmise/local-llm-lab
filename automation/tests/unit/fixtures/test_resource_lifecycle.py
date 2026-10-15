@@ -61,29 +61,29 @@ def record(name, payload, status=200, error=None):
 @pytest.fixture
 def authenticated_anythingllm_api():
     api = Mock()
-    api.create_workspace.side_effect = record("create_workspace", lambda name, config: {"workspace": {
+    api.workspaces.create.side_effect = record("workspaces.create", lambda name, config: {"workspace": {
         "slug": "" if FAILURE == "empty-slug" else name, "id": 1,
         "name": "wrong-name" if FAILURE == "workspace-validation" else name}},
         500 if FAILURE == "workspace-status" else 200)
-    api.create_document_folder.side_effect = record(
-        "create_document_folder", {"success": FAILURE != "folder-validation"},
+    api.documents.create_folder.side_effect = record(
+        "documents.create_folder", {"success": FAILURE != "folder-validation"},
         500 if FAILURE == "folder-status" else 200)
-    api.upload_document.side_effect = record("upload_document", lambda path, folder, **kw: {
+    api.documents.upload.side_effect = record("documents.upload", lambda path, folder, **kw: {
         "success": True, "error": None,
         "documents": [{"title": kw["filename"], "location": f"{folder}/policy.json"}]},
         500 if FAILURE == "upload" else 200)
-    api.add_workspace_documents.side_effect = record(
-        "add_workspace_documents", lambda slug, paths, **kw: {"workspace": {"slug": slug}},
+    api.workspaces.add_documents.side_effect = record(
+        "workspaces.add_documents", lambda slug, paths, **kw: {"workspace": {"slug": slug}},
         500 if FAILURE == "indexing" else 200)
-    api.delete_document_folder.side_effect = record(
-        "delete_document_folder", {"success": FAILURE != "folder-cleanup-rejected"},
+    api.documents.delete_folder.side_effect = record(
+        "documents.delete_folder", {"success": FAILURE != "folder-cleanup-rejected"},
         error=RuntimeError("Document cleanup unavailable") if FAILURE == "folder-cleanup" else None)
-    api.get_document_folder.side_effect = record(
-        "get_document_folder", lambda folder: {"folder": folder, "documents": []},
+    api.documents.get_folder.side_effect = record(
+        "documents.get_folder", lambda folder: {"folder": folder, "documents": []},
         200 if FAILURE == "folder-remains" else 404)
-    api.delete_workspace.side_effect = record("delete_workspace", {}, 500 if FAILURE == "workspace-cleanup" else 200)
-    api.get_workspace.side_effect = record(
-        "get_workspace", {"workspace": [{"slug": "kept"}] if FAILURE == "workspace-remains" else []})
+    api.workspaces.delete.side_effect = record("workspaces.delete", {}, 500 if FAILURE == "workspace-cleanup" else 200)
+    api.workspaces.get.side_effect = record(
+        "workspaces.get", {"workspace": [{"slug": "kept"}] if FAILURE == "workspace-remains" else []})
     return api
 
 
@@ -99,9 +99,9 @@ def test_scenario(indexed_workspace):
     assert os.environ["LIFECYCLE_FAILURE"] != "test", "Quality check failed"
 """
 
-FOLDER_CLEANUP = ["delete_document_folder", "get_document_folder"]
-WORKSPACE_CLEANUP = ["delete_workspace", "get_workspace"]
-SETUP = ["create_workspace", "create_document_folder", "upload_document", "add_workspace_documents"]
+FOLDER_CLEANUP = ["documents.delete_folder", "documents.get_folder"]
+WORKSPACE_CLEANUP = ["workspaces.delete", "workspaces.get"]
+SETUP = ["workspaces.create", "documents.create_folder", "documents.upload", "workspaces.add_documents"]
 
 
 @pytest.fixture
@@ -136,23 +136,23 @@ def test_resources_share_generated_name(lifecycle):
     _, calls = lifecycle("none")
 
     by_name = {name: (args, kwargs) for name, args, kwargs in calls}
-    workspace = by_name["create_workspace"][0][0]
+    workspace = by_name["workspaces.create"][0][0]
     assert workspace.startswith("automation-") and len(workspace) == len("automation-") + 32
-    assert by_name["create_workspace"][0][1] == str({"chatModel": "qwen"})
-    assert by_name["create_document_folder"][0] == [workspace]
-    assert by_name["upload_document"][0][1:] == [workspace]
-    assert by_name["upload_document"][1] == {"filename": f"{workspace}-company-policy.txt", "timeout": "42.0"}
-    assert by_name["add_workspace_documents"] == ([workspace, str([f"{workspace}/policy.json"])], {"timeout": "42.0"})
-    assert by_name["delete_document_folder"] == ([workspace], {"timeout": "42.0"})
+    assert by_name["workspaces.create"][0][1] == str({"chatModel": "qwen"})
+    assert by_name["documents.create_folder"][0] == [workspace]
+    assert by_name["documents.upload"][0][1:] == [workspace]
+    assert by_name["documents.upload"][1] == {"filename": f"{workspace}-company-policy.txt", "timeout": "42.0"}
+    assert by_name["workspaces.add_documents"] == ([workspace, str([f"{workspace}/policy.json"])], {"timeout": "42.0"})
+    assert by_name["documents.delete_folder"] == ([workspace], {"timeout": "42.0"})
     assert [by_name[name][0]
-            for name in ("get_document_folder", "delete_workspace", "get_workspace")] == [[workspace]] * 3
+            for name in ("documents.get_folder", "workspaces.delete", "workspaces.get")] == [[workspace]] * 3
 
 
 @pytest.mark.parametrize(("failure", "created", "cleanup", "message"), [
-        pytest.param("workspace-status", ["create_workspace"], [], "Workspace setup", id="workspace-status"),
-        pytest.param("empty-slug", ["create_workspace"], [], "nonempty slug for cleanup", id="empty-slug"),
+        pytest.param("workspace-status", ["workspaces.create"], [], "Workspace setup", id="workspace-status"),
+        pytest.param("empty-slug", ["workspaces.create"], [], "nonempty slug for cleanup", id="empty-slug"),
         pytest.param(
-        "workspace-validation", ["create_workspace"], WORKSPACE_CLEANUP, "wrong-name", id="workspace-validation"),
+        "workspace-validation", ["workspaces.create"], WORKSPACE_CLEANUP, "wrong-name", id="workspace-validation"),
         pytest.param("folder-status", SETUP[:2], WORKSPACE_CLEANUP, "Test document folder setup", id="folder-status"),
         pytest.param(
         "folder-validation", SETUP[:2], FOLDER_CLEANUP + WORKSPACE_CLEANUP, "Test document folder setup",
@@ -179,16 +179,16 @@ def test_test_failure_cleans_up(lifecycle):
 
 @pytest.mark.parametrize(("failure", "cleanup", "message"), [
         pytest.param(
-        "folder-cleanup", ["delete_document_folder"] + WORKSPACE_CLEANUP, "Document cleanup unavailable",
+        "folder-cleanup", ["documents.delete_folder"] + WORKSPACE_CLEANUP, "Document cleanup unavailable",
         id="folder-delete-raises"),
         pytest.param(
-        "folder-cleanup-rejected", ["delete_document_folder"] + WORKSPACE_CLEANUP, "Document cleanup for",
+        "folder-cleanup-rejected", ["documents.delete_folder"] + WORKSPACE_CLEANUP, "Document cleanup for",
         id="folder-delete-rejected"),
         pytest.param(
         "folder-remains", FOLDER_CLEANUP + WORKSPACE_CLEANUP, "Document folder cleanup for automation-",
         id="folder-remains"),
         pytest.param(
-        "workspace-cleanup", FOLDER_CLEANUP + ["delete_workspace"], "Cleanup for automation-",
+        "workspace-cleanup", FOLDER_CLEANUP + ["workspaces.delete"], "Cleanup for automation-",
         id="workspace-delete-fails"),
         pytest.param(
         "workspace-remains", FOLDER_CLEANUP + WORKSPACE_CLEANUP, "Field workspace: expected length 0, got 1",
