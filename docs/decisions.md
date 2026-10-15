@@ -189,6 +189,19 @@ that evidence and revalidates it with zero model calls; the commit status
 the merge commit, and any new commit needs a new run. A `smoke` run publishes a
 different status, so it cannot satisfy the merge gate.
 
+### The answer budget fits a long answer on a slow runner
+
+qwen3.5 reasons before it answers, and AnythingLLM 1.16.2 passes Ollama neither
+`think` nor an output limit, so answer length varies by case and run. One
+boundary case has taken about 4,300 tokens, and hosted CPU runners generate 6 to
+15 tokens per second. By default AnythingLLM also stops waiting for Ollama after
+300 s, a limit of Node's `fetch`; the longest answer seen before, 295 s, was just
+under it. The CI services therefore set `OLLAMA_RESPONSE_TIMEOUT` to 14 minutes
+(`compose.ci.yaml`), and the client waits 15 (`ANYTHINGLLM_LLM_TIMEOUT` in the
+live workflow), so the application reports its own error first. The budget only
+separates a slow answer from a stuck one: answer time is reported, not gated,
+and an answer that needs longer still fails.
+
 ### Automatic CI stays offline
 
 Every push runs lint, formatting, unit tests with a coverage floor and offline

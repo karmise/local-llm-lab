@@ -85,7 +85,8 @@ jobs:
       LANGCHAIN_TRACING_V2: "false"
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
       ANYTHINGLLM_DOCUMENT_TIMEOUT: "600"
-      ANYTHINGLLM_LLM_TIMEOUT: "600"
+      # Above AnythingLLM's own 840 s limit in compose.ci.yaml; see docs/decisions.md.
+      ANYTHINGLLM_LLM_TIMEOUT: "900"
       CI_REVISION: ${{ needs.resolve.outputs.revision }}
       CI_PROFILE: ${{ inputs.profile }}
       CI_MODELS: ${{ inputs.models }}
