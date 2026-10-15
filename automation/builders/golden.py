@@ -15,7 +15,7 @@ GOLDEN_DATASET = load_golden_dataset(GOLDEN_DATASET_FILE, POLICY_FILE)
 CASES = {case.id: case for case in GOLDEN_DATASET.cases}
 PAID_LEAVE = CASES["paid_leave"]
 CAPTURE_ID = "a" * 32
-POLICY_DOCUMENT = f"automation-{CAPTURE_ID}-company-policy.txt"
+POLICY_DOCUMENT = "company-policy.txt"
 
 
 def policy_context() -> str:
@@ -28,10 +28,9 @@ def make_case_sample(case: GoldenCase, *, model: str = TEST_MODEL, contexts: Seq
     """A captured sample for a golden case whose answer equals the reference; the context defaults to the policy."""
     contexts = [policy_context()] if contexts is None else contexts
     blocks = "\n".join(f"[CONTEXT {i}]:\n{context}\n[END CONTEXT {i}]" for i, context in enumerate(contexts))
-    system = f"[LLM_TESTKIT_CAPTURE:{CAPTURE_ID}]\n{blocks}"
-    messages = [{"role": "system", "content": system}, {"role": "user", "content": case.question}]
+    messages = [{"role": "system", "content": blocks}, {"role": "user", "content": case.question}]
     request = {"model": model, "stream": False, "messages": messages}
-    observation = {"schema_version": 1, "boundary": "ollama-sdk-chat", "request": request}
+    observation = {"schema_version": 2, "boundary": "ollama-sdk-chat", "capture_id": CAPTURE_ID, "request": request}
     sample = build_sample(
             observation, question=case.question, answer=case.reference, reference=case.reference, expected_model=model,
             capture_id=CAPTURE_ID)

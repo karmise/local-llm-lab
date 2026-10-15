@@ -77,7 +77,7 @@ def assert_operation_success(response: Response, *, context: str) -> dict[str, A
     return payload
 
 
-def assert_uploaded_document(response: Response, *, folder: str, filename: str) -> dict[str, Any]:
+def assert_uploaded_document(response: Response, *, folder: str, title: str) -> dict[str, Any]:
     payload = assert_operation_success(response, context="Document upload")
     assert_field_equals(payload, "error", None)
     documents = assert_field_type(payload, "documents", list)
@@ -85,7 +85,7 @@ def assert_uploaded_document(response: Response, *, folder: str, filename: str) 
     document = documents[0]
     assert isinstance(document, dict), "Expected an uploaded document object"
     assert_field_starts_with(document, "location", f"{folder}/")
-    assert_field_equals(document, "title", filename)
+    assert_field_equals(document, "title", title)
     return document
 
 

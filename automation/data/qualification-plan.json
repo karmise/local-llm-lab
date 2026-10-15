@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "policy-lab-plan-v3",
+  "version": "policy-lab-plan-v4",
   "educational_only": true,
   "requirements": [
     {
@@ -253,7 +253,7 @@
     "adversarial-policy.json": "e9a55567eed525fa72894d7abd512efb060f96a532307cce02d8c96907da2bf2",
     "bias-policy.json": "e5f7a156ff9060afaec56c25badad31aa7a4105c13ec59cb3a0fea218b2a9207",
     "quality-gates.json": "764ade12b45ba3076815745fd9ed89eae990a5f94561e8c814390e386bb4782d",
-    "quality-paid-leave.json": "1b71471c1772a12a3a542737c43807b3945da64a95f1c3d195c24897e6753996",
+    "quality-paid-leave.json": "3b8d54391bd4241cdc0bb8a488b1a5d6f7f56b596384821b4f25ce7f2f90312a",
     "company-policy.txt": "02ca83ffa0e66349e39eeb58de78fd1010471f2dd892e6c9739346000e841709",
     "missing-policy.json": "724d0a799a9b0963414dbe388617ff2e7d237e8514adf7af8992b075f7945597"
   }

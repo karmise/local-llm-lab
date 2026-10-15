@@ -214,7 +214,7 @@ DOCUMENT = {"location": "folder/policy.json", "title": "policy.txt"}
 def test_uploaded_document_accepts():
     reply = response({"success": True, "error": None, "documents": [DOCUMENT]})
 
-    assert assertions.assert_uploaded_document(reply, folder="folder", filename="policy.txt") == DOCUMENT
+    assert assertions.assert_uploaded_document(reply, folder="folder", title="policy.txt") == DOCUMENT
 
 
 @pytest.mark.parametrize(("payload", "message"), [
@@ -243,14 +243,14 @@ def test_uploaded_document_accepts():
 @title("An upload that failed or stored another document is rejected [{param_id}]")
 def test_uploaded_document_rejects(payload, message):
     rejects(
-            lambda: assertions.assert_uploaded_document(response(payload), folder="folder", filename="policy.txt"),
+            lambda: assertions.assert_uploaded_document(response(payload), folder="folder", title="policy.txt"),
             message)
 
 
 @title("A failed upload request names the document upload")
 def test_uploaded_document_rejects_status():
     rejects(
-            lambda: assertions.assert_uploaded_document(response({}, 500), folder="folder", filename="policy.txt"),
+            lambda: assertions.assert_uploaded_document(response({}, 500), folder="folder", title="policy.txt"),
             "^Document upload: expected HTTP 200, got 500$")
 
 

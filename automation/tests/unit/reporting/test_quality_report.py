@@ -191,7 +191,7 @@ def test_missing_faithfulness_evidence_is_an_error(tmp_path):
 
 @title("The expected document comes from captured context, so a citation of another document fails")
 def test_expected_source_is_derived_from_context_not_citations(tmp_path):
-    inputs = quality_inputs(tmp_path, cited_document=f"automation-{'b' * 32}-company-policy.txt")
+    inputs = quality_inputs(tmp_path, cited_document="handbook.txt")
 
     report = build_quality_report(*inputs.paths())
 
@@ -204,8 +204,7 @@ def test_expected_source_is_derived_from_context_not_citations(tmp_path):
         pytest.param((f"intro\n{policy_context()}", ), id="metadata-not-first"),
         pytest.param(("<document_metadata>\ntitle: policy\n</document_metadata>\nText", ), id="no-source-document"),
         pytest.param((policy_context("handbook.txt"), ), id="unexpected-document"),
-        pytest.param(
-        (policy_context(), policy_context(f"automation-{'b' * 32}-company-policy.txt")), id="two-documents")])
+        pytest.param((policy_context(), policy_context("handbook.txt")), id="policy-and-another-document")])
 @title("Captured context must name exactly one expected policy document [{param_id}]")
 def test_source_check_requires_one_expected_document(tmp_path, contexts):
     report = build_quality_report(*quality_inputs(tmp_path, contexts=contexts).paths())

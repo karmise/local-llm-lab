@@ -165,10 +165,9 @@ def test_acceptance_dimensions_fail_incomplete_answer():
         "contexts", [
         pytest.param(["Unrelated document"], id="no-policy-document"),
         pytest.param(["sourceDocument: other-policy.txt"], id="unrecognised-title"),
-        pytest.param([
-        f"sourceDocument: automation-{'a' * 32}-company-policy.txt",
-        f"sourceDocument: automation-{'b' * 32}-company-policy.txt"], id="two-policy-documents")])
-@title("The source check is an error unless the model saw exactly one captured policy document [{param_id}]")
+        pytest.param(["sourceDocument: company-policy.txt", "sourceDocument: other-policy.txt"],
+        id="policy-and-another-document")])
+@title("The source check is an error unless the model saw only the captured policy document [{param_id}]")
 def test_acceptance_dimensions_require_one_captured_document(contexts):
     sample = {**make_benchmark_sample(PAID_LEAVE), "retrieved_contexts": contexts}
 

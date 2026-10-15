@@ -217,7 +217,9 @@ not upload a second document.
 1. Environment fixtures load the workspace template, policy document and profile.
    Credentials come from the environment or a local key file, not test source.
 2. The resource fixtures create a uniquely named `automation-...` workspace and
-   folder, upload the fictional policy and add it to the workspace index.
+   folder, upload the fictional policy and add it to the workspace index. The
+   uploaded file name is unique too, but the document keeps the title
+   `company-policy.txt`, so the model sees the same source name in every run.
 3. RAG fixtures verify the selected installed model and workspace configuration,
    then record model digest, policy hash, configuration and repetition metadata.
 4. The UI fixture creates the Page Object and opens that temporary workspace.
@@ -293,9 +295,10 @@ expected fragments. Answer-source checks verify the cited document and passages.
 Neither establishes the complete context actually sent to the generator.
 
 The optional SDK-boundary capture records the actual model request for the
-non-streaming API scenario. Sample construction extracts its document contexts
-and validates the capture marker, model and question. The UI's streaming flow is
-separate and is not covered by that capture mechanism.
+non-streaming API scenario. The hook removes the test's capture marker before
+the call, so the model's input does not change between runs. Sample construction
+extracts its document contexts and validates the capture id, model and question.
+The UI's streaming flow is separate and is not covered by that capture mechanism.
 
 Four RAGAS metrics use a local judge model:
 

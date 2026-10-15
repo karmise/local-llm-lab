@@ -147,6 +147,22 @@ temperature 0, thinking disabled and a fixed seed. The manual conversation
 workspace keeps 0.1. None of this makes outputs fully deterministic, which is why
 answers are judged by facts and metrics, not exact text.
 
+### The model gets the same input in every run
+
+Temperature 0 helps only if the input is the same. Two test artefacts used to
+change it in every run: the unique `automation-<id>` file name, which the model
+saw as the source document and repeated in its answers, and the capture marker
+appended to the workspace prompt. A gate once failed for that reason alone: the
+answers were correct, but their wording shifted with the name and the judge
+scored the new wording differently. The policy is now uploaded under a unique
+file name, so concurrent uploads stay apart, with the document title
+`company-policy.txt` (`fixtures/resources.py`). The capture hook removes the
+marker before the call and records the request exactly as forwarded
+(`observation/ollama-preload.cjs`). What ties the context to the test is the
+test's own workspace, which holds only that document. One difference remains:
+AnythingLLM stamps the upload time into each chunk header, and its file-upload
+API cannot set it.
+
 ### Evidence is bound by checksums
 
 The golden dataset, catalogs, gates and qualification plan are versioned and
