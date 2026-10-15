@@ -1,7 +1,7 @@
 import pytest
 
-from llm_testkit.reporting.allure_report import present_quality_report
-from llm_testkit.reporting.steps import title
+from reporting.allure_report import present_quality_report
+from reporting.steps import title
 
 pytestmark = pytest.mark.quality
 

@@ -104,8 +104,10 @@ Application UI, golden, regression and performance suites run locally.
 
 ## 3. Know where each responsibility belongs
 
-The package lives under `automation/src/llm_testkit`. The tests consume the
-package; they do not implement transport or resource ownership themselves.
+Each layer is a top-level folder in `automation/`: `api/`, `pages/`, `fixtures/`,
+`models/`, `data/`, `helpers/`, `assertions/`, `evaluation/`, `reporting/` and
+others. `tests/` holds only tests; they use these layers and do not implement
+transport, setup helpers or resource ownership themselves.
 
 ```mermaid
 flowchart TB
@@ -133,18 +135,18 @@ operations across these layers; it does not decide whether an answer is correct.
 
 | File/module | Responsibility | Why this boundary exists |
 | --- | --- | --- |
-| [config.py](../automation/src/llm_testkit/config.py) | Immutable settings, environment variables and URL/timeout validation. | A configuration error should be identified before it becomes a confusing network failure. |
-| [core/http_client.py](../automation/src/llm_testkit/core/http_client.py) | Requests session, base URL, timeout, response and session closure. | Clients share one transport policy. There are no implicit retries; redirects are disabled by default so a redirect remains observable. |
-| [clients/base_client.py](../automation/src/llm_testkit/clients/base_client.py) | Base path, default headers such as the API key, and one-segment path encoding. | Every client gets the same request rules without repeating them. |
-| [clients/anythingllm/](../automation/src/llm_testkit/clients/anythingllm/) | `AnythingLLMClient` with health and authentication, plus `workspaces` and `documents` operations. | Tests speak in operations such as `api.workspaces.create(...)`, grouped by resource, not repeated request construction. Clients return raw responses and do not impose acceptance criteria. |
-| [clients/ollama.py](../automation/src/llm_testkit/clients/ollama.py) | Installed models and the judge's structured chat. | Evaluation code does not build Ollama requests itself. |
-| [pages/base_page.py](../automation/src/llm_testkit/pages/base_page.py), [pages/workspace_page.py](../automation/src/llm_testkit/pages/workspace_page.py) | Navigation and timeouts in `BasePage`; UI locators, sending and source-opening actions in `WorkspacePage`. | An upstream label or DOM change can be fixed in one place without rewriting scenarios. |
-| [assertions/](../automation/src/llm_testkit/assertions/) | Reusable field, API, answer, quality and UI acceptance checks, one module per area. | API and UI scenarios reuse the same policy rules and diagnostic messages. |
-| [test_support/fixtures/environment.py](../automation/src/test_support/fixtures/environment.py) | Paths, settings, API clients and shared scenario profiles. | Tests do not need to find local credentials or duplicate file-loading logic. |
-| [test_support/fixtures/resources.py](../automation/src/test_support/fixtures/resources.py) | Workspace/folder creation, upload, indexing and cleanup. | Resource ownership must remain reliable when a scenario or setup check fails. |
-| [test_support/fixtures/rag.py](../automation/src/test_support/fixtures/rag.py) | Model selection, metadata, generation and optional capture. | Comparisons need a record of the model/configuration that produced each answer. |
-| `test_support/builders/` | Public per-domain builders and deterministic doubles shared by several test modules. | A test module reuses reviewed data without importing another module's private helpers. |
-| [pytest_plugin/options.py](../automation/src/llm_testkit/pytest_plugin/options.py) | CLI flags, model/repetition matrix and opt-in validation. | Selection rules belong in one place and apply after `-k`/`-m` filtering. |
+| [config.py](../automation/config.py) | Immutable settings, environment variables and URL/timeout validation. | A configuration error should be identified before it becomes a confusing network failure. |
+| [api/http_client.py](../automation/api/http_client.py) | Requests session, base URL, timeout, response and session closure. | Clients share one transport policy. There are no implicit retries; redirects are disabled by default so a redirect remains observable. |
+| [api/base_client.py](../automation/api/base_client.py) | Base path, default headers such as the API key, and one-segment path encoding. | Every client gets the same request rules without repeating them. |
+| [api/anythingllm/](../automation/api/anythingllm/) | `AnythingLLMClient` with health and authentication, plus `workspaces` and `documents` operations. | Tests speak in operations such as `api.workspaces.create(...)`, grouped by resource, not repeated request construction. Clients return raw responses and do not impose acceptance criteria. |
+| [api/ollama.py](../automation/api/ollama.py) | Installed models and the judge's structured chat. | Evaluation code does not build Ollama requests itself. |
+| [pages/base_page.py](../automation/pages/base_page.py), [pages/workspace_page.py](../automation/pages/workspace_page.py) | Navigation and timeouts in `BasePage`; UI locators, sending and source-opening actions in `WorkspacePage`. | An upstream label or DOM change can be fixed in one place without rewriting scenarios. |
+| [assertions/](../automation/assertions/) | Reusable field, API, answer, quality and UI acceptance checks, one module per area. | API and UI scenarios reuse the same policy rules and diagnostic messages. |
+| [fixtures/environment.py](../automation/fixtures/environment.py) | Paths, settings, API clients and shared scenario profiles. | Tests do not need to find local credentials or duplicate file-loading logic. |
+| [fixtures/resources.py](../automation/fixtures/resources.py) | Workspace/folder creation, upload, indexing and cleanup. | Resource ownership must remain reliable when a scenario or setup check fails. |
+| [fixtures/rag.py](../automation/fixtures/rag.py) | Model selection, metadata, generation and optional capture. | Comparisons need a record of the model/configuration that produced each answer. |
+| `builders/` | Public per-domain builders and deterministic doubles shared by several test modules. | A test module reuses reviewed data without importing another module's private helpers. |
+| [plugins/options.py](../automation/plugins/options.py) | CLI flags, model/repetition matrix and opt-in validation. | Selection rules belong in one place and apply after `-k`/`-m` filtering. |
 | `evaluation/` | RAGAS adapter, faithful-claim measurement and judge controls. | Evaluation mechanics can be investigated separately from app scenarios. |
 | `reporting/` | Allure integration, combined quality evidence and stability summaries. | A reporter presents evidence; it must not silently retry or relax checks. |
 | [tests/conftest.py](../automation/tests/conftest.py) | Plugin registration and assertion rewriting. | This entry point stays small rather than accumulating all setup logic. |
@@ -161,10 +163,10 @@ patches and, for lifecycle/collection behavior, real child pytest runs.
 These are project choices, not a universal requirement that every Python test
 must hide its assertions or that every application needs this many layers.
 
-Live and browser fixtures live under `src/test_support/fixtures`, and suite
+Live and browser fixtures live under `fixtures`, and suite
 `conftest.py` files select their scope. A unit fixture, table or child-test source
 used by one test module is defined in that module; shared unit data comes from
-`test_support/builders`. Test functions follow arrange-act-assert without
+`builders`. Test functions follow arrange-act-assert without
 conditional branches; different expectations use separate tests or explicit
 expected values in a `pytest.param(..., id=...)` table. See
 [decisions](decisions.md#unit-tests-are-plain-pytest-verified-by-mutation-testing) for the reasoning and the mutation results.
@@ -263,7 +265,7 @@ it does not delete unrelated workspaces in an attempt to guess ownership.
 
 A language model can express the same policy in several ways. Comparing its
 whole answer with one fixed string would reject many acceptable paraphrases.
-The shared [paid-leave profile](../automation/test_data/quality-paid-leave.json)
+The shared [paid-leave profile](../automation/data/quality-paid-leave.json)
 therefore defines a question, reference, required-fact patterns and source
 fragments. API and UI scenarios consume that profile.
 
@@ -277,7 +279,7 @@ contradiction that still includes the expected words/numbers. Their success mean
 that the configured patterns matched, not that every statement is semantically
 correct. Stronger checks require additional labeled cases or evaluation methods.
 
-The [missing-policy profile](../automation/test_data/missing-policy.json) asks
+The [missing-policy profile](../automation/data/missing-policy.json) asks
 about gym reimbursement. Its check requires an explicit absence of information,
 the correct topic and no proposed reimbursement amount. This catches a basic
 hallucination pattern that the positive paid-leave case cannot cover. The helper
@@ -320,7 +322,7 @@ claim coverage, binary verdicts and score consistency. A checksum detects a file
 mismatch; it is not proof that the judge is correct or protection against someone
 who rewrites both the data and its checksum.
 
-Thresholds live in [quality-gates.json](../automation/test_data/quality-gates.json):
+Thresholds live in [quality-gates.json](../automation/data/quality-gates.json):
 faithfulness ≥ 0.9, context precision ≥ 0.8 and context recall ≥ 0.9. They are
 experimental, chosen for this small curated corpus rather than calibrated. Factual
 correctness has no threshold: on one- or two-claim answers a single judge error
@@ -361,9 +363,9 @@ source .venv/bin/activate
 python -m pip install -r requirements.lock -r requirements-dev.lock
 python -m pip install --no-deps -e .
 python -m pytest tests/unit -q
-python -m ruff check src tests
-python -m isort --check-only --diff src tests
-python -m yapf --diff --recursive src tests
+python -m ruff check .
+python -m isort --check-only --diff .
+python -m yapf --diff --recursive .
 ```
 
 Use an existing `.venv` when one is already configured. Without evaluation
@@ -462,13 +464,13 @@ For example, the fictional policy also specifies travel allowance and hotel
 limits. A new API RAG scenario can reuse the existing document and workspace
 lifecycle; it does not require a new transport class or another base-test class.
 A new endpoint becomes a method on the matching resource API
-(`clients/anythingllm/workspaces.py` or `documents.py`), which inherits the base
+(`api/anythingllm/workspaces.py` or `documents.py`), which inherits the base
 path, API key and path encoding from `BaseClient`.
 
 1. Define the question, reference and expected facts/source fragments in a new
-   English profile under `test_data/`. Derive its expected amounts from the policy,
+   English profile under `data/`. Derive its expected amounts from the policy,
    not from a generated answer.
-2. Add a profile-loading fixture to `test_support/fixtures/environment.py` if the profile
+2. Add a profile-loading fixture to `fixtures/environment.py` if the profile
    is consumed by tests. Keep shared scenario data out of individual test bodies.
 3. Add a test alongside `tests/rag/test_rag.py`, using `rag_chat`, the uploaded document
    and the profile. Give it a descriptive `@title` and the appropriate marker.

@@ -8,10 +8,10 @@ from unittest.mock import MagicMock, Mock, call
 import pytest
 import requests
 
-from llm_testkit.ci import model_cache
-from llm_testkit.ci.model_cache import download_blob, install_models, reviewed_manifest
-from llm_testkit.reporting.steps import title
-from test_support.paths import AUTOMATION_ROOT
+from ci import model_cache
+from ci.model_cache import download_blob, install_models, reviewed_manifest
+from helpers.paths import AUTOMATION_ROOT
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

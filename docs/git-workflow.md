@@ -11,9 +11,9 @@ git switch -c refactor/short-description
 # Make the change, then run the offline checks from automation:
 cd automation
 python -m pytest tests/unit -q
-python -m ruff check src tests
-python -m isort --check-only --diff src tests
-python -m yapf --diff --recursive src tests
+python -m ruff check .
+python -m isort --check-only --diff .
+python -m yapf --diff --recursive .
 cd ..
 git add -A automation docs
 git diff --cached

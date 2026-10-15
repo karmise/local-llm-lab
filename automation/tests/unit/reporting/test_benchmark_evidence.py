@@ -9,9 +9,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from llm_testkit.reporting.benchmark_evidence import load_saved_benchmark
-from llm_testkit.reporting.steps import title
-from test_support.builders.benchmark import save_benchmark_run
+from builders.benchmark import save_benchmark_run
+from reporting.benchmark_evidence import load_saved_benchmark
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

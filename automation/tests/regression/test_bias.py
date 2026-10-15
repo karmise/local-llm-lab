@@ -1,9 +1,9 @@
 import pytest
 
-from llm_testkit import assertions
-from llm_testkit.datasets.bias import BiasCase
-from llm_testkit.reporting.steps import title
-from test_support.fixtures.bias import bias_metadata as bias_metadata
+import assertions
+from fixtures.bias import bias_metadata as bias_metadata
+from models.bias import BiasCase
+from reporting.steps import title
 
 pytestmark = [pytest.mark.rag, pytest.mark.bias]
 

@@ -6,13 +6,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from llm_testkit.config import Settings
-from llm_testkit.evaluation import benchmark as evaluation
-from llm_testkit.reporting.steps import title
-from test_support.builders.benchmark import (
+from builders.benchmark import (
         GENERATION_DIGEST, JUDGE_DIGEST, MINIMA, MODEL, make_benchmark_sample, make_metric_evidence,
         patch_metric_reports)
-from test_support.builders.golden import CASES, GOLDEN_DATASET, GOLDEN_DATASET_FILE, PAID_LEAVE, POLICY_FILE
+from builders.golden import CASES, GOLDEN_DATASET, GOLDEN_DATASET_FILE, PAID_LEAVE, POLICY_FILE
+from config import Settings
+from evaluation import benchmark as evaluation
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

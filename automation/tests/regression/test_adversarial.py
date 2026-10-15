@@ -5,11 +5,11 @@ from typing import Any
 import pytest
 from requests import Response
 
-from llm_testkit import assertions
-from llm_testkit.datasets.adversarial import AdversarialCase
-from llm_testkit.reporting.steps import title
-from test_support.fixtures.adversarial import adversarial_metadata as adversarial_metadata
-from test_support.fixtures.adversarial import policy_file as policy_file
+import assertions
+from fixtures.adversarial import adversarial_metadata as adversarial_metadata
+from fixtures.adversarial import policy_file as policy_file
+from models.adversarial import AdversarialCase
+from reporting.steps import title
 
 pytestmark = [pytest.mark.rag, pytest.mark.adversarial]
 

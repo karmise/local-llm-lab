@@ -9,19 +9,18 @@ from unittest.mock import AsyncMock, Mock, call
 
 import pytest
 
-from llm_testkit.config import Settings
-from llm_testkit.datasets.judge_controls import maximum_calls
-from llm_testkit.evaluation import judge_connection, judge_validation
-from llm_testkit.evaluation.judge_validation import (
+from builders.golden import GOLDEN_DATASET
+from builders.identities import MODEL_DIGEST, TEST_MODEL
+from builders.judge_validation import JUDGE_CONTROLS_FILE, RECALL_STATEMENTS, control, control_outputs, curated_controls
+from builders.ollama import chat_response, model_catalog
+from builders.optional import load_ollama_judge
+from config import Settings
+from evaluation import judge_connection, judge_validation
+from evaluation.judge_validation import (
         evaluate_judge_controls, label_mismatches, main, result_from_evidence, score_control, summarize_validation)
-from llm_testkit.reporting.steps import title
-from test_support.builders.golden import GOLDEN_DATASET
-from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
-from test_support.builders.judge_validation import (
-        JUDGE_CONTROLS_FILE, RECALL_STATEMENTS, control, control_outputs, curated_controls)
-from test_support.builders.ollama import chat_response, model_catalog
-from test_support.builders.optional import load_ollama_judge
-from test_support.paths import AUTOMATION_ROOT
+from helpers.paths import AUTOMATION_ROOT
+from models.judge_controls import maximum_calls
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -335,7 +334,7 @@ def cli(tmp_path, monkeypatch):
             "judge_calls": [{}, {}]}])
     monkeypatch.setattr(judge_connection, "HttpClient", state.http_class)
     monkeypatch.setattr(judge_connection, "OllamaClient", Mock(return_value=state.ollama))
-    monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", state.judge_class)
+    monkeypatch.setattr("evaluation.ollama_judge.OllamaJudge", state.judge_class)
     monkeypatch.setattr(judge_validation, "evaluate_judge_controls", state.evaluate)
 
     def invoke(*arguments: str) -> int:

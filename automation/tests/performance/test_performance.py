@@ -1,8 +1,8 @@
 import pytest
 
-from llm_testkit.performance.reporting import record_batch
-from llm_testkit.performance.runner import run_batch
-from llm_testkit.reporting.steps import title
+from performance.reporting import record_batch
+from performance.runner import run_batch
+from reporting.steps import title
 
 pytestmark = pytest.mark.performance
 

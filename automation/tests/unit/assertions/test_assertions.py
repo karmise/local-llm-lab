@@ -7,8 +7,8 @@ from types import SimpleNamespace
 import pytest
 from requests import Response
 
-from llm_testkit import assertions
-from llm_testkit.reporting.steps import title
+import assertions
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

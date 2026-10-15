@@ -2,11 +2,11 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from llm_testkit import assertions
-from llm_testkit.reporting.steps import title
+import assertions
+from reporting.steps import title
 
 if TYPE_CHECKING:
-    from llm_testkit.pages.workspace_page import WorkspacePage
+    from pages.workspace_page import WorkspacePage
 
 pytestmark = pytest.mark.ui
 

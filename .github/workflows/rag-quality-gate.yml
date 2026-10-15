@@ -62,7 +62,7 @@ jobs:
             --faithfulness-report reports/input-evidence/faithfulness.json \
             --correctness-report reports/input-evidence/correctness.json \
             --relevance-report reports/input-evidence/relevance.json \
-            --quality-gates test_data/quality-gates.json \
+            --quality-gates data/quality-gates.json \
             --alluredir reports/quality-gate/allure-results \
             --junitxml reports/quality-gate/results.xml
       - name: Save gate evidence even on failure

@@ -1,7 +1,7 @@
 import pytest
 
-from llm_testkit.reporting.benchmark_presentation import present_benchmark_report
-from llm_testkit.reporting.steps import title
+from reporting.benchmark_presentation import present_benchmark_report
+from reporting.steps import title
 
 pytestmark = pytest.mark.quality
 

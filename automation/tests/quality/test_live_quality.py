@@ -5,12 +5,12 @@ from typing import Any
 import pytest
 from requests import Response
 
-from llm_testkit.config import Settings
-from llm_testkit.observation.evaluation_sample import write_sample
-from llm_testkit.reporting.allure_report import present_quality_report
-from llm_testkit.reporting.live_quality import evaluate_captured_answer, generate_captured_answer
-from llm_testkit.reporting.quality import build_quality_report
-from llm_testkit.reporting.steps import title
+from config import Settings
+from observation.evaluation_sample import write_sample
+from reporting.allure_report import present_quality_report
+from reporting.live_quality import evaluate_captured_answer, generate_captured_answer
+from reporting.quality import build_quality_report
+from reporting.steps import title
 
 pytestmark = [pytest.mark.rag, pytest.mark.live_quality]
 

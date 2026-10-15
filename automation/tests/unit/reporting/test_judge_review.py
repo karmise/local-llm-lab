@@ -6,11 +6,11 @@ import json
 
 import pytest
 
-from llm_testkit.reporting import judge_review
-from llm_testkit.reporting.benchmark_evidence import load_saved_benchmark
-from llm_testkit.reporting.judge_review import main, review_benchmark
-from llm_testkit.reporting.steps import title
-from test_support.builders.benchmark import JUDGE_DIGEST, MODEL, save_benchmark_run
+from builders.benchmark import JUDGE_DIGEST, MODEL, save_benchmark_run
+from reporting import judge_review
+from reporting.benchmark_evidence import load_saved_benchmark
+from reporting.judge_review import main, review_benchmark
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

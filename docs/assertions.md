@@ -1,7 +1,7 @@
 # Reusable Assertions
 
-All explicit checks live in the `automation/src/llm_testkit/assertions/` package, one module per
-area (`fields`, `api`, `answers`, `quality`, `ui`); `from llm_testkit import assertions` exposes all of them.
+All explicit checks live in the `automation/assertions/` package, one module per
+area (`fields`, `api`, `answers`, `quality`, `ui`); `import assertions` exposes all of them.
 Tests describe scenarios and call named checks. Fixtures also use this module
 to validate resource setup and cleanup. API clients still return responses
 without checking expected outcomes.
@@ -50,7 +50,7 @@ assertions.assert_workspace_matches(
 
 ## pytest diagnostics and verification
 
-`tests/conftest.py` registers `llm_testkit.assertions` for pytest assertion
+`tests/conftest.py` registers `assertions` for pytest assertion
 rewriting before importing it. This preserves detailed assertion diagnostics
 inside the shared module. Registration belongs to the pytest layer; importing
 the framework package does not itself import pytest.

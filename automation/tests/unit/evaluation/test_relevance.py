@@ -11,21 +11,20 @@ from unittest.mock import ANY, AsyncMock, Mock, call
 
 import pytest
 
-from llm_testkit.config import Settings
-from llm_testkit.evaluation.relevance import (
-        check_relevance_evidence, evaluate_relevance_report, main, score_relevance, validate_relevance)
-from llm_testkit.reporting.steps import title
-from test_support.builders.golden import (
-        GOLDEN_DATASET, GOLDEN_DATASET_FILE, PAID_LEAVE, POLICY_FILE, make_paid_leave_sample)
-from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
-from test_support.builders.ollama import chat_response, model_catalog
-from test_support.builders.optional import load_ollama_judge
-from test_support.builders.relevance import (
+from builders.golden import GOLDEN_DATASET, GOLDEN_DATASET_FILE, PAID_LEAVE, POLICY_FILE, make_paid_leave_sample
+from builders.identities import MODEL_DIGEST, TEST_MODEL
+from builders.ollama import chat_response, model_catalog
+from builders.optional import load_ollama_judge
+from builders.relevance import (
         ALLOWANCE_CLAIM, make_relevance_evidence, make_result, precision_verdicts, recall_classifications)
+from config import Settings
+from evaluation.relevance import (
+        check_relevance_evidence, evaluate_relevance_report, main, score_relevance, validate_relevance)
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
-SCORE = "llm_testkit.evaluation.relevance.score_relevance"
+SCORE = "evaluation.relevance.score_relevance"
 THREE_CONTEXTS = ["Relevant", "Unrelated", "Relevant"]
 
 
@@ -223,9 +222,9 @@ def offline_service(tmp_path, monkeypatch):
     service.http_class = Mock(return_value=service.transport)
     service.ollama_class = Mock(return_value=service.ollama)
     service.judge_class = Mock(side_effect=[service.precision_judge, service.recall_judge])
-    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.HttpClient", service.http_class)
-    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.OllamaClient", service.ollama_class)
-    monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", service.judge_class)
+    monkeypatch.setattr("evaluation.judge_connection.HttpClient", service.http_class)
+    monkeypatch.setattr("evaluation.judge_connection.OllamaClient", service.ollama_class)
+    monkeypatch.setattr("evaluation.ollama_judge.OllamaJudge", service.judge_class)
     return service
 
 
@@ -347,7 +346,7 @@ def cli_evaluation(monkeypatch):
     """The CLI's evaluation step, replaced so that argument handling and exit codes are checked offline."""
     monkeypatch.delenv("ANYTHINGLLM_API_KEY_FILE", raising=False)
     evaluation = Mock(return_value={"status": "completed"})
-    monkeypatch.setattr("llm_testkit.evaluation.relevance.evaluate_relevance_report", evaluation)
+    monkeypatch.setattr("evaluation.relevance.evaluate_relevance_report", evaluation)
     return evaluation
 
 
@@ -370,9 +369,8 @@ def test_cli_writes_completed_report(run_cli, cli_evaluation, tmp_path, capsys):
     assert json.loads(output.read_text()) == {"status": "completed"}
     assert "Relevance: completed" in capsys.readouterr().out
     cli_evaluation.assert_called_once_with(
-            Path("sample.json"), dataset_path=Path("test_data/golden-policy.json"),
-            policy_file=Path("test_data/company-policy.txt"), case_id=PAID_LEAVE.id, settings=ANY,
-            judge_model="qwen3.5:4b")
+            Path("sample.json"), dataset_path=Path("data/golden-policy.json"),
+            policy_file=Path("data/company-policy.txt"), case_id=PAID_LEAVE.id, settings=ANY, judge_model="qwen3.5:4b")
     assert isinstance(cli_evaluation.call_args.kwargs["settings"], Settings)
 
 

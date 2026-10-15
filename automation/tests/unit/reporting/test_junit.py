@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from llm_testkit.reporting.junit import TestCaseResult as CaseResult
-from llm_testkit.reporting.junit import read_junit
-from llm_testkit.reporting.steps import title
+from reporting.junit import TestCaseResult as CaseResult
+from reporting.junit import read_junit
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

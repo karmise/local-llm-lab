@@ -9,13 +9,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from llm_testkit.reporting import drift
-from llm_testkit.reporting.drift import (
-        compare_snapshots, digest, make_snapshot, record_snapshot, seal_snapshot, validate_snapshot)
-from llm_testkit.reporting.gates import METRICS
-from llm_testkit.reporting.steps import title
-from test_support.builders.golden import (
+from builders.golden import (
         CAPTURE_ID, GOLDEN_DATASET, GOLDEN_DATASET_FILE, POLICY_FILE, TEST_DATA, make_paid_leave_sample)
+from reporting import drift
+from reporting.drift import compare_snapshots, digest, make_snapshot, record_snapshot, seal_snapshot, validate_snapshot
+from reporting.gates import METRICS
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -630,7 +629,7 @@ def test_cli_record(tmp_path, monkeypatch, capsys, assembly):
 def test_cli_record_defaults(tmp_path, monkeypatch, assembly):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "reports/history").mkdir(parents=True)
-    (tmp_path / "test_data").symlink_to(TEST_DATA)
+    (tmp_path / "data").symlink_to(TEST_DATA)
 
     run_cli(
             monkeypatch, "record", "--sample", assembly.sample_path, "--faithfulness",
@@ -638,9 +637,9 @@ def test_cli_record_defaults(tmp_path, monkeypatch, assembly):
             assembly.evidence["relevance"])
 
     (args, kwargs), = assembly.calls
-    assert args[2] == drift.Path("test_data/quality-paid-leave.json")
-    assert (kwargs["golden_dataset_path"], kwargs["policy_file"]) == (
-            drift.Path("test_data/golden-policy.json"), drift.Path("test_data/company-policy.txt"))
+    assert args[2] == drift.Path("data/quality-paid-leave.json")
+    assert (kwargs["golden_dataset_path"],
+            kwargs["policy_file"]) == (drift.Path("data/golden-policy.json"), drift.Path("data/company-policy.txt"))
     recorded, = (tmp_path / "reports/history").iterdir()
     assert json.loads(recorded.read_text())["case_id"] == "paid_leave"
 

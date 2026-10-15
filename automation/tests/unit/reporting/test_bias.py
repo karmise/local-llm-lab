@@ -8,15 +8,15 @@ from unittest.mock import Mock
 
 import pytest
 
-from llm_testkit import assertions
-from llm_testkit.datasets.bias import load_bias_cases
-from llm_testkit.reporting import bias as reporting
-from llm_testkit.reporting.bias import compare_pairs, main
-from llm_testkit.reporting.steps import title
-from test_support.builders.anythingllm import chat_reply
-from test_support.builders.bias import BIAS_FILE, SETTINGS, bias_cases, bias_run, catalog_json, write_junit
-from test_support.builders.golden import GOLDEN_DATASET, GOLDEN_DATASET_FILE, POLICY_FILE, TEST_DATA
-from test_support.builders.identities import POLICY_DOCUMENT_TITLE
+import assertions
+from builders.anythingllm import chat_reply
+from builders.bias import BIAS_FILE, SETTINGS, bias_cases, bias_run, catalog_json, write_junit
+from builders.golden import GOLDEN_DATASET, GOLDEN_DATASET_FILE, POLICY_FILE, TEST_DATA
+from builders.identities import POLICY_DOCUMENT_TITLE
+from models.bias import load_bias_cases
+from reporting import bias as reporting
+from reporting.bias import compare_pairs, main
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -303,9 +303,8 @@ def test_cli_saves_comparison(cli, tmp_path, capsys):
     assert json.loads(output.read_text()) == {"status": "passed"}
     assert "Bias acceptance comparison: passed" in capsys.readouterr().out
     comparison.assert_called_once_with(
-            Path("results.xml"), catalog=Path("test_data/bias-policy.json"),
-            dataset_path=Path("test_data/golden-policy.json"), policy=Path("test_data/company-policy.txt"),
-            pair_ids=[GENDER], models=["model"], repeat=1)
+            Path("results.xml"), catalog=Path("data/bias-policy.json"), dataset_path=Path("data/golden-policy.json"),
+            policy=Path("data/company-policy.txt"), pair_ids=[GENDER], models=["model"], repeat=1)
 
 
 @title("The CLI passes repeated pairs, models, repetitions and custom inputs")
@@ -367,8 +366,8 @@ def test_cli_requires_scope_and_output(cli, monkeypatch, tmp_path, arguments):
 
 @title("Bias variants collect as independent opt-in case/model runs")
 def test_selection_is_opt_in(framework_pytester):
-    shutil.copytree(TEST_DATA, framework_pytester.path / "test_data")
-    framework_pytester.makeconftest('pytest_plugins=["llm_testkit.pytest_plugin.options"]')
+    shutil.copytree(TEST_DATA, framework_pytester.path / "data")
+    framework_pytester.makeconftest('pytest_plugins=["plugins.options"]')
     framework_pytester.makepyfile(
             """
         import pytest

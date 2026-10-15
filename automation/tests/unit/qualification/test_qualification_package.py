@@ -8,12 +8,12 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from llm_testkit.qualification import package
-from llm_testkit.qualification.package import build_package, verify_package
-from llm_testkit.qualification.plan import load_plan
-from llm_testkit.qualification.trace import trace_results
-from llm_testkit.reporting.steps import title
-from test_support.builders.qualification import SELECTOR, qualification_lab, reviewed_plan, run
+from builders.qualification import SELECTOR, qualification_lab, reviewed_plan, run
+from qualification import package
+from qualification.package import build_package, verify_package
+from qualification.plan import load_plan
+from qualification.trace import trace_results
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -271,8 +271,8 @@ def test_build_package(lab):
     assert {path.relative_to(output).as_posix()
             for path in output.rglob("*") if path.is_file()} == {
             "manifest.json", "summary.md", "traceability.json", "definitions/plan.json", "definitions/data/policy.txt",
-            "definitions/src/runtime.py", "definitions/tests/test_example.py", "junit/0-results.xml",
-            "attachments/0-metrics.json"}
+            "definitions/runtime/__init__.py", "definitions/runtime/version.py", "definitions/tests/test_example.py",
+            "junit/0-results.xml", "attachments/0-metrics.json"}
     assert (output / "definitions/plan.json").read_bytes() == lab.plan_path.read_bytes()
     assert (output / "junit/0-results.xml").read_bytes() == junit.read_bytes()
     assert (output / "attachments/0-metrics.json").read_bytes() == attachment.read_bytes()
@@ -337,11 +337,11 @@ def test_build_rejects_invalid_inputs(lab, junit, attach, message):
 
 
 @pytest.mark.parametrize(("target", "message"), [
-        pytest.param("test_data/qualification-plan.json", "Plan changed during packaging", id="plan"),
+        pytest.param("data/qualification-plan.json", "Plan changed during packaging", id="plan"),
         pytest.param("reports/results.xml", "JUnit evidence changed during packaging", id="junit"),
-        pytest.param("src/runtime.py", "Framework changed during packaging", id="framework"),
+        pytest.param("runtime/version.py", "Framework changed during packaging", id="framework"),
         pytest.param("tests/test_example.py", "Test definitions changed during packaging", id="test"),
-        pytest.param("test_data/policy.txt", "Data changed during packaging", id="data")])
+        pytest.param("data/policy.txt", "Data changed during packaging", id="data")])
 @title("A change to any input while packaging is refused and leaves no output [{param_id}]")
 def test_build_refuses_inputs_changed_during_packaging(lab, monkeypatch, target, message):
     junit = lab.passing_junit()
@@ -540,12 +540,12 @@ def test_pytest_traceability(framework_pytester, lab):
     child = framework_pytester.path
     (child / "tests").mkdir()
     shutil.copyfile(lab.root / "tests/test_example.py", child / "tests/test_example.py")
-    (child / "test_data").mkdir()
+    (child / "data").mkdir()
     plan = reviewed_plan()
     plan["data_sha256"] = {}
     plan["requirements"][0]["axes"] = {}
-    (child / "test_data/qualification-plan.json").write_text(json.dumps(plan))
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_plugin.evidence"]')
+    (child / "data/qualification-plan.json").write_text(json.dumps(plan))
+    framework_pytester.makeconftest('pytest_plugins = ["plugins.evidence"]')
 
     result = framework_pytester.runpytest_subprocess("-q", "--junitxml=results.xml")
 
@@ -554,7 +554,7 @@ def test_pytest_traceability(framework_pytester, lab):
     assert properties["test_node_id"] == SELECTOR
     assert (json.loads(properties["requirement_ids"]),
             json.loads(properties["qualification_phases"])) == (["REQ-EXAMPLE"], ["OQ"])
-    child_plan = load_plan(child / "test_data/qualification-plan.json", child)
+    child_plan = load_plan(child / "data/qualification-plan.json", child)
     assert trace_results(child_plan, [child / "results.xml"], ["OQ"])["status"] == "passed"
 
 
@@ -563,12 +563,12 @@ def test_pytest_traceability_rejects_unknown_test(framework_pytester, lab):
     child = framework_pytester.path
     (child / "tests").mkdir()
     shutil.copyfile(lab.root / "tests/test_example.py", child / "tests/test_example.py")
-    (child / "test_data").mkdir()
+    (child / "data").mkdir()
     plan = reviewed_plan()
     plan["data_sha256"] = {}
     plan["requirements"][0]["tests"] = ["tests/test_example.py::test_unknown"]
-    (child / "test_data/qualification-plan.json").write_text(json.dumps(plan))
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_plugin.evidence"]')
+    (child / "data/qualification-plan.json").write_text(json.dumps(plan))
+    framework_pytester.makeconftest('pytest_plugins = ["plugins.evidence"]')
 
     result = framework_pytester.runpytest_subprocess("-q")
 

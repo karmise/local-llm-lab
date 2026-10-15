@@ -6,14 +6,14 @@ from copy import deepcopy
 
 import pytest
 
-from llm_testkit import assertions
-from llm_testkit.reporting.gates import METRICS, apply_quality_gates, load_quality_gates
-from llm_testkit.reporting.steps import title
-from test_support.paths import AUTOMATION_ROOT
+import assertions
+from helpers.paths import AUTOMATION_ROOT
+from reporting.gates import METRICS, apply_quality_gates, load_quality_gates
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
-GATES_FILE = AUTOMATION_ROOT / "test_data/quality-gates.json"
+GATES_FILE = AUTOMATION_ROOT / "data/quality-gates.json"
 MINIMA = {"faithfulness": 0.9, "factual_correctness": None, "context_precision": 0.8, "context_recall": 0.9}
 GATED = sorted(metric for metric, minimum in MINIMA.items() if minimum is not None)
 
@@ -256,8 +256,8 @@ def test_low_score_fails_the_pytest_run(framework_pytester):
     framework_pytester.makepyfile(
             f"""
         from pathlib import Path
-        from llm_testkit.assertions import assert_quality_report
-        from llm_testkit.reporting.gates import apply_quality_gates
+        from assertions import assert_quality_report
+        from reporting.gates import apply_quality_gates
 
         def test_gate():
             report = {measured_report(faithfulness=0.0)!r}

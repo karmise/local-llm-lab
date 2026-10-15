@@ -11,9 +11,9 @@ from unittest.mock import MagicMock, Mock, call
 import pytest
 import requests
 
-from llm_testkit.ci import environment
-from llm_testkit.reporting.steps import title
-from test_support.paths import AUTOMATION_ROOT
+from ci import environment
+from helpers.paths import AUTOMATION_ROOT
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
@@ -403,7 +403,7 @@ console.log(JSON.stringify({mode: fs.statSync(process.argv[2] + '/' + saved).mod
 def test_capture_permissions(tmp_path, actions, shared, mode):
     node = shutil.which("node")
     assert node, "Node.js is required to verify CI capture permissions"
-    preload = AUTOMATION_ROOT / "src/llm_testkit/observation/ollama-preload.cjs"
+    preload = AUTOMATION_ROOT / "observation/ollama-preload.cjs"
     variables = {**os.environ, "GITHUB_ACTIONS": actions, "LLM_TESTKIT_CAPTURE_SHARED_READ": shared}
 
     result = subprocess.run(

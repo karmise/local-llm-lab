@@ -27,14 +27,15 @@ evaluation = [
 ]
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+py-modules = ["config"]
 
 [tool.setuptools.packages.find]
-where = ["src"]
-include = ["llm_testkit*", "test_support*"]
+where = ["."]
+include = ["api*", "assertions*", "builders*", "ci*", "evaluation*", "fixtures*", "helpers*", "models*", "observation*", "pages*", "performance*", "plugins*", "qualification*", "reporting*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 junit_family = "xunit1"
 addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
 markers = [
@@ -79,17 +80,20 @@ continuation_indent_width = 8
 blank_line_before_nested_class_or_def = false
 allow_split_before_dict_value = false
 
+[tool.yapfignore]
+ignore_patterns = [".venv/**", "tools/**", "reports/**"]
+
 [tool.isort]
 line_length = 120
 multi_line_output = 4
 indent = "        "
 include_trailing_comma = false
 use_parentheses = true
-known_first_party = ["llm_testkit", "test_support"]
+known_first_party = ["config", "api", "assertions", "builders", "ci", "evaluation", "fixtures", "helpers", "models", "observation", "pages", "performance", "plugins", "qualification", "reporting"]
 
 [tool.coverage.run]
 branch = true
-source = ["llm_testkit", "test_support.fixtures"]
+source = ["config", "api", "assertions", "ci", "evaluation", "fixtures", "helpers", "models", "observation", "pages", "performance", "plugins", "qualification", "reporting"]
 patch = ["subprocess"]
 parallel = true
 

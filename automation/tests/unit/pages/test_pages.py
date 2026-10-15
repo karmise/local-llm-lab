@@ -4,9 +4,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from llm_testkit.pages.base_page import BasePage
-from llm_testkit.pages.workspace_page import WorkspacePage
-from llm_testkit.reporting.steps import title
+from pages.base_page import BasePage
+from pages.workspace_page import WorkspacePage
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

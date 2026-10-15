@@ -9,8 +9,8 @@ A local LLM/RAG lab and the Python framework that tests it. AnythingLLM 1.16.2
 (Docker) handles documents, retrieval and chat; native Ollama serves the
 generation models (`qwen3.5:4b` default, `qwen2.5:7b` for comparison) and BGE-M3
 embeddings. The corpus is one short fictional company policy, kept small on
-purpose: the product is the evaluation framework, `automation/src/llm_testkit`,
-not the corpus.
+purpose: the product is the evaluation framework in `automation/`, not the
+corpus.
 
 The framework checks the application at several layers: API, RAG answers,
 golden dataset, UI, conversation, prompt/adversarial/bias regression and
@@ -26,24 +26,28 @@ README.md                    setup, lab.sh, components, manual checks
 compose*.yaml, lab.sh        local services; compose.capture.yaml adds context capture
 config/                      workspace templates (benchmark: temperature 0)
 docs/                        onboarding, evaluation guide, decisions, test plan
-automation/
-  src/llm_testkit/           the framework
-    core/                    HttpClient transport and shared helpers
-    clients/                 BaseClient → AnythingLLMClient (.workspaces, .documents), OllamaClient
-    pages/                   BasePage → WorkspacePage
-    assertions/              acceptance checks: fields, api, answers, quality, ui
-    evaluation/              RAGAS metrics, judge controls, benchmark runner
-    reporting/               Allure, gates, drift, stability, CI evidence
-    qualification/           IQ/OQ/PQ plan and packaging
-    pytest_plugin/           the framework's pytest plugin: CLI options, opt-in selection, evidence labels
-  src/test_support/          what tests use: fixtures (live resources) and builders (unit data)
-  tests/                     grouped by level, then by feature:
-    unit/                    offline framework tests (~2000, plain pytest), mirrors src/llm_testkit
+automation/                  one folder per layer, then one module per area
+  api/                       HttpClient, BaseClient → AnythingLLMClient (.workspaces, .documents), OllamaClient
+  pages/                     BasePage → WorkspacePage
+  fixtures/                  pytest fixtures: environment, resources, rag, ui, quality, opt-in suites
+  models/                    typed test cases loaded from data/: golden, adversarial, bias, prompts…
+  data/                      policy, golden dataset, catalogs, gates, qualification plan
+  helpers/                   number words, score checks, capture markers, paths
+  assertions/                acceptance checks: fields, api, answers, quality, ui
+  evaluation/                RAGAS metrics, judge connection and controls, benchmark runner
+  reporting/                 Allure, gates, drift, stability, CI evidence
+  qualification/             IQ/OQ/PQ plan, traceability and packaging
+  observation/               capture hook and evaluation samples
+  ci/ performance/           live CI orchestration, load batches
+  plugins/                   pytest plugin: CLI options, opt-in selection, evidence labels
+  builders/                  test data builders for unit tests
+  config.py                  settings from the environment
+  tests/                     only tests, grouped by level, then by feature:
+    unit/                    offline framework tests (~2000, plain pytest), mirrors the layer folders
     browser/                 Page Object checks on local HTML
     environment/ api/        installation and API, no generation
     rag/ regression/ ui/     generated answers; regression and UI are opt-in
     quality/ performance/    evidence, gates and load
-  test_data/                 policy, golden dataset, catalogs, gates, plan
 ```
 
 ## Commands
@@ -52,9 +56,9 @@ Run from `automation` with `.venv` activated (Python 3.12).
 
 ```bash
 python -m pytest tests/unit -q          # offline; bare `pytest` also runs live tests
-python -m ruff check src tests
-python -m isort --check-only --diff src tests
-python -m yapf --diff --recursive src tests
+python -m ruff check .
+python -m isort --check-only --diff .
+python -m yapf --diff --recursive .
 ```
 
 Format with `isort` and `yapf --in-place`, never `ruff format`; the line limit
@@ -75,7 +79,7 @@ running (`./lab.sh start`) and a developer API key.
   `python -O` removes. Incomplete or malformed evidence must be an error.
 - **Unit tests** use plain `assert` and `pytest.raises(..., match=...)`, never the
   application `assertions` package. Each rejection has a paired acceptance case.
-  Shared data comes from `test_support/builders`; tests stay linear, with no
+  Shared data comes from `builders`; tests stay linear, with no
   branches.
 - **Live fixtures** register cleanup right after creation and delete only
   resources they created.

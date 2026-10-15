@@ -4,12 +4,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from llm_testkit.config import Settings
-from llm_testkit.evaluation import judge_connection
-from llm_testkit.evaluation.judge_connection import judge_client, ollama_client
-from llm_testkit.reporting.steps import title
-from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
-from test_support.builders.ollama import model_catalog
+from builders.identities import MODEL_DIGEST, TEST_MODEL
+from builders.ollama import model_catalog
+from config import Settings
+from evaluation import judge_connection
+from evaluation.judge_connection import judge_client, ollama_client
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

@@ -5,10 +5,10 @@ import sys
 
 import pytest
 
-from llm_testkit.reporting import stability
-from llm_testkit.reporting.stability import summarize_report
-from llm_testkit.reporting.steps import title
-from test_support.builders.junit_xml import write_junit
+from builders.junit_xml import write_junit
+from reporting import stability
+from reporting.stability import summarize_report
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

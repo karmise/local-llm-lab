@@ -13,19 +13,19 @@ from unittest.mock import AsyncMock, Mock, call
 
 import pytest
 
-from llm_testkit import assertions
-from llm_testkit.config import Settings
-from llm_testkit.core.number_words import normalize_number_words
-from llm_testkit.evaluation.calibration import evaluate_controls, load_controls, main, select_controls
-from llm_testkit.reporting.steps import title
-from test_support.builders.calibration import CONTROLS_FILE, make_catalog, make_control, make_matching_result
-from test_support.builders.golden import make_paid_leave_sample
-from test_support.builders.identities import MODEL_DIGEST, TEST_MODEL
-from test_support.builders.ollama import model_catalog
+import assertions
+from builders.calibration import CONTROLS_FILE, make_catalog, make_control, make_matching_result
+from builders.golden import make_paid_leave_sample
+from builders.identities import MODEL_DIGEST, TEST_MODEL
+from builders.ollama import model_catalog
+from config import Settings
+from evaluation.calibration import evaluate_controls, load_controls, main, select_controls
+from helpers.number_words import normalize_number_words
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
-SCORE = "llm_testkit.evaluation.calibration.score_sample"
+SCORE = "evaluation.calibration.score_sample"
 
 
 def check_result(result: dict, control: dict) -> None:
@@ -276,7 +276,7 @@ def test_runner_records_each_outcome_and_continues(monkeypatch):
 
 OPTIMIZED_RUN = """
 import asyncio
-from llm_testkit.evaluation import calibration
+from evaluation import calibration
 
 async def contradicting_score(sample, judge):
     return {"value": 0.0, "statements": ["23 working days"],
@@ -310,10 +310,10 @@ def offline_cli(tmp_path, monkeypatch):
     cli.judges = [Mock(calls=[], options={"temperature": 0}) for _ in range(4)]
     cli.http_class = Mock(return_value=cli.transport)
     cli.judge_class = Mock(side_effect=cli.judges)
-    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.HttpClient", cli.http_class)
+    monkeypatch.setattr("evaluation.judge_connection.HttpClient", cli.http_class)
     cli.ollama_class = Mock(return_value=cli.ollama)
-    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.OllamaClient", cli.ollama_class)
-    monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", cli.judge_class)
+    monkeypatch.setattr("evaluation.judge_connection.OllamaClient", cli.ollama_class)
+    monkeypatch.setattr("evaluation.ollama_judge.OllamaJudge", cli.judge_class)
 
     def run(*arguments: str) -> int:
         command = ["calibration", str(cli.sample), "--controls", str(CONTROLS_FILE), "--output", str(cli.output)]
@@ -461,7 +461,7 @@ def test_cli_refuses_existing_output(offline_cli, capsys):
 
 @title("The CLI refuses to run without the evaluation dependencies")
 def test_cli_requires_evaluation_dependencies(offline_cli, monkeypatch, capsys):
-    monkeypatch.setitem(sys.modules, "llm_testkit.evaluation.ollama_judge", None)
+    monkeypatch.setitem(sys.modules, "evaluation.ollama_judge", None)
 
     with pytest.raises(SystemExit) as stopped:
         offline_cli.run("--control", "supported_answer")

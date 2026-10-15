@@ -6,11 +6,11 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from llm_testkit.evaluation import benchmark_runner as runner
-from llm_testkit.reporting import redaction
-from llm_testkit.reporting.junit import read_junit
-from llm_testkit.reporting.redaction import redact_files
-from llm_testkit.reporting.steps import title
+from evaluation import benchmark_runner as runner
+from reporting import redaction
+from reporting.junit import read_junit
+from reporting.redaction import redact_files
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 

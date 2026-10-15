@@ -4,11 +4,11 @@ from unittest.mock import Mock, call
 
 import pytest
 
-from llm_testkit.reporting import benchmark_presentation as presentation
-from llm_testkit.reporting.benchmark import row_status, summarize
-from llm_testkit.reporting.benchmark_presentation import markdown, review_worksheet
-from llm_testkit.reporting.steps import title
-from test_support.builders.benchmark import MINIMA, MODEL, make_calibration, make_definition, make_row
+from builders.benchmark import MINIMA, MODEL, make_calibration, make_definition, make_row
+from reporting import benchmark_presentation as presentation
+from reporting.benchmark import row_status, summarize
+from reporting.benchmark_presentation import markdown, review_worksheet
+from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
