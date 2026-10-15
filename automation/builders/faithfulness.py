@@ -13,10 +13,11 @@ CONTEXT = "Employees receive 23 working days."
 def make_sample(*, context: str = CONTEXT) -> dict[str, Any]:
     """A captured sample with one retrieved context; the answer repeats the context."""
     capture_id = "a" * 32
-    system_prompt = f"[LLM_TESTKIT_CAPTURE:{capture_id}]\n[CONTEXT 0]:\n{context}\n[END CONTEXT 0]"
+    system_prompt = f"[CONTEXT 0]:\n{context}\n[END CONTEXT 0]"
     capture = {
-            "schema_version": 1,
+            "schema_version": 2,
             "boundary": "ollama-sdk-chat",
+            "capture_id": capture_id,
             "request": {
             "model": TEST_MODEL,
             "stream": False,

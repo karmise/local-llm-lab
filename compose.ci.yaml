@@ -21,6 +21,9 @@ services:
       OLLAMA_BASE_PATH: http://ollama:11434
       OLLAMA_MODEL_PREF: qwen3.5:4b
       OLLAMA_MODEL_TOKEN_LIMIT: "8192"
+      # Without it AnythingLLM stops waiting for a model answer after 300 s. 14 minutes, under the client's 15,
+      # lets one long reasoning answer finish on a slow runner; see docs/decisions.md.
+      OLLAMA_RESPONSE_TIMEOUT: "840000"
       EMBEDDING_ENGINE: ollama
       EMBEDDING_BASE_PATH: http://ollama:11434
       EMBEDDING_MODEL_PREF: bge-m3:567m

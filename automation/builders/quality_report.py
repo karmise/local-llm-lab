@@ -9,7 +9,7 @@ from typing import Any
 from observation.evaluation_sample import build_sample
 
 CAPTURE_ID = "a" * 32
-DOCUMENT = f"automation-{CAPTURE_ID}-company-policy.txt"
+DOCUMENT = "company-policy.txt"
 QUESTION = "Leave?"
 FULL_ANSWER = "23 working days; 12 calendar days"
 GENERATION_MODEL = "test-model"
@@ -74,14 +74,15 @@ def quality_inputs(
     contexts = (policy_context(), ) if contexts is None else contexts
     blocks = "".join(f"[CONTEXT {n}]:\n{context}\n[END CONTEXT {n}]\n" for n, context in enumerate(contexts))
     capture = {
-            "schema_version": 1,
+            "schema_version": 2,
             "boundary": "ollama-sdk-chat",
+            "capture_id": CAPTURE_ID,
             "request": {
             "model": GENERATION_MODEL,
             "stream": False,
             "messages": [{
             "role": "system",
-            "content": f"[LLM_TESTKIT_CAPTURE:{CAPTURE_ID}]\n{blocks}".rstrip()}, {
+            "content": blocks.rstrip()}, {
             "role": "user",
             "content": QUESTION}]}}
     sample = build_sample(
@@ -101,6 +102,6 @@ def quality_inputs(
             "fact_patterns": {
             "leave allowance": "23 working days",
             "notice period": "12 calendar days"},
-            "document_title_pattern": r"automation-[a-f0-9]{32}-company-policy\.txt",
+            "document_title_pattern": r"company-policy\.txt",
             "source_fragments": ["23 working days", "12 calendar days"]}))
     return QualityInputs(sample_path, evidence_path, profile_path)

@@ -269,12 +269,12 @@ def capture_upload(session, *, error=None):
     return uploads
 
 
-@title("An upload sends the file as plain text under the folder, then closes it")
+@title("An upload sends the file as plain text under the folder with the document title, then closes it")
 def test_upload_document(session, policy):
     uploads = capture_upload(session)
 
-    response = AnythingLLMClient(HttpClient("http://localhost", 5),
-            api_key="test-key").documents.upload(policy, "my folder", filename="unique-policy.txt", timeout=42)
+    response = AnythingLLMClient(HttpClient("http://localhost", 5), api_key="test-key").documents.upload(
+            policy, "my folder", filename="unique-policy.txt", title="policy.txt", timeout=42)
 
     upload, = uploads
     assert response is session.response
@@ -284,15 +284,17 @@ def test_upload_document(session, policy):
     kwargs = session.request.call_args.kwargs
     assert (kwargs["method"], kwargs["url"], kwargs["headers"],
             kwargs["timeout"]) == ("POST", "http://localhost/api/v1/document/upload/my%20folder", KEY, 42)
+    assert kwargs["data"] == {"metadata": '{"title": "policy.txt"}'}
 
 
-@title("Without a filename the upload uses the file's own name and the default timeout")
+@title("Without a filename or title the upload uses the file's own name, no metadata and the default timeout")
 def test_upload_document_defaults(session, policy):
     uploads = capture_upload(session)
 
     AnythingLLMClient(HttpClient("http://localhost", 5)).documents.upload(policy, "folder")
 
-    assert (uploads[0]["name"], session.request.call_args.kwargs["timeout"]) == ("policy.txt", 180)
+    kwargs = session.request.call_args.kwargs
+    assert (uploads[0]["name"], kwargs["data"], kwargs["timeout"]) == ("policy.txt", None, 180)
 
 
 @title("The uploaded file is closed even when the request fails")

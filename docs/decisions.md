@@ -147,6 +147,22 @@ temperature 0, thinking disabled and a fixed seed. The manual conversation
 workspace keeps 0.1. None of this makes outputs fully deterministic, which is why
 answers are judged by facts and metrics, not exact text.
 
+### The model gets the same input in every run
+
+Temperature 0 helps only if the input is the same. Two test artefacts used to
+change it in every run: the unique `automation-<id>` file name, which the model
+saw as the source document and repeated in its answers, and the capture marker
+appended to the workspace prompt. A gate once failed for that reason alone: the
+answers were correct, but their wording shifted with the name and the judge
+scored the new wording differently. The policy is now uploaded under a unique
+file name, so concurrent uploads stay apart, with the document title
+`company-policy.txt` (`fixtures/resources.py`). The capture hook removes the
+marker before the call and records the request exactly as forwarded
+(`observation/ollama-preload.cjs`). What ties the context to the test is the
+test's own workspace, which holds only that document. One difference remains:
+AnythingLLM stamps the upload time into each chunk header, and its file-upload
+API cannot set it.
+
 ### Evidence is bound by checksums
 
 The golden dataset, catalogs, gates and qualification plan are versioned and
@@ -172,6 +188,19 @@ that evidence and revalidates it with zero model calls; the commit status
 `RAG benchmark quality` is published only if both jobs succeed. For a PR it marks
 the merge commit, and any new commit needs a new run. A `smoke` run publishes a
 different status, so it cannot satisfy the merge gate.
+
+### The answer budget fits a long answer on a slow runner
+
+qwen3.5 reasons before it answers, and AnythingLLM 1.16.2 passes Ollama neither
+`think` nor an output limit, so answer length varies by case and run. One
+boundary case has taken about 4,300 tokens, and hosted CPU runners generate 6 to
+15 tokens per second. By default AnythingLLM also stops waiting for Ollama after
+300 s, a limit of Node's `fetch`; the longest answer seen before, 295 s, was just
+under it. The CI services therefore set `OLLAMA_RESPONSE_TIMEOUT` to 14 minutes
+(`compose.ci.yaml`), and the client waits 15 (`ANYTHINGLLM_LLM_TIMEOUT` in the
+live workflow), so the application reports its own error first. The budget only
+separates a slow answer from a stuck one: answer time is reported, not gated,
+and an answer that needs longer still fails.
 
 ### Automatic CI stays offline
 

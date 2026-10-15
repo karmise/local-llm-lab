@@ -70,7 +70,7 @@ def authenticated_anythingllm_api():
         500 if FAILURE == "folder-status" else 200)
     api.documents.upload.side_effect = record("documents.upload", lambda path, folder, **kw: {
         "success": True, "error": None,
-        "documents": [{"title": kw["filename"], "location": f"{folder}/policy.json"}]},
+        "documents": [{"title": kw["title"], "location": f"{folder}/policy.json"}]},
         500 if FAILURE == "upload" else 200)
     api.workspaces.add_documents.side_effect = record(
         "workspaces.add_documents", lambda slug, paths, **kw: {"workspace": {"slug": slug}},
@@ -131,7 +131,7 @@ def test_resources_are_created_and_cleaned_up(lifecycle):
     assert names(calls) == SETUP + FOLDER_CLEANUP + WORKSPACE_CLEANUP
 
 
-@title("Setup and cleanup use one generated workspace name for the workspace, folder and document")
+@title("One generated name serves the workspace, folder and uploaded file; the document keeps the policy title")
 def test_resources_share_generated_name(lifecycle):
     _, calls = lifecycle("none")
 
@@ -141,7 +141,10 @@ def test_resources_share_generated_name(lifecycle):
     assert by_name["workspaces.create"][0][1] == str({"chatModel": "qwen"})
     assert by_name["documents.create_folder"][0] == [workspace]
     assert by_name["documents.upload"][0][1:] == [workspace]
-    assert by_name["documents.upload"][1] == {"filename": f"{workspace}-company-policy.txt", "timeout": "42.0"}
+    assert by_name["documents.upload"][1] == {
+            "filename": f"{workspace}-policy.txt",
+            "title": "policy.txt",
+            "timeout": "42.0"}
     assert by_name["workspaces.add_documents"] == ([workspace, str([f"{workspace}/policy.json"])], {"timeout": "42.0"})
     assert by_name["documents.delete_folder"] == ([workspace], {"timeout": "42.0"})
     assert [by_name[name][0]

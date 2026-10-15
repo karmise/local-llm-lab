@@ -30,8 +30,10 @@ Returned sources are citation evidence, not the context the generator received.
 Semantic metrics need that context, so the capture overlay installs a preload
 hook that observes the Ollama SDK `chat` call after AnythingLLM has compressed its
 messages. Only requests marked by the test are captured, without authorization
-headers. A capture write error fails the request instead of producing invented
-evaluation inputs.
+headers. The hook removes the marker before the call, so the model receives the
+same prompt as without the test, and records the request exactly as forwarded.
+A capture write error fails the request instead of producing invented evaluation
+inputs.
 
 ```bash
 mkdir -p .runtime/ollama-capture

@@ -74,10 +74,11 @@ def document_folder(
 def uploaded_policy_document(
         authenticated_anythingllm_api: AnythingLLMClient, document_folder: str, settings: Settings,
         policy_file: Path) -> dict[str, Any]:
-    filename = f"{document_folder}-company-policy.txt"
+    # A unique file name keeps concurrent uploads apart; the title the model sees is the same in every run.
     response = authenticated_anythingllm_api.documents.upload(
-            policy_file, document_folder, filename=filename, timeout=settings.document_timeout)
-    return assertions.assert_uploaded_document(response, folder=document_folder, filename=filename)
+            policy_file, document_folder, filename=f"{document_folder}-{policy_file.name}", title=policy_file.name,
+            timeout=settings.document_timeout)
+    return assertions.assert_uploaded_document(response, folder=document_folder, title=policy_file.name)
 
 
 @pytest.fixture

@@ -17,17 +17,20 @@ from reporting.steps import title
 pytestmark = pytest.mark.unit
 
 CAPTURE_ID = "a" * 32
+MARKER = f"[LLM_TESTKIT_CAPTURE:{CAPTURE_ID}]"
 SYSTEM = (
-        f"Instructions\n[LLM_TESTKIT_CAPTURE:{CAPTURE_ID}]\nContext:\n"
+        "Instructions\nContext:\n"
         "[CONTEXT 0]:\n23 working days\n[END CONTEXT 0]\n\n"
         "[CONTEXT 1]:\n12 calendar days\nsecond line\n[END CONTEXT 1]\n\n")
 
 
 def capture(system: str = SYSTEM) -> dict:
-    """An observed non-streaming chat request with one system and one user message."""
+    """An observed non-streaming chat request, as forwarded without the marker, with one system and one user
+    message."""
     return {
-            "schema_version": 1,
+            "schema_version": 2,
             "boundary": "ollama-sdk-chat",
+            "capture_id": CAPTURE_ID,
             "request": {
             "model": "qwen3.5:4b",
             "stream": False,
@@ -79,8 +82,10 @@ def system(text):
 
 
 @pytest.mark.parametrize(("edit", "message"), [
-        pytest.param(change(("schema_version", ), 2), "Unsupported observation boundary or schema", id="schema"),
+        pytest.param(change(("schema_version", ), 1), "Unsupported observation boundary or schema", id="schema"),
         pytest.param(change(("boundary", ), "http"), "Unsupported observation boundary or schema", id="boundary"),
+        pytest.param(change(("capture_id", ), "b" * 32), "Observation belongs to another capture", id="other-capture"),
+        pytest.param(lambda c: c.pop("capture_id"), "Observation belongs to another capture", id="no-capture-id"),
         pytest.param(
         change(("request", "model"), "other-model"), "selected model and non-streaming chat", id="other-model"),
         pytest.param(change(("request", "stream"), True), "selected model and non-streaming chat", id="streaming"),
@@ -95,18 +100,15 @@ def system(text):
         change(("request", "messages", 1, "content"), "Other question"),
         "Observed question does not match the scenario", id="other-question"),
         pytest.param(
-        system(SYSTEM.replace(CAPTURE_ID, "b" * 32)), "Missing or ambiguous test capture marker", id="other-marker"),
-        pytest.param(
-        system(SYSTEM + f"[LLM_TESTKIT_CAPTURE:{CAPTURE_ID}]"), "Missing or ambiguous test capture marker",
-        id="two-markers"),
+        system(SYSTEM.replace("Instructions", f"Instructions\n{MARKER}")), "without the test capture marker",
+        id="marker-forwarded"),
         pytest.param(
         system(SYSTEM.replace("[END CONTEXT 1]", "")), "truncated or unsupported document context", id="truncated"),
         pytest.param(
         system(SYSTEM.replace("[CONTEXT 0]:\n", "[CONTEXT 0]:")), "truncated or unsupported",
         id="no-newline-after-opening"),
         pytest.param(system(SYSTEM + "[END CONTEXT 3]"), "truncated or unsupported", id="stray-end"),
-        pytest.param(
-        system(f"[LLM_TESTKIT_CAPTURE:{CAPTURE_ID}] no contexts"), "truncated or unsupported", id="no-context"),
+        pytest.param(system("Instructions without contexts"), "truncated or unsupported", id="no-context"),
         pytest.param(
         system(SYSTEM.replace("CONTEXT 1", "CONTEXT 2")), "Context indices must be contiguous and ordered", id="gap"),
         pytest.param(system(SYSTEM.replace("CONTEXT 0", "CONTEXT 9")), "contiguous and ordered", id="not-from-zero"),
@@ -223,13 +225,14 @@ const client = new Ollama();
 const request = JSON.parse(process.argv[2]);
 const before = JSON.stringify(request);
 const returned = client.chat(request, "option");
-const result = { sameRequest: observed[0] === request && JSON.stringify(request) === before,
-  sameOptions: observed[1] === "option", sameReturn: returned === response, calls };
+const result = { forwarded: observed[0], unchanged: JSON.stringify(request) === before,
+  sameOptions: observed[1] === "option", sameReturn: returned === response };
 result.sameStream = client.chat({ messages: [], stream: true }) === stream;
 try { client.chat({ messages: [], fail: true }); } catch (caught) { result.sameError = caught === error; }
 const marker = "[LLM_TESTKIT_CAPTURE:" + "b".repeat(32) + "]";
-client.chat({ messages: [{ role: "system", content: marker + marker }] });
-client.chat({ messages: [{ role: "user", content: marker }] });
+const unmarked = [{ messages: [{ role: "system", content: marker + marker }] },
+  { messages: [{ role: "user", content: marker }] }];
+result.unmarkedPassThrough = unmarked.every((item) => { client.chat(item); return observed[0] === item; });
 result.calls = calls;
 result.files = process.env.LLM_TESTKIT_CAPTURE_DIR ? fs.readdirSync(process.env.LLM_TESTKIT_CAPTURE_DIR) : [];
 console.log(JSON.stringify(result));
@@ -242,30 +245,33 @@ def run_hook(*, directory=None):
     variables = {k: v for k, v in os.environ.items() if k != "LLM_TESTKIT_CAPTURE_DIR"}
     variables |= {"LLM_TESTKIT_CAPTURE_DIR": str(directory)} if directory else {}
     hook = AUTOMATION_ROOT / "observation/ollama-preload.cjs"
-    return subprocess.run(
-            [node, "-e", HOOK_SCRIPT, str(hook), json.dumps(capture()["request"])], env=variables, capture_output=True,
-            text=True)
+    marked = capture(SYSTEM.replace("Instructions", f"Instructions\n{MARKER}"))["request"]
+    arguments = [node, "-e", HOOK_SCRIPT, str(hook), json.dumps(marked)]
+    return subprocess.run(arguments, env=variables, capture_output=True, text=True)
 
 
-@title("The SDK hook saves one capture of a marked request and preserves requests, returns, streams and errors")
+@title("The SDK hook saves and forwards a marked request without its marker; other calls pass through unchanged")
 def test_sdk_hook(tmp_path):
     result = run_hook(directory=tmp_path)
 
     observed = json.loads(result.stdout)
     assert observed == {
-            "sameRequest": True,
+            "forwarded": capture()["request"],
+            "unchanged": True,
             "sameOptions": True,
             "sameReturn": True,
-            "calls": 5,
             "sameStream": True,
             "sameError": True,
+            "unmarkedPassThrough": True,
+            "calls": 5,
             "files": observed["files"]}
     file, = observed["files"]
     assert file.startswith(f"{CAPTURE_ID}-") and file.endswith(".json")
     saved = json.loads((tmp_path / file).read_text())
-    assert (saved["schema_version"], saved["boundary"],
-            saved["request"]) == (1, "ollama-sdk-chat", capture()["request"])
+    assert (saved["schema_version"], saved["boundary"], saved["capture_id"],
+            saved["request"]) == (2, "ollama-sdk-chat", CAPTURE_ID, capture()["request"])
     assert saved["captured_at"].endswith("Z")
+    assert sample(saved)["observation"] == saved
 
 
 @title("A marked request without a capture directory fails instead of silently skipping evidence")

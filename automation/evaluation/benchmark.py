@@ -19,6 +19,9 @@ EVIDENCE_METRICS = {
         "faithfulness": ("faithfulness", ),
         "correctness": ("factual_correctness", ),
         "relevance": ("context_precision", "context_recall")}
+# The policy is uploaded under its own file name, so every run gives the model the same context; the test's own
+# workspace, which holds only this document, is what ties the context to the test.
+POLICY_DOCUMENT = "company-policy.txt"
 
 
 def metric_dimensions(name, evidence, checksum, sample, dataset, judge_model, judge_digest, minima):
@@ -77,11 +80,10 @@ def acceptance_dimensions(sample: dict, case: GoldenCase) -> list[dict]:
         titles = {
                 match[1]
                 for context in sample["retrieved_contexts"]
-                for match in re.finditer(r"^sourceDocument: (.+)$", context, re.MULTILINE)
-                if re.fullmatch(r"automation-[0-9a-f]{32}-company-policy\.txt", match[1])}
-        if len(titles) != 1:
+                for match in re.finditer(r"^sourceDocument: (.+)$", context, re.MULTILINE)}
+        if titles != {POLICY_DOCUMENT}:
             raise ValueError("Expected exactly one captured policy document")
-        assertions.assert_document_sources({"sources": sample.get("response_sources")}, document_title=titles.pop(),
+        assertions.assert_document_sources({"sources": sample.get("response_sources")}, document_title=POLICY_DOCUMENT,
                 fragments=case.source_fragments)
 
     dimensions = []

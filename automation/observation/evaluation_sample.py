@@ -11,8 +11,10 @@ from typing import Any
 def build_sample(
         capture: dict[str, Any], *, question: str, answer: str, reference: str, expected_model: str,
         capture_id: str) -> dict[str, Any]:
-    if capture.get("schema_version") != 1 or capture.get("boundary") != "ollama-sdk-chat":
+    if capture.get("schema_version") != 2 or capture.get("boundary") != "ollama-sdk-chat":
         raise ValueError("Unsupported observation boundary or schema")
+    if capture.get("capture_id") != capture_id:
+        raise ValueError("Observation belongs to another capture")
     request = capture["request"]
     messages = request["messages"]
     if request.get("model") != expected_model or request.get("stream") is not False:
@@ -22,9 +24,8 @@ def build_sample(
     if messages[1].get("content") != question:
         raise ValueError("Observed question does not match the scenario")
     system = messages[0]["content"]
-    marker = f"[LLM_TESTKIT_CAPTURE:{capture_id}]"
-    if system.count(marker) != 1:
-        raise ValueError("Missing or ambiguous test capture marker")
+    if "[LLM_TESTKIT_CAPTURE:" in system:
+        raise ValueError("The model must receive the prompt without the test capture marker")
     # This format belongs to AnythingLLM 1.16.2's Ollama constructPrompt.
     pattern = r"\[CONTEXT (\d+)\]:\n(.*?)\n\[END CONTEXT \1\]"
     matches = list(re.finditer(pattern, system, flags=re.DOTALL))

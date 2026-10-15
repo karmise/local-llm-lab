@@ -81,11 +81,10 @@ def build_quality_report(
         titles = set()
         for context in sample["retrieved_contexts"]:
             metadata = re.match(r"<document_metadata>\n(.*?)\n</document_metadata>", context, re.DOTALL)
-            if metadata:
-                title = re.search(r"^sourceDocument: (.+)$", metadata[1], re.MULTILINE)
-                if title and re.fullmatch(profile["document_title_pattern"], title[1]):
-                    titles.add(title[1])
-        if len(titles) != 1:
+            source = metadata and re.search(r"^sourceDocument: (.+)$", metadata[1], re.MULTILINE)
+            if source:
+                titles.add(source[1])
+        if len(titles) != 1 or not re.fullmatch(profile["document_title_pattern"], next(iter(titles))):
             raise ValueError("Expected exactly one policy document in captured context metadata")
         title = titles.pop()
         assertions.assert_document_sources({"sources": sample.get("response_sources")}, document_title=title,
