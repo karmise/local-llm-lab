@@ -544,7 +544,7 @@ def test_pytest_traceability(framework_pytester, lab):
     plan["data_sha256"] = {}
     plan["requirements"][0]["axes"] = {}
     (child / "test_data/qualification-plan.json").write_text(json.dumps(plan))
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.evidence"]')
+    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_plugin.evidence"]')
 
     result = framework_pytester.runpytest_subprocess("-q", "--junitxml=results.xml")
 
@@ -567,7 +567,7 @@ def test_pytest_traceability_rejects_unknown_test(framework_pytester, lab):
     plan["data_sha256"] = {}
     plan["requirements"][0]["tests"] = ["tests/test_example.py::test_unknown"]
     (child / "test_data/qualification-plan.json").write_text(json.dumps(plan))
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.evidence"]')
+    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_plugin.evidence"]')
 
     result = framework_pytester.runpytest_subprocess("-q")
 

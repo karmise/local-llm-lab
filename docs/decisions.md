@@ -38,7 +38,7 @@ and the docs avoid claiming otherwise.
 Unit (mocked HTTP), offline browser (local HTML), API, RAG, golden, UI and
 quality layers answer different questions and have different costs. A transport
 or locator defect is reproduced offline before spending model calls on it.
-Expensive suites are opt-in (`--run-*` flags in `pytest_support/options.py`).
+Expensive suites are opt-in (`--run-*` flags in `pytest_plugin/options.py`).
 Bare `python -m pytest` includes live API and RAG tests; `tests/unit` is the
 offline command.
 

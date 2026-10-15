@@ -129,7 +129,7 @@ operations across these layers; it does not decide whether an answer is correct.
 | [test_support/fixtures/resources.py](../automation/src/test_support/fixtures/resources.py) | Workspace/folder creation, upload, indexing and cleanup. | Resource ownership must remain reliable when a scenario or setup check fails. |
 | [test_support/fixtures/rag.py](../automation/src/test_support/fixtures/rag.py) | Model selection, metadata, generation and optional capture. | Comparisons need a record of the model/configuration that produced each answer. |
 | `test_support/builders/` | Public per-domain builders and deterministic doubles shared by several test modules. | A test module reuses reviewed data without importing another module's private helpers. |
-| [pytest_support/options.py](../automation/src/llm_testkit/pytest_support/options.py) | CLI flags, model/repetition matrix and opt-in validation. | Selection rules belong in one place and apply after `-k`/`-m` filtering. |
+| [pytest_plugin/options.py](../automation/src/llm_testkit/pytest_plugin/options.py) | CLI flags, model/repetition matrix and opt-in validation. | Selection rules belong in one place and apply after `-k`/`-m` filtering. |
 | `evaluation/` | RAGAS adapter, faithful-claim measurement and judge controls. | Evaluation mechanics can be investigated separately from app scenarios. |
 | `reporting/` | Allure integration, combined quality evidence and stability summaries. | A reporter presents evidence; it must not silently retry or relax checks. |
 | [tests/conftest.py](../automation/tests/conftest.py) | Plugin registration and assertion rewriting. | This entry point stays small rather than accumulating all setup logic. |

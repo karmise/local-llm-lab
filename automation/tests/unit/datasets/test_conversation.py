@@ -251,7 +251,7 @@ def test_metadata_rejects_changed_case():
 @pytest.fixture
 def conversation_suite(framework_pytester):
     shutil.copytree(TEST_DATA, framework_pytester.path / "test_data")
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.options"]')
+    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_plugin.options"]')
     framework_pytester.makepyfile(
             """
         import pytest

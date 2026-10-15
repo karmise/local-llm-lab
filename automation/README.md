@@ -112,7 +112,7 @@ Correctness remains a measurement until explicit gates are supplied. Context pre
 | `src/llm_testkit/clients/` | `BaseClient` (base path, API key, path encoding) and the API clients built on it: `AnythingLLMClient` with `.workspaces` and `.documents`, and `OllamaClient`; they return raw responses |
 | `src/llm_testkit/pages/` | `BasePage` (URL, navigation, timeouts) and `WorkspacePage` (locators and actions) |
 | `src/llm_testkit/assertions/` | Acceptance criteria by area: `fields`, `api`, `answers`, `quality`, `ui` |
-| `src/llm_testkit/pytest_support/options.py` | CLI selection, model matrix, opt-in validation after `-k`/`-m` |
+| `src/llm_testkit/pytest_plugin/options.py` | CLI selection, model matrix, opt-in validation after `-k`/`-m` |
 | `src/test_support/fixtures/` | Scoped setup, dependencies, resource ownership, evidence and cleanup |
 | `src/test_support/builders/` | Public, per-domain test data builders and deterministic doubles shared by test modules |
 | `src/llm_testkit/datasets/` | Typed, source-bound golden dataset loading and validation |
@@ -125,7 +125,7 @@ Suites are grouped by what they need to run, and then by feature:
 
 | Directory | Level | Needs | Contents |
 | --- | --- | --- | --- |
-| `tests/unit/` | Framework unit | Nothing; HTTP is blocked | Mirrors `src/llm_testkit`: `core`, `assertions`, `datasets`, `evaluation`, `reporting`, `ci`, `qualification`, `performance`, `pytest_support` |
+| `tests/unit/` | Framework unit | Nothing; HTTP is blocked | Mirrors `src/llm_testkit`: `core`, `assertions`, `datasets`, `evaluation`, `reporting`, `ci`, `qualification`, `performance`, `pages`, `pytest_plugin`; `fixtures` covers the live fixture lifecycle |
 | `tests/browser/` | Page Object | Chromium and local HTML | Waiting and selection rules of the Page Object |
 | `tests/environment/` | Installation (IQ) | AnythingLLM, Ollama | Runtime versions, declared models, health |
 | `tests/api/` | API, no generation | AnythingLLM, API key | Authentication, API contract and negative cases, workspace and document lifecycle |

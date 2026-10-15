@@ -13,7 +13,7 @@ pytestmark = pytest.mark.unit
 @pytest.fixture
 def runner(framework_pytester):
     """A child pytest session with the options plugin and a copy of the reviewed test data."""
-    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_support.options"]')
+    framework_pytester.makeconftest('pytest_plugins = ["llm_testkit.pytest_plugin.options"]')
     shutil.copytree(AUTOMATION_ROOT / "test_data", framework_pytester.path / "test_data")
     return framework_pytester
 
