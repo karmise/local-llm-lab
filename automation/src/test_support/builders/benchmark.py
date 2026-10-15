@@ -76,18 +76,12 @@ def make_metric_evidence(case: GoldenCase, sample_path: Path) -> dict[str, dict[
             "reference_verdicts": [verdict]}
     correctness = {
             **common,
-            **golden, "metric":
-            "factual_correctness",
-            "response_origin":
-            "application_sample",
-            "metric_configuration":
-            METRIC_CONFIGURATION,
-            "response":
-            case.reference,
-            "reference_sha256":
-            hashlib.sha256(case.reference.encode()).hexdigest(),
-            "result":
-            correctness_result,
+            **golden, "metric": "factual_correctness",
+            "response_origin": "application_sample",
+            "metric_configuration": METRIC_CONFIGURATION,
+            "response": case.reference,
+            "reference_sha256": hashlib.sha256(case.reference.encode()).hexdigest(),
+            "result": correctness_result,
             "judge_calls": [{
             "output": {
             "claims": [case.reference]}}, {
@@ -186,10 +180,8 @@ def make_calibrate_stub(calibration):
                     "verdict": c["verdict"],
                     "reason": "Control label"} for s, c in zip(statements, control["claims"], strict=True)]
             calibrated["results"].append({
-                    "status":
-                    "matched",
-                    "control":
-                    control,
+                    "status": "matched",
+                    "control": control,
                     "result": {
                     "value": control["expected_score"],
                     "statements": statements,

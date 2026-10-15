@@ -21,12 +21,9 @@ GATED = sorted(metric for metric, minimum in MINIMA.items() if minimum is not No
 def measured_report(**values: float) -> dict:
     """A report whose fact and source checks passed and whose four metrics were measured (1.0 unless given)."""
     return {
-            "schema_version":
-            1,
-            "status":
-            "checks_passed",
-            "interpretation":
-            "Measured without thresholds",
+            "schema_version": 1,
+            "status": "checks_passed",
+            "interpretation": "Measured without thresholds",
             "dimensions": [{
             "name": "Facts",
             "status": "passed"}, {

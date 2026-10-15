@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pytest
 from requests import HTTPError
 
-from llm_testkit.clients.ollama_client import OllamaClient
+from llm_testkit.clients.ollama import OllamaClient
 from llm_testkit.reporting.steps import title
 from test_support.builders.identities import TEST_MODEL
 from test_support.builders.ollama import chat_response

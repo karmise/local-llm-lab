@@ -8,7 +8,7 @@ import pytest
 from requests import Response
 
 from llm_testkit import assertions
-from llm_testkit.clients.anythingllm_client import AnythingLLMClient
+from llm_testkit.clients.anythingllm import AnythingLLMClient
 from llm_testkit.config import Settings
 from llm_testkit.datasets.conversation import ConversationCase, load_conversation_catalog
 from llm_testkit.reporting.steps import set_metadata
@@ -36,7 +36,7 @@ def conversation_chat(
     assertions.assert_field_equals(workspace_configuration, "chatMode", "chat")
 
     def chat(question: str) -> Response:
-        return authenticated_anythingllm_api.chat(
+        return authenticated_anythingllm_api.workspaces.chat(
                 indexed_workspace["slug"], question, mode="chat", timeout=settings.llm_timeout)
 
     return chat

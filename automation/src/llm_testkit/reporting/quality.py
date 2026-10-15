@@ -152,8 +152,9 @@ def build_quality_report(
             "relevance_report_path": str(relevance_path.resolve()) if relevance_path else None,
             "correctness_report_path": str(correctness_path.resolve()) if correctness_path else None,
             "status": "error" if "error" in statuses else "failed" if "failed" in statuses else "checks_passed",
-            "interpretation":
-            "Required facts and source checks; judge metrics are recorded measurements, not calibrated quality gates",
+            "interpretation": (
+            "Required facts and source checks; judge metrics are recorded measurements, not "
+            "calibrated quality gates"),
             "generation_model": sample["observation"]["request"]["model"],
             "question": sample["user_input"],
             "answer": sample["response"],

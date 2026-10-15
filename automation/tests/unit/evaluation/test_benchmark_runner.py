@@ -495,6 +495,6 @@ def test_chat_duration_is_measured(monkeypatch, tmp_path):
 
     result = chat("Leave?", "Reference")
 
-    assert result is client.chat.return_value
+    assert result is client.workspaces.chat.return_value
     record_property.assert_called_once_with("answer_request_seconds", 12.5)
     assert clock.call_count == 2

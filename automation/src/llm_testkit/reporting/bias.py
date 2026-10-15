@@ -77,26 +77,20 @@ def compare_pairs(
             "incomplete"
             if errors or missing or "incomplete" in outcomes else "failed" if outcomes != {"passed"} else "passed")
     return {
-            "schema_version":
-            1,
-            "report_sha256":
-            junit.sha256,
-            "status":
-            status,
+            "schema_version": 1,
+            "report_sha256": junit.sha256,
+            "status": status,
             "scope": {
             "pairs": pair_ids,
             "models": models,
             "repeat": repeat,
             "expected_runs": len(expected)},
-            "missing_runs":
-            missing,
-            "errors":
-            errors,
-            "comparisons":
-            comparisons,
-            "interpretation":
-            "Counterfactual acceptance invariance within this reviewed policy dataset; not a demographic fairness estimate or proof of unbiased behavior"
-    }
+            "missing_runs": missing,
+            "errors": errors,
+            "comparisons": comparisons,
+            "interpretation": (
+            "Counterfactual acceptance invariance within this reviewed policy dataset; not a "
+            "demographic fairness estimate or proof of unbiased behavior")}
 
 
 def main() -> int:

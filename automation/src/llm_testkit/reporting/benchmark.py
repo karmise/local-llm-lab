@@ -39,19 +39,14 @@ def _group(expected: list[dict], rows: dict[tuple[str, str], dict]) -> dict:
     if any(type(value) not in (int, float) or not math.isfinite(value) or value <= 0 for value in durations):
         raise ValueError("Benchmark answer durations must be finite positive numbers")
     summary["answer_timing"] = {
-            "measured":
-            len(durations),
-            "unavailable":
-            len(expected) - len(durations),
-            "mean_seconds":
-            mean(durations) if durations else None,
-            "minimum_seconds":
-            min(durations) if durations else None,
-            "maximum_seconds":
-            max(durations) if durations else None,
-            "scope":
-            "Completed chat API request, including retrieval/model loading/generation; excludes fixture setup, judge calls and cleanup"
-    }
+            "measured": len(durations),
+            "unavailable": len(expected) - len(durations),
+            "mean_seconds": mean(durations) if durations else None,
+            "minimum_seconds": min(durations) if durations else None,
+            "maximum_seconds": max(durations) if durations else None,
+            "scope": (
+            "Completed chat API request, including retrieval/model loading/generation; excludes "
+            "fixture setup, judge calls and cleanup")}
     for metric in sorted(METRICS):
         eligible = [r for r in expected if r["category"] != "missing_information"]
         dimensions = [
@@ -138,8 +133,9 @@ def summarize(manifest: dict, results: list[dict], calibration: dict) -> dict:
             "schema_version": 1,
             "status": status,
             "manifest": manifest,
-            "interpretation":
-            "Experimental thresholds and a curated sample; human review pending. A mean cannot hide failed, missing or invalid cases. No population accuracy or clinical validity claim.",
+            "interpretation": (
+            "Experimental thresholds and a curated sample; human review pending. A mean cannot hide "
+            "failed, missing or invalid cases. No population accuracy or clinical validity claim."),
             "summary": summary,
             "models": {
             model: _group([r for r in expected if r["model"] == model], rows)
@@ -161,12 +157,15 @@ def markdown(report: dict) -> str:
             "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"]
     for model, summary in report["models"].items():
         lines.append(
-                f"| {model} | {summary['planned']} | {summary['passed']} | {summary['failed']} | {summary['errors']} | {summary['missing']} | {summary['pass_rate']:.1%} |"
-        )
+                f"| {model} | {summary['planned']} | {summary['passed']} | {summary['failed']} | "
+                f"{summary['errors']} | {summary['missing']} | {summary['pass_rate']:.1%} |")
     lines.extend([
             "", "## Answer request timing", "",
-            "Descriptive timings include retrieval, model loading and generation. They exclude fixture setup, judge calls and cleanup. One observation per case is not a latency SLO or a statistically reliable speed ranking.",
-            "", "| Model | Measured / planned | Unavailable | Mean seconds | Min seconds | Max seconds |",
+            (
+            "Descriptive timings include retrieval, model loading and generation. They exclude "
+            "fixture setup, judge calls and cleanup. One observation per case is not a latency SLO or"
+            " a statistically reliable speed ranking."), "",
+            "| Model | Measured / planned | Unavailable | Mean seconds | Min seconds | Max seconds |",
             "| --- | ---: | ---: | ---: | ---: | ---: |"])
     for model, summary in report["models"].items():
         timing = summary["answer_timing"]
@@ -186,19 +185,22 @@ def markdown(report: dict) -> str:
             avg = "N/A" if values["mean"] is None else f"{values['mean']:.3f}"
             minimum = "N/A" if values["minimum"] is None else f"{values['minimum']:.3f}"
             lines.append(
-                    f"| {model} | {metric} | {avg} | {minimum} | {values['measured']} / {values['eligible']} | {values['unavailable']} | {values['below_minimum']} | {values['not_applicable']} |"
-            )
+                    f"| {model} | {metric} | {avg} | {minimum} | {values['measured']} / "
+                    f"{values['eligible']} | {values['unavailable']} | {values['below_minimum']} | "
+                    f"{values['not_applicable']} |")
     lines.extend([
             "", "## Results by question category", "", "| Category | Planned | Passed | Failed | Errors | Missing |",
             "| --- | ---: | ---: | ---: | ---: | ---: |"])
     for category, values in report["categories"].items():
         lines.append(
-                f"| {category} | {values['planned']} | {values['passed']} | {values['failed']} | {values['errors']} | {values['missing']} |"
-        )
+                f"| {category} | {values['planned']} | {values['passed']} | {values['failed']} | "
+                f"{values['errors']} | {values['missing']} |")
     lines.extend([
             "", "## Judge control check", "",
-            f"Status: {report['calibration'].get('status', 'unavailable')}. This is a small hand-labelled faithfulness sanity check, not statistical calibration of all four metrics.",
-            "", "## Case diagnostics", ""])
+            (
+            f"Status: {report['calibration'].get('status', 'unavailable')}. This is a small "
+            f"hand-labelled faithfulness sanity check, not statistical calibration of all four "
+            f"metrics."), "", "## Case diagnostics", ""])
     for row in report["results"]:
         lines.extend([f"### {row['case_id']} / {row['model']}", "", f"Status: {row_status(row)}", ""])
         if "answer_request_seconds" in row:
@@ -214,33 +216,25 @@ def markdown(report: dict) -> str:
 
 def review_worksheet(report: dict) -> dict:
     return {
-            "schema_version":
-            1,
-            "status":
-            "pending_human_review",
-            "instruction":
-            "Review answers against references and captured contexts. Record acceptable/incorrect/incomplete/unsupported and judge disagreements before proposing thresholds. Keep this run's evidence immutable; save a separate reviewed copy.",
+            "schema_version": 1,
+            "status": "pending_human_review",
+            "instruction": (
+            "Review answers against references and captured contexts. Record "
+            "acceptable/incorrect/incomplete/unsupported and judge disagreements before proposing "
+            "thresholds. Keep this run's evidence immutable; save a separate reviewed copy."),
             "rows": [{
-            "case_id":
-            r["case_id"],
-            "model":
-            r["model"],
-            "question":
-            r.get("question"),
-            "reference":
-            r.get("reference"),
-            "answer":
-            r.get("answer"),
-            "human_verdict":
-            None,
+            "case_id": r["case_id"],
+            "model": r["model"],
+            "question": r.get("question"),
+            "reference": r.get("reference"),
+            "answer": r.get("answer"),
+            "human_verdict": None,
             "review_flags": ["semantic_disagreement_candidate"]
             if not r.get("error") and all(d["status"] == "passed" for d in r.get("dimensions", [])[:2])
             and any(d.get("metric") and d["status"] in ("failed", "error") for d in r.get("dimensions", [])) else [],
             "judge_disagreements": [],
-            "reviewer":
-            None,
-            "notes":
-            None} for r in report["results"]]}
+            "reviewer": None,
+            "notes": None} for r in report["results"]]}
 
 
 @step("Check: complete policy benchmark meets its experimental acceptance criteria")

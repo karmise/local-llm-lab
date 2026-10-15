@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from llm_testkit.clients.anythingllm_client import AnythingLLMClient
+from llm_testkit.clients.anythingllm import AnythingLLMClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.datasets.golden import GoldenCase, load_golden_dataset

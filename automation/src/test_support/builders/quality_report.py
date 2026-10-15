@@ -77,10 +77,8 @@ def quality_inputs(
             "schema_version": 1,
             "boundary": "ollama-sdk-chat",
             "request": {
-            "model":
-            GENERATION_MODEL,
-            "stream":
-            False,
+            "model": GENERATION_MODEL,
+            "stream": False,
             "messages": [{
             "role": "system",
             "content": f"[LLM_TESTKIT_CAPTURE:{CAPTURE_ID}]\n{blocks}".rstrip()}, {

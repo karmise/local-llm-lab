@@ -47,16 +47,11 @@ def test_trace_passes(lab):
             "review_status": "pending human review",
             "compliance_claim": False}
     assert result["requirements"] == [{
-            "id":
-            "REQ-EXAMPLE",
-            "phase":
-            "OQ",
-            "risk":
-            "high",
-            "acceptance":
-            "Both cases pass",
-            "status":
-            "passed",
+            "id": "REQ-EXAMPLE",
+            "phase": "OQ",
+            "risk": "high",
+            "acceptance": "Both cases pass",
+            "status": "passed",
             "cells": [{
             "test": SELECTOR,
             "axes": {

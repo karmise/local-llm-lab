@@ -8,8 +8,8 @@ from pathlib import Path
 
 import requests
 
-from llm_testkit.clients.anythingllm_client import AnythingLLMClient
-from llm_testkit.clients.ollama_client import OllamaClient
+from llm_testkit.clients.anythingllm import AnythingLLMClient
+from llm_testkit.clients.ollama import OllamaClient
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.observation.evaluation_sample import write_sample
 

@@ -95,28 +95,37 @@
 а подготовка ресурсов и отправка HTTP-запросов вынесены в соответствующие слои.
 
 ```mermaid
-flowchart LR
-    T[Тестовый сценарий] --> F[Фикстуры pytest]
-    F --> A[API-клиент]
-    T --> A
-    A --> H[HTTP-клиент]
-    H --> S[AnythingLLM]
-    T --> P[Page Object]
-    P --> B[Chromium]
-    B --> S
+flowchart TB
+    T[Тестовый сценарий] --> F[Фикстуры<br/>подготовка и очистка]
     T --> C[Assertions]
+    T --> API
+    F --> API[API ресурсов<br/>workspaces, documents]
+    API --> BC[BaseClient<br/>базовый путь, ключ API, кодирование пути]
+    BC --> H[HttpClient<br/>сессия, таймаут, без повторов]
+    H --> S[AnythingLLM]
+    T --> P[WorkspacePage]
+    P --> BP[BasePage<br/>URL, навигация, таймауты]
+    BP --> B[Chromium]
+    B --> S
 ```
 
-Схема показывает основные обязанности, а не каждый вызов функции. Отчётность
-записывает отдельные операции этих слоёв. Критерии правильности ответа задаются
-проверками.
+Каждый слой обращается только к слою ниже. **Базовые слои** содержат общее для
+всех клиентов и страниц: `BaseClient` добавляет базовый путь и ключ API и кодирует
+сегменты пути, поэтому `WorkspacesApi`, `DocumentsApi` и `OllamaClient` только
+называют операции и собирают тела запросов. `BasePage` отвечает за URL приложения,
+навигацию и таймаут ответа, а `WorkspacePage` — только за локаторы и действия
+пользователя. Результаты эти слои не проверяют: это задача `assertions`, которые
+вызывают тесты и фикстуры. Отчётность записывает отдельные операции слоёв, а
+критерии правильности ответа задаются проверками.
 
 | Файл или модуль | За что отвечает | Почему выделен отдельно |
 | --- | --- | --- |
 | [config.py](../automation/src/llm_testkit/config.py) | Неизменяемые настройки, переменные окружения, проверка URL и таймаутов. | Ошибку конфигурации проще обнаружить до того, как она превратится в непонятную сетевую ошибку. |
 | [core/http_client.py](../automation/src/llm_testkit/core/http_client.py) | Сессия Requests, базовый URL, таймаут, ответ и закрытие сессии. | У клиентов единая транспортная политика. Автоматических повторов нет; редиректы по умолчанию отключены, чтобы их можно было проверить явно. |
-| [clients/anythingllm_client.py](../automation/src/llm_testkit/clients/anythingllm_client.py) | Пути endpoint, кодирование URL, тела запросов и загрузка файлов. | Тест вызывает операцию вроде `create_workspace`, а не собирает запрос заново. Клиент возвращает исходный ответ и не задаёт критерии успеха теста. |
-| [pages/workspace_page.py](../automation/src/llm_testkit/pages/workspace_page.py) | Локаторы, навигация, отправка вопроса и открытие источников. | Изменение интерфейса приложения можно исправить в одном месте. |
+| [clients/base_client.py](../automation/src/llm_testkit/clients/base_client.py) | Базовый путь, заголовки по умолчанию (ключ API) и кодирование сегмента пути. | Все клиенты получают одинаковые правила запросов без повторения кода. |
+| [clients/anythingllm/](../automation/src/llm_testkit/clients/anythingllm/) | `AnythingLLMClient` с проверкой доступности и авторизации, а также операции `workspaces` и `documents`. | Тест вызывает операцию вроде `api.workspaces.create(...)`, сгруппированную по ресурсу, а не собирает запрос заново. Клиент возвращает исходный ответ и не задаёт критерии успеха. |
+| [clients/ollama.py](../automation/src/llm_testkit/clients/ollama.py) | Список моделей и структурированный запрос судьи. | Код оценки не собирает запросы к Ollama сам. |
+| [pages/base_page.py](../automation/src/llm_testkit/pages/base_page.py), [pages/workspace_page.py](../automation/src/llm_testkit/pages/workspace_page.py) | Навигация и таймауты в `BasePage`; локаторы, отправка вопроса и открытие источников в `WorkspacePage`. | Изменение интерфейса приложения можно исправить в одном месте. |
 | [assertions/](../automation/src/llm_testkit/assertions/) | Повторно используемые проверки полей, API, ответов, качества и UI, по модулю на область. | API- и UI-сценарии используют общие правила и понятные сообщения об ошибках. |
 | [test_support/fixtures/environment.py](../automation/src/test_support/fixtures/environment.py) | Пути, настройки, API-клиенты и общие профили сценариев. | Тестам не нужно самостоятельно искать ключи и дублировать чтение файлов. |
 | [test_support/fixtures/resources.py](../automation/src/test_support/fixtures/resources.py) | Создание workspace и папок, загрузка документов, индексация и очистка. | Очистка должна работать и при падении теста, и при ошибке подготовки. |

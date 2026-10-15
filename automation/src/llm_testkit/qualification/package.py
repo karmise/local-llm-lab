@@ -81,31 +81,20 @@ def trace_results(plan: dict[str, Any], junit_files: list[Path], phases: list[st
         raise ValueError("Selected protocol has no requirements")
     status = ("failed" if "failed" in statuses else "incomplete" if statuses != {"passed"} else "passed")
     return {
-            "schema_version":
-            1,
-            "educational_only":
-            True,
-            "input_sha256":
-            input_sha256,
-            "protocol_scope":
-            phases,
-            "status":
-            status,
-            "plan_version":
-            plan["version"],
-            "plan_sha256":
-            plan["sha256"],
-            "requirements":
-            requirements,
-            "deviations":
-            deviations,
-            "review_status":
-            "pending human review",
-            "compliance_claim":
-            False,
-            "interpretation":
-            "Execution and traceability within declared educational protocol scope; no electronic signature, formal approval or GxP certification"
-    }
+            "schema_version": 1,
+            "educational_only": True,
+            "input_sha256": input_sha256,
+            "protocol_scope": phases,
+            "status": status,
+            "plan_version": plan["version"],
+            "plan_sha256": plan["sha256"],
+            "requirements": requirements,
+            "deviations": deviations,
+            "review_status": "pending human review",
+            "compliance_claim": False,
+            "interpretation": (
+            "Execution and traceability within declared educational protocol scope; no electronic "
+            "signature, formal approval or GxP certification")}
 
 
 def build_package(
@@ -164,7 +153,9 @@ def build_package(
         summary += "| Requirement | Phase | Risk | Result |\n| --- | --- | --- | --- |\n"
         summary += "".join(
                 f"| {r['id']} | {r['phase']} | {r['risk']} | {r['status']} |\n" for r in trace["requirements"])
-        summary += "\nSee traceability.json for missing cells and deviations. This package does not claim GxP compliance or approval.\n"
+        summary += (
+                "\nSee traceability.json for missing cells and deviations. "
+                "This package does not claim GxP compliance or approval.\n")
         (temporary / "summary.md").write_text(summary)
         files.append({
                 "path": "summary.md",

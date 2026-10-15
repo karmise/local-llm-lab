@@ -34,8 +34,8 @@ def case_xml(name="test_answer", classname="example", *, properties=None, childr
 def test_reads_passing_case(tmp_path):
     result = report(tmp_path, case_xml(properties={"model": "qwen", "run": "1"}))
 
-    assert result.cases == {("example", "test_answer"):
-            CaseResult("example", "test_answer", properties={
+    assert result.cases == {
+            ("example", "test_answer"): CaseResult("example", "test_answer", properties={
             "model": "qwen",
             "run": "1"})}
     assert result.cases["example", "test_answer"].status == "passed"

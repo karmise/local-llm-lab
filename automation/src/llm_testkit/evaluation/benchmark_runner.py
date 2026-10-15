@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from llm_testkit import assertions
-from llm_testkit.clients.ollama_client import OllamaClient
+from llm_testkit.clients.ollama import OllamaClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.datasets.benchmark import CONTROL_IDS, make_plan, manifest
@@ -189,9 +189,9 @@ def main() -> int:
             return 0
         if importlib.util.find_spec("ragas") is None:
             raise ValueError("Install requirements-evaluation.lock before running a benchmark")
-        print(
-                f"Serial benchmark: {len(plan.case_ids) * len(plan.models)} generations; at most {plan.maximum_calls} generation/judge calls; no retries.",
-                flush=True)
+        print((
+                f"Serial benchmark: {len(plan.case_ids) * len(plan.models)} generations; at most "
+                f"{plan.maximum_calls} generation/judge calls; no retries."), flush=True)
         report = run(root, output, plan, dataset, gates)
     except (ValueError, OSError, AssertionError) as error:
         parser.error(str(error))

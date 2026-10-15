@@ -93,28 +93,37 @@ The package lives under `automation/src/llm_testkit`. The tests consume the
 package; they do not implement transport or resource ownership themselves.
 
 ```mermaid
-flowchart LR
-    T[Test scenario] --> F[Pytest fixtures]
-    F --> A[API client]
-    T --> A
-    A --> H[HTTP transport]
-    H --> S[AnythingLLM]
-    T --> P[Page Object]
-    P --> B[Chromium]
-    B --> S
+flowchart TB
+    T[Test scenario] --> F[Fixtures<br/>setup and cleanup]
     T --> C[Assertions]
+    T --> API
+    F --> API[Resource APIs<br/>workspaces, documents]
+    API --> BC[BaseClient<br/>base path, API key, path encoding]
+    BC --> H[HttpClient<br/>session, timeout, no retries]
+    H --> S[AnythingLLM]
+    T --> P[WorkspacePage]
+    P --> BP[BasePage<br/>URL, navigation, timeouts]
+    BP --> B[Chromium]
+    B --> S
 ```
 
-The diagram shows the main responsibilities, not every function call. Reporting
-records selected operations across these layers; it does not decide whether an
-answer is correct.
+Each layer only uses the one below it. The **base layers** hold what every client
+or page shares: `BaseClient` joins a base path, adds the API key and encodes path
+segments, so `WorkspacesApi`, `DocumentsApi` and `OllamaClient` only name
+operations and build payloads. `BasePage` owns the application URL, navigation
+and the answer timeout, so `WorkspacePage` only holds locators and user actions.
+Neither layer checks results: that is the job of `assertions`, which tests and
+fixtures call on what clients and pages return. Reporting records selected
+operations across these layers; it does not decide whether an answer is correct.
 
 | File/module | Responsibility | Why this boundary exists |
 | --- | --- | --- |
 | [config.py](../automation/src/llm_testkit/config.py) | Immutable settings, environment variables and URL/timeout validation. | A configuration error should be identified before it becomes a confusing network failure. |
 | [core/http_client.py](../automation/src/llm_testkit/core/http_client.py) | Requests session, base URL, timeout, response and session closure. | Clients share one transport policy. There are no implicit retries; redirects are disabled by default so a redirect remains observable. |
-| [clients/anythingllm_client.py](../automation/src/llm_testkit/clients/anythingllm_client.py) | Endpoint paths, URL encoding, payloads and file uploads. | Tests speak in operations such as `create_workspace`, not repeated request construction. Clients return raw responses and do not impose test acceptance criteria. |
-| [pages/workspace_page.py](../automation/src/llm_testkit/pages/workspace_page.py) | UI locators, navigation, sending and source-opening actions. | An upstream label or DOM change can be fixed in one place without rewriting scenarios. |
+| [clients/base_client.py](../automation/src/llm_testkit/clients/base_client.py) | Base path, default headers such as the API key, and one-segment path encoding. | Every client gets the same request rules without repeating them. |
+| [clients/anythingllm/](../automation/src/llm_testkit/clients/anythingllm/) | `AnythingLLMClient` with health and authentication, plus `workspaces` and `documents` operations. | Tests speak in operations such as `api.workspaces.create(...)`, grouped by resource, not repeated request construction. Clients return raw responses and do not impose acceptance criteria. |
+| [clients/ollama.py](../automation/src/llm_testkit/clients/ollama.py) | Installed models and the judge's structured chat. | Evaluation code does not build Ollama requests itself. |
+| [pages/base_page.py](../automation/src/llm_testkit/pages/base_page.py), [pages/workspace_page.py](../automation/src/llm_testkit/pages/workspace_page.py) | Navigation and timeouts in `BasePage`; UI locators, sending and source-opening actions in `WorkspacePage`. | An upstream label or DOM change can be fixed in one place without rewriting scenarios. |
 | [assertions/](../automation/src/llm_testkit/assertions/) | Reusable field, API, answer, quality and UI acceptance checks, one module per area. | API and UI scenarios reuse the same policy rules and diagnostic messages. |
 | [test_support/fixtures/environment.py](../automation/src/test_support/fixtures/environment.py) | Paths, settings, API clients and shared scenario profiles. | Tests do not need to find local credentials or duplicate file-loading logic. |
 | [test_support/fixtures/resources.py](../automation/src/test_support/fixtures/resources.py) | Workspace/folder creation, upload, indexing and cleanup. | Resource ownership must remain reliable when a scenario or setup check fails. |

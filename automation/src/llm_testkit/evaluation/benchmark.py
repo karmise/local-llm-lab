@@ -121,15 +121,12 @@ def evaluate_case(
         row["answer_request_seconds"] = sample["metadata"]["answer_request_seconds"]
     if case.category == "missing_information":
         row["dimensions"].extend({
-                "name":
-                metric,
-                "metric":
-                metric,
-                "status":
-                "not_applicable",
-                "reason":
-                "Abstention is checked against reviewed rules; semantic claim metrics are outside this benchmark's refusal scope"
-        } for metric in sorted(minima))
+                "name": metric,
+                "metric": metric,
+                "status": "not_applicable",
+                "reason": (
+                "Abstention is checked against reviewed rules; semantic claim metrics are outside "
+                "this benchmark's refusal scope")} for metric in sorted(minima))
         return row
     common = {
             "dataset_path": dataset_path,

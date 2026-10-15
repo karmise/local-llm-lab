@@ -109,8 +109,8 @@ Correctness remains a measurement until explicit gates are supplied. Context pre
 | Location | Responsibility |
 | --- | --- |
 | `src/llm_testkit/core/` | HTTP session lifetime, timeouts, no implicit redirects or retries |
-| `src/llm_testkit/clients/` | API routes, request payloads and file uploads; return raw responses |
-| `src/llm_testkit/pages/` | Browser locators and actions |
+| `src/llm_testkit/clients/` | `BaseClient` (base path, API key, path encoding) and the API clients built on it: `AnythingLLMClient` with `.workspaces` and `.documents`, and `OllamaClient`; they return raw responses |
+| `src/llm_testkit/pages/` | `BasePage` (URL, navigation, timeouts) and `WorkspacePage` (locators and actions) |
 | `src/llm_testkit/assertions/` | Acceptance criteria by area: `fields`, `api`, `answers`, `quality`, `ui` |
 | `src/llm_testkit/pytest_support/options.py` | CLI selection, model matrix, opt-in validation after `-k`/`-m` |
 | `src/test_support/fixtures/` | Scoped setup, dependencies, resource ownership, evidence and cleanup |

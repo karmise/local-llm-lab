@@ -28,7 +28,9 @@ config/                      workspace templates (benchmark: temperature 0)
 docs/                        onboarding, evaluation guide, decisions, test plan
 automation/
   src/llm_testkit/           the framework
-    core/ clients/ pages/    HTTP transport, API client, Page Objects
+    core/                    HttpClient transport and shared helpers
+    clients/                 BaseClient → AnythingLLMClient (.workspaces, .documents), OllamaClient
+    pages/                   BasePage → WorkspacePage
     assertions/              acceptance checks: fields, api, answers, quality, ui
     evaluation/              RAGAS metrics, judge controls, benchmark runner
     reporting/               Allure, gates, drift, stability, CI evidence

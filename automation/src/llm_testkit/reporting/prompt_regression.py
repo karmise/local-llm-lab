@@ -83,34 +83,24 @@ def compare_prompts(
             "incomplete" if errors or missing or "incomplete" in outcomes else "regression"
             if "regression" in outcomes else "baseline_failed" if "baseline_failed" in outcomes else "passed")
     return {
-            "schema_version":
-            1,
-            "status":
-            status,
-            "baseline":
-            catalog.baseline,
-            "candidate":
-            candidate,
-            "catalog_sha256":
-            catalog.sha256,
-            "golden_dataset_sha256":
-            dataset.sha256,
-            "report_sha256":
-            junit.sha256,
+            "schema_version": 1,
+            "status": status,
+            "baseline": catalog.baseline,
+            "candidate": candidate,
+            "catalog_sha256": catalog.sha256,
+            "golden_dataset_sha256": dataset.sha256,
+            "report_sha256": junit.sha256,
             "scope": {
             "cases": case_ids,
             "models": models,
             "repeat": repeat,
             "expected_runs": len(expected)},
-            "missing_runs":
-            missing,
-            "errors":
-            errors,
-            "comparisons":
-            comparisons,
-            "interpretation":
-            "Acceptance regression within the declared scope; independent repetitions are not retries or statistical proof"
-    }
+            "missing_runs": missing,
+            "errors": errors,
+            "comparisons": comparisons,
+            "interpretation": (
+            "Acceptance regression within the declared scope; independent repetitions are not retries"
+            " or statistical proof")}
 
 
 def main() -> int:

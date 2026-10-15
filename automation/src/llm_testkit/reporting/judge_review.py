@@ -34,51 +34,30 @@ def review_benchmark(path: Path) -> dict:
                         "judge_model_digest": original.get("judge_model_digest")}
         deterministic = case.get("dimensions", [])[:2]
         rows.append({
-                "case_id":
-                case["case_id"],
-                "model":
-                case["model"],
-                "sample_sha256":
-                case.get("sample_sha256"),
-                "question":
-                case.get("question"),
-                "reference":
-                case.get("reference"),
-                "answer":
-                case.get("answer"),
-                "generation_status":
-                case.get("generation_status"),
-                "deterministic_checks":
-                deterministic,
-                "failed_semantic_dimensions":
-                failures,
-                "assessment":
-                "judge_reference_disagreement_candidate" if failures and len(deterministic) == 2
+                "case_id": case["case_id"],
+                "model": case["model"],
+                "sample_sha256": case.get("sample_sha256"),
+                "question": case.get("question"),
+                "reference": case.get("reference"),
+                "answer": case.get("answer"),
+                "generation_status": case.get("generation_status"),
+                "deterministic_checks": deterministic,
+                "failed_semantic_dimensions": failures,
+                "assessment": "judge_reference_disagreement_candidate" if failures and len(deterministic) == 2
                 and all(dimension["status"] == "passed" for dimension in deterministic)
                 and case.get("generation_status") == "passed" and not case.get("error") else "no_automatic_assessment",
-                "evidence":
-                evidence,
-                "human_verdict":
-                None})
+                "evidence": evidence,
+                "human_verdict": None})
     return {
-            "schema_version":
-            1,
-            "benchmark_sha256":
-            hashlib.sha256(path.read_bytes()).hexdigest(),
-            "policy_sha256":
-            benchmark["manifest"]["policy_sha256"],
-            "golden_dataset_sha256":
-            benchmark["manifest"]["golden_dataset_sha256"],
-            "original_benchmark_status":
-            benchmark["status"],
-            "human_review":
-            "pending",
-            "threshold_decision":
-            "retain_experimental_thresholds",
-            "rows":
-            rows,
-            "interpretation":
-            "Passing fact/source rules do not prove answer correctness. Candidates need contextual "
+            "schema_version": 1,
+            "benchmark_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "policy_sha256": benchmark["manifest"]["policy_sha256"],
+            "golden_dataset_sha256": benchmark["manifest"]["golden_dataset_sha256"],
+            "original_benchmark_status": benchmark["status"],
+            "human_review": "pending",
+            "threshold_decision": "retain_experimental_thresholds",
+            "rows": rows,
+            "interpretation": "Passing fact/source rules do not prove answer correctness. Candidates need contextual "
             "review; this report does not override failures, approve a judge or change any source artifact."}
 
 

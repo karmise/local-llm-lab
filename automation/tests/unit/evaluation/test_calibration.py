@@ -102,8 +102,7 @@ def test_two_claims_cannot_share_one_statement():
 @title("A recorded control accepts the judge spelling its numbers as words")
 def test_number_words_match_digit_patterns(curated_controls):
     result = {
-            "value":
-            0.0,
+            "value": 0.0,
             "verdicts": [{
             "statement": "Each employee receives thirty working days of paid leave per year.",
             "verdict": 0}, {
@@ -121,8 +120,7 @@ def test_number_words_match_digit_patterns(curated_controls):
 @title("Control matching still rejects a changed number, a changed unit or an unsupported large value [{param_id}]")
 def test_changed_numbers_do_not_match(curated_controls, statement):
     result = {
-            "value":
-            0.0,
+            "value": 0.0,
             "verdicts": [{
             "statement": statement,
             "verdict": 0}, {

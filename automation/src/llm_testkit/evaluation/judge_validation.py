@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from llm_testkit import assertions
-from llm_testkit.clients.ollama_client import OllamaClient
+from llm_testkit.clients.ollama import OllamaClient
 from llm_testkit.config import Settings
 from llm_testkit.core.http_client import HttpClient
 from llm_testkit.core.scores import require_score
