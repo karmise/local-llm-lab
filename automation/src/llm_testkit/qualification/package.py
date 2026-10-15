@@ -1,4 +1,4 @@
-"""Build a scoped educational evidence package, retaining failures and missing coverage."""
+"""Build and verify a scoped educational evidence package, retaining failures and missing coverage."""
 
 import argparse
 import hashlib
@@ -10,91 +10,20 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from llm_testkit.observation.evaluation_sample import write_sample
-from llm_testkit.qualification.plan import PHASES, expected_cells, framework_checksum, framework_sources, load_plan
-from llm_testkit.reporting.junit import read_junit
+from llm_testkit.qualification.plan import PHASES, framework_checksum, framework_sources, load_plan
+from llm_testkit.qualification.trace import trace_results
 
 
-def trace_results(plan: dict[str, Any], junit_files: list[Path], phases: list[str]) -> dict[str, Any]:
-    if not phases or len(set(phases)) != len(phases) or not set(phases) <= PHASES:
-        raise ValueError("Select distinct IQ/OQ/PQ protocol phases")
-    input_sha256 = {}
-    observations = {}
-    deviations = []
-    for path in junit_files:
-        # Each file is an independent run; phase entries within it share node identity.
-        junit = read_junit(path, identity_property="test_node_id")
-        input_sha256[str(path.resolve())] = junit.sha256
-        for entry in junit.cases.values():
-            node = entry.properties.get("test_node_id")
-            if not node:
-                continue
-            details = ["Conflicting metadata: " + name for name in sorted(entry.conflicts)]
-            observations[(str(path.resolve()), node)] = {
-                    "node": node,
-                    "properties": entry.properties,
-                    "status": entry.status,
-                    "details": [*details, *entry.details]}
-    requirements = []
-    for req in plan["requirements"]:
-        if req["phase"] not in phases:
-            continue
-        cells = []
-        for selector, axis in expected_cells(req):
-            matching = [
-                    e for e in observations.values()
-                    if e["node"].split("[", 1)[0] == selector and all(e["properties"].get(k) == v for k, v in axis)]
-            outcomes = []
-            for entry in matching:
-                p = entry["properties"]
-                try:
-                    ids = json.loads(p.get("requirement_ids", "[]"))
-                    bound = (
-                            p.get("qualification_plan_sha256") == plan["sha256"] and isinstance(ids, list)
-                            and req["id"] in ids and p.get("framework_source_sha256") == plan["framework_source_sha256"]
-                            and p.get("test_source_sha256") == plan["test_source_sha256"][selector])
-                except (ValueError, TypeError):
-                    bound = False
-                outcome = entry["status"] if bound else "unbound"
-                outcomes.append(outcome)
-                if outcome != "passed":
-                    deviations.append({
-                            "requirement": req["id"],
-                            "node": entry["node"],
-                            "status": outcome,
-                            "details": entry["details"]})
-            status = (
-                    "missing" if not outcomes else "failed" if "failed" in outcomes else "incomplete" if any(
-                    o != "passed" for o in outcomes) else "passed")
-            # A pass from another run never erases an earlier failure/error/skip.
-            cells.append({"test": selector, "axes": dict(axis), "status": status, "observed_outcomes": outcomes})
-        statuses = {c["status"] for c in cells}
-        status = ("failed" if "failed" in statuses else "incomplete" if statuses != {"passed"} else "passed")
-        requirements.append({
-                "id": req["id"],
-                "phase": req["phase"],
-                "risk": req["risk"],
-                "acceptance": req["acceptance"],
-                "status": status,
-                "cells": cells})
-    statuses = {r["status"] for r in requirements}
-    if not requirements:
-        raise ValueError("Selected protocol has no requirements")
-    status = ("failed" if "failed" in statuses else "incomplete" if statuses != {"passed"} else "passed")
-    return {
-            "schema_version": 1,
-            "educational_only": True,
-            "input_sha256": input_sha256,
-            "protocol_scope": phases,
-            "status": status,
-            "plan_version": plan["version"],
-            "plan_sha256": plan["sha256"],
-            "requirements": requirements,
-            "deviations": deviations,
-            "review_status": "pending human review",
-            "compliance_claim": False,
-            "interpretation": (
-            "Execution and traceability within declared educational protocol scope; no electronic "
-            "signature, formal approval or GxP certification")}
+def _summary(trace: dict[str, Any], phases: list[str]) -> str:
+    """A short Markdown result table; traceability.json holds the full detail."""
+    rows = "".join(f"| {r['id']} | {r['phase']} | {r['risk']} | {r['status']} |\n" for r in trace["requirements"])
+    return (
+            "# Educational qualification execution\n\n"
+            f"Scope: {', '.join(phases)}. Result: {trace['status']}. Review: pending human review.\n\n"
+            "| Requirement | Phase | Risk | Result |\n| --- | --- | --- | --- |\n"
+            f"{rows}"
+            "\nSee traceability.json for missing cells and deviations. "
+            "This package does not claim GxP compliance or approval.\n")
 
 
 def build_package(
@@ -148,14 +77,7 @@ def build_package(
                 "path": "traceability.json",
                 "sha256": hashlib.sha256((temporary / "traceability.json").read_bytes()).hexdigest(),
                 "size": (temporary / "traceability.json").stat().st_size})
-        summary = "# Educational qualification execution\n\n"
-        summary += f"Scope: {', '.join(phases)}. Result: {trace['status']}. Review: pending human review.\n\n"
-        summary += "| Requirement | Phase | Risk | Result |\n| --- | --- | --- | --- |\n"
-        summary += "".join(
-                f"| {r['id']} | {r['phase']} | {r['risk']} | {r['status']} |\n" for r in trace["requirements"])
-        summary += (
-                "\nSee traceability.json for missing cells and deviations. "
-                "This package does not claim GxP compliance or approval.\n")
+        summary = _summary(trace, phases)
         (temporary / "summary.md").write_text(summary)
         files.append({
                 "path": "summary.md",

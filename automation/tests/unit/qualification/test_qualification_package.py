@@ -9,8 +9,9 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from llm_testkit.qualification import package
-from llm_testkit.qualification.package import build_package, trace_results, verify_package
+from llm_testkit.qualification.package import build_package, verify_package
 from llm_testkit.qualification.plan import load_plan
+from llm_testkit.qualification.trace import trace_results
 from llm_testkit.reporting.steps import title
 from test_support.builders.qualification import SELECTOR, qualification_lab, reviewed_plan, run
 

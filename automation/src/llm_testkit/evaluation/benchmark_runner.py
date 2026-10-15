@@ -20,7 +20,8 @@ from llm_testkit.evaluation.calibration import evaluate_controls, load_controls,
 from llm_testkit.evaluation.faithfulness import load_sample
 from llm_testkit.evaluation.judge_connection import ollama_client
 from llm_testkit.observation.evaluation_sample import write_sample
-from llm_testkit.reporting.benchmark import markdown, review_worksheet, summarize
+from llm_testkit.reporting.benchmark import summarize
+from llm_testkit.reporting.benchmark_presentation import markdown, review_worksheet
 from llm_testkit.reporting.gates import load_quality_gates
 from llm_testkit.reporting.junit import read_junit
 from llm_testkit.reporting.redaction import redact_files
