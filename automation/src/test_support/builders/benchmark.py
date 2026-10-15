@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
+from llm_testkit.clients.ollama import OllamaClient
 from llm_testkit.datasets.benchmark import make_plan, manifest
 from llm_testkit.datasets.golden import GoldenCase
 from llm_testkit.evaluation import benchmark as evaluation
@@ -242,7 +243,7 @@ def save_benchmark_run(tmp_path: Path, monkeypatch, *, catalog=None, dispute_cor
     root = tmp_path / "automation"
     shutil.copytree(TEST_DATA, root / "test_data")
     monkeypatch.delenv("ANYTHINGLLM_API_KEY", raising=False)
-    monkeypatch.setattr(runner.OllamaClient, "list_models", catalog or (lambda _: model_catalog((MODEL, JUDGE_DIGEST))))
+    monkeypatch.setattr(OllamaClient, "list_models", catalog or (lambda _: model_catalog((MODEL, JUDGE_DIGEST))))
     definition = make_definition()
     monkeypatch.setattr(runner, "calibrate", make_calibrate_stub(make_calibration(definition)))
     generate = make_generate_stub(GOLDEN_DATASET, monkeypatch)

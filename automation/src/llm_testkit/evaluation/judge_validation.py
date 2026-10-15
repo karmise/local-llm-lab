@@ -9,15 +9,13 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Callable
 
-from llm_testkit import assertions
-from llm_testkit.clients.ollama import OllamaClient
 from llm_testkit.config import Settings
-from llm_testkit.core.http_client import HttpClient
 from llm_testkit.core.scores import require_score
 from llm_testkit.datasets.golden import load_golden_dataset
 from llm_testkit.datasets.judge_controls import load_judge_controls, maximum_calls, select_judge_controls
 from llm_testkit.evaluation.correctness import result_from_calls, score_correctness
 from llm_testkit.evaluation.faithfulness import score_sample, validate_result
+from llm_testkit.evaluation.judge_connection import judge_client
 from llm_testkit.observation.evaluation_sample import write_sample
 
 
@@ -175,24 +173,18 @@ def main() -> int:
             "status": "error",
             "results": []}
     settings = Settings.from_env()
-    http = HttpClient(settings.ollama_base_url, settings.http_timeout)
     try:
-        client = OllamaClient(http)
-        inventory = client.list_models()
-        assertions.assert_status_code(inventory, 200, context="Judge validation model inventory")
-        report["judge_model_digest"] = assertions.assert_model_available(inventory.json()["models"], args.judge_model)
+        with judge_client(settings, args.judge_model) as (client, report["judge_model_digest"]):
 
-        def factory(budget):
-            return OllamaJudge(client, args.judge_model, settings.llm_timeout, max_calls=budget)
+            def factory(budget):
+                return OllamaJudge(client, args.judge_model, settings.llm_timeout, max_calls=budget)
 
-        configuration = factory(1)
-        report["judge_configuration"] = {"options": configuration.options, "think": False, "retries": 0}
-        report["results"] = asyncio.run(evaluate_judge_controls(cases, factory))
+            configuration = factory(1)
+            report["judge_configuration"] = {"options": configuration.options, "think": False, "retries": 0}
+            report["results"] = asyncio.run(evaluate_judge_controls(cases, factory))
         report.update(summarize_validation(report["results"]))
     except Exception as error:
         report["error"] = {"type": type(error).__name__, "message": str(error)}
-    finally:
-        http.close()
     write_sample(args.output, report)
     for row in report["results"]:
         print(f"{row['id']}: {row['status']}")

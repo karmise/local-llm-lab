@@ -12,11 +12,9 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
-from llm_testkit import assertions
-from llm_testkit.clients.ollama import OllamaClient
 from llm_testkit.config import Settings
-from llm_testkit.core.http_client import HttpClient
 from llm_testkit.core.scores import require_score
+from llm_testkit.evaluation.judge_connection import judge_client
 from llm_testkit.observation.evaluation_sample import build_sample, write_sample
 
 
@@ -81,28 +79,21 @@ def evaluate_sample_report(sample_path: Path, *, settings: Settings, judge_model
             "threshold": None,
             "interpretation": "Exploratory judge result; not a calibrated quality gate"}
     judge = None
-    http = None
     try:
         sample, checksum = load_sample(sample_path)
         report["sample_sha256"] = checksum
         report["generation_model"] = sample["observation"]["request"]["model"]
         report["same_generation_and_judge_model"] = report["generation_model"] == judge_model
-        http = HttpClient(settings.ollama_base_url, settings.http_timeout)
-        client = OllamaClient(http)
-        catalog = client.list_models()
-        assertions.assert_status_code(catalog, 200, context="Judge model catalog")
-        report["judge_model_digest"] = assertions.assert_model_available(catalog.json()["models"], judge_model)
-        judge = OllamaJudge(client, judge_model, settings.llm_timeout)
-        report["judge_configuration"] = {"options": judge.options, "think": False, "retries": 0}
-        report["result"] = asyncio.run(score_sample(sample, judge))
+        with judge_client(settings, judge_model) as (client, report["judge_model_digest"]):
+            judge = OllamaJudge(client, judge_model, settings.llm_timeout)
+            report["judge_configuration"] = {"options": judge.options, "think": False, "retries": 0}
+            report["result"] = asyncio.run(score_sample(sample, judge))
         report["status"] = "completed"
     except Exception as error:
         report["error"] = {"type": type(error).__name__, "message": str(error)}
     finally:
         if judge:
             report["judge_calls"] = judge.calls
-        if http:
-            http.close()
     return report
 
 

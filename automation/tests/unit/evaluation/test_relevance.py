@@ -223,8 +223,8 @@ def offline_service(tmp_path, monkeypatch):
     service.http_class = Mock(return_value=service.transport)
     service.ollama_class = Mock(return_value=service.ollama)
     service.judge_class = Mock(side_effect=[service.precision_judge, service.recall_judge])
-    monkeypatch.setattr("llm_testkit.evaluation.relevance.HttpClient", service.http_class)
-    monkeypatch.setattr("llm_testkit.evaluation.relevance.OllamaClient", service.ollama_class)
+    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.HttpClient", service.http_class)
+    monkeypatch.setattr("llm_testkit.evaluation.judge_connection.OllamaClient", service.ollama_class)
     monkeypatch.setattr("llm_testkit.evaluation.ollama_judge.OllamaJudge", service.judge_class)
     return service
 
@@ -316,7 +316,7 @@ def test_report_requires_reachable_model_catalog(offline_service, monkeypatch):
 
     report = evaluate(offline_service)
 
-    assert "Relevance judge catalog: expected HTTP 200, got 503" in report["error"]["message"]
+    assert "Judge model catalog: expected HTTP 200, got 503" in report["error"]["message"]
     offline_service.judge_class.assert_not_called()
 
 
