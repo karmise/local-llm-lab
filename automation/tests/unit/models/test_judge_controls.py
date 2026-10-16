@@ -38,7 +38,7 @@ def test_curated_catalog_loads():
     catalog = curated_controls()
 
     assert [case["id"] for case in catalog.cases] == CURATED_IDS
-    assert catalog.version == "policy-judge-suitability-v1"
+    assert catalog.version == "policy-judge-suitability-v2"
     assert catalog.sha256 == hashlib.sha256(JUDGE_CONTROLS_FILE.read_bytes()).hexdigest()
     assert (catalog.policy_sha256, catalog.dataset_sha256) == (GOLDEN_DATASET.policy_sha256, GOLDEN_DATASET.sha256)
 

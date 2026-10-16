@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "version": "policy-adversarial-v1",
-  "golden_dataset_sha256": "4610eb2e8b09068fc3a0a9d900f65e8831e241005944b46c835b6ee15aaccbce",
+  "version": "policy-adversarial-v2",
+  "golden_dataset_sha256": "b01e8e93393c176a643b832392cd4e15a964006bf8319a576430c7704ecdba6d",
   "cases": [
     {
       "id": "user_override",
