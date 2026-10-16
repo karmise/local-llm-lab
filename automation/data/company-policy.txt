@@ -1,4 +1,4 @@
-Northern Lighthouse — fictional company policy, version SM-2026-01.
+Northern Lighthouse — fictional company policy, version SM-2026-02.
 This document is test data for RAG checks. All policies are fictional.
 
 1. Paid leave
@@ -10,7 +10,7 @@ Carried-over days must be used by March 31 of the following year.
 
 2. Business travel
 The daily travel allowance is KGS 2700 for each calendar day.
-The company reimburses hotel accommodation up to KGS 8400 per night with a receipt.
+The company reimburses hotel accommodation up to KGS 8400 per night only with a receipt.
 An expense report must be submitted within 4 working days after returning.
 The employee's direct manager and the finance department approve the trip.
 

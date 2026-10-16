@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version": "policy-judge-suitability-v1",
+  "version": "policy-judge-suitability-v2",
   "label_origin": "engineering_authored",
   "human_review": "pending",
-  "policy_sha256": "02ca83ffa0e66349e39eeb58de78fd1010471f2dd892e6c9739346000e841709",
-  "golden_dataset_sha256": "4610eb2e8b09068fc3a0a9d900f65e8831e241005944b46c835b6ee15aaccbce",
+  "policy_sha256": "9ad4450586793f7fd57380d16274866d1a75ff602138c4da44bc4b4332b70b5a",
+  "golden_dataset_sha256": "b01e8e93393c176a643b832392cd4e15a964006bf8319a576430c7704ecdba6d",
   "description": "Small positive and negative controls for metric/judge/reference suitability. No statistical calibration or human approval is implied.",
   "cases": [
     {
@@ -15,7 +15,7 @@
       "reference": "Hotel accommodation is reimbursed up to KGS 8400 per night, and only with a receipt.",
       "response": "Hotel reimbursement requires a receipt.",
       "retrieved_contexts": [
-        "The company reimburses hotel accommodation up to KGS 8400 per night with a receipt."
+        "The company reimburses hotel accommodation up to KGS 8400 per night only with a receipt."
       ],
       "expected_score": 1,
       "labels": {
@@ -26,7 +26,7 @@
           }
         ]
       },
-      "rationale": "The reviewed policy contract treats with a receipt as the documented reimbursement condition. A mismatch is a suitability warning, not proof of an application defect."
+      "rationale": "The policy reimburses hotel accommodation only with a receipt, so a receipt requirement is supported. A mismatch is a suitability warning, not proof of an application defect."
     },
     {
       "id": "receipt_condition_contradicted",
@@ -36,7 +36,7 @@
       "reference": "Hotel accommodation is reimbursed up to KGS 8400 per night, and only with a receipt.",
       "response": "Hotel reimbursement is available without a receipt.",
       "retrieved_contexts": [
-        "The company reimburses hotel accommodation up to KGS 8400 per night with a receipt."
+        "The company reimburses hotel accommodation up to KGS 8400 per night only with a receipt."
       ],
       "expected_score": 0,
       "labels": {

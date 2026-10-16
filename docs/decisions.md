@@ -98,6 +98,17 @@ compared with a fixed string; a model may paraphrase correctly. These regex
 checks are smoke contracts: a negated sentence can still contain the right
 number, which is why semantic metrics exist alongside them.
 
+### A reference states only what the source states
+
+The policy used to say that hotel accommodation is reimbursed "with a receipt",
+while the golden reference said "only with a receipt". That gap was the
+reviewers' reading, not the text, and both models tripped over it: the generator
+reasoned for minutes about whether the information was sufficient, and the judge
+rejected "you cannot claim without a receipt" as unsupported. The policy now
+states the condition (version SM-2026-02). A golden reference must follow from
+the source text alone; when it depends on an interpretation, fix the source or
+the reference, not the check.
+
 ### Evaluate the context the model actually received
 
 Cited sources are not the full prompt. The capture overlay (`compose.capture.yaml`,

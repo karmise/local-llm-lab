@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "version": "policy-2026-01-v2",
-  "policy_sha256": "02ca83ffa0e66349e39eeb58de78fd1010471f2dd892e6c9739346000e841709",
+  "version": "policy-2026-02-v1",
+  "policy_sha256": "9ad4450586793f7fd57380d16274866d1a75ff602138c4da44bc4b4332b70b5a",
   "cases": [
     {
       "id": "paid_leave",
@@ -81,7 +81,7 @@
       "id": "hotel_reimbursement",
       "category": "multi_fact",
       "question": "What is the hotel reimbursement limit, and what supporting document is required?",
-      "reference": "Hotel accommodation is reimbursed up to KGS 8400 per night with a receipt.",
+      "reference": "Hotel accommodation is reimbursed up to KGS 8400 per night, and only with a receipt.",
       "rationale": "Checks amount, per-night unit and receipt requirement together.",
       "required_patterns": {
         "amount": "(?:\\b(?:KGS|soms?)\\s*\\b(?:8[ ,]?400|eight\\s+thousand\\s+(?:and\\s+)?four\\s+hundred)\\b|\\b(?:8[ ,]?400|eight\\s+thousand\\s+(?:and\\s+)?four\\s+hundred)\\b\\s*(?:KGS|soms?)\\b)",
@@ -90,7 +90,7 @@
       },
       "forbidden_patterns": {},
       "source_fragments": [
-        "KGS 8400 per night with a receipt"
+        "KGS 8400 per night only with a receipt"
       ]
     },
     {

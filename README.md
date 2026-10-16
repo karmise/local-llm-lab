@@ -183,7 +183,7 @@ require an indexed document.
 | Question | Expected facts |
 | --- | --- |
 | How much paid leave is available per year, and when must a request be submitted? | 23 working days; at least 12 calendar days before leave starts |
-| What are the daily travel allowance and hotel reimbursement limit? | KGS 2700 per calendar day; KGS 8400 per night with a receipt |
+| What are the daily travel allowance and hotel reimbursement limit? | KGS 2700 per calendar day; KGS 8400 per night, only with a receipt |
 | How much leave can be carried over, and when must it be used? | Up to 6 working days; by March 31 of the following year |
 | How does the company reimburse gym memberships? | The document contains no such policy; the model must not invent an amount |
 
