@@ -6,11 +6,11 @@ import hashlib
 import json
 import re
 from datetime import datetime, timezone
-from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Callable
 
 from config import Settings
+from evaluation.claim_checker import CHECKER_MODEL, ClaimChecker
 from evaluation.control_match import calibration_mismatch
 from evaluation.faithfulness import load_sample, score_sample
 from evaluation.judge_connection import judge_client
@@ -60,13 +60,14 @@ def load_controls(path: Path, contexts: list[str]) -> tuple[list[dict[str, Any]]
     return cases, hashlib.sha256(raw).hexdigest()
 
 
-async def evaluate_controls(sample: dict[str, Any], cases: list[dict[str, Any]], judge_factory: Callable[[],
-        Any]) -> list[dict[str, Any]]:
+async def evaluate_controls(
+        sample: dict[str, Any], cases: list[dict[str, Any]], checker_factory: Callable[[],
+        ClaimChecker]) -> list[dict[str, Any]]:
     if not 1 <= len(cases) <= 3:
         raise ValueError("Run between one and three controls")
     results = []
     for case in cases:
-        judge = judge_factory()
+        judge = checker_factory()
         row: dict[str, Any] = {"control": case, "status": "error"}
         try:
             # Synthetic responses are controls, never application-generated evidence.
@@ -95,7 +96,7 @@ def select_controls(cases: list[dict[str, Any]], identifiers: list[str] | None) 
             raise ValueError(f"Unknown controls: {', '.join(sorted(unknown))}")
         chosen = [case for case in cases if case["id"] in selected]
     if not 1 <= len(chosen) <= 3:
-        raise ValueError("Select between one and three controls with --control (maximum six judge calls)")
+        raise ValueError("Select between one and three controls with --control")
     return chosen
 
 
@@ -103,23 +104,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sample", type=Path)
     parser.add_argument("--controls", type=Path, required=True)
-    parser.add_argument("--judge-model", default="qwen3.5:4b")
+    parser.add_argument("--judge-model", default=CHECKER_MODEL)
     parser.add_argument(
             "--control", action="append", dest="control_ids", help="Run only this control; repeat to select several.")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Output already exists; choose a new file")
-    try:
-        from evaluation.ollama_judge import OllamaJudge
-    except ImportError:
-        parser.error('Install evaluation dependencies: python -m pip install -e ".[evaluation]"')
     report: dict[str, Any] = {
             "schema_version": 1,
             "status": "error",
             "metric": "faithfulness",
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "ragas_version": version("ragas"),
+            "method": "sentence split in code; one grounding check per sentence",
             "judge_model": args.judge_model,
             "sample_path": str(args.sample.resolve()),
             "controls_path": str(args.controls.resolve()),
@@ -132,11 +129,11 @@ def main() -> int:
         report["selected_controls"] = [case["id"] for case in cases]
         settings = Settings.from_env()
         with judge_client(settings, args.judge_model) as (client, report["judge_model_digest"]):
-            configuration = OllamaJudge(client, args.judge_model, settings.llm_timeout)
-            report["judge_configuration"] = {"options": configuration.options, "think": False, "retries": 0}
+            configuration = ClaimChecker(client, args.judge_model, settings.llm_timeout)
+            report["judge_configuration"] = {"options": configuration.options, "retries": 0}
             report["results"] = asyncio.run(
                     evaluate_controls(
-                    sample, cases, lambda: OllamaJudge(client, args.judge_model, settings.llm_timeout)))
+                    sample, cases, lambda: ClaimChecker(client, args.judge_model, settings.llm_timeout)))
         statuses = [row["status"] for row in report["results"]]
         report["status"] = (
                 "error" if "error" in statuses else "matched" if all(s == "matched" for s in statuses) else "mismatch")

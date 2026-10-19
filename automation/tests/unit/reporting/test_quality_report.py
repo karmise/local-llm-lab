@@ -59,8 +59,8 @@ def test_report_passes_checks_and_records_measurement(tmp_path):
             "judge_model": "test-judge",
             "judge_model_digest": JUDGE_DIGEST,
             "judge_configuration": {
-            "think": False},
-            "ragas_version": "test-version",
+            "retries": 0},
+            "method": "test-method",
             "evaluated_at": "test-time",
             "threshold": None}}]
     assert (report["sample_sha256"], report["profile_sha256"]) == (sha256(inputs.sample), sha256(inputs.profile))
@@ -110,7 +110,7 @@ def test_report_rejects_mismatched_profile(tmp_path, profile):
 
 
 @pytest.mark.parametrize(("evidence", "error"), [
-        pytest.param({"schema_version": 2}, "ValueError: Unsupported faithfulness report", id="schema-two"),
+        pytest.param({"schema_version": 1}, "ValueError: Unsupported faithfulness report", id="schema-one"),
         pytest.param({"schema_version": True}, "ValueError: Unsupported faithfulness report", id="schema-boolean"),
         pytest.param({"metric": "answer_relevancy"}, "ValueError: Unsupported faithfulness report", id="other-metric"),
         pytest.param({"sample_sha256": "0" * 64}, "belongs to a different sample", id="other-sample"),
@@ -142,22 +142,16 @@ def test_inconsistent_faithfulness_result_is_an_error(tmp_path, result, error):
     assert error in report["dimensions"][2]["error"]
 
 
-def judge_calls(statements, verdicts) -> list[dict]:
-    return [{"output": {"statements": statements}}, {"output": {"statements": verdicts}}]
+def judge_calls(*checks: tuple[str, int]) -> list[dict]:
+    """One recorded claim check per (claim, verdict)."""
+    return [{"claim": claim, "verdict": verdict} for claim, verdict in checks]
 
 
 @pytest.mark.parametrize(
         "calls", [
-        pytest.param(
-        judge_calls(["different claim"], [{
-        "statement": FULL_ANSWER,
-        "verdict": 1}]), id="other-statements"),
-        pytest.param(judge_calls([FULL_ANSWER], [{
-        "statement": "different claim",
-        "verdict": 0}]), id="other-verdicts"),
-        pytest.param(judge_calls([FULL_ANSWER], [{
-        "statement": FULL_ANSWER,
-        "verdict": 1}]) * 2, id="extra-calls")])
+        pytest.param(judge_calls(("different claim", 1)), id="other-claim"),
+        pytest.param(judge_calls((FULL_ANSWER, 0)), id="other-verdict"),
+        pytest.param(judge_calls((FULL_ANSWER, 1)) * 2, id="extra-calls")])
 @title("A saved summary that differs from the raw judge calls is an error [{param_id}]")
 def test_summary_must_match_raw_judge_calls(tmp_path, calls):
     inputs = quality_inputs(tmp_path)
@@ -171,7 +165,7 @@ def test_summary_must_match_raw_judge_calls(tmp_path, calls):
 @title("Raw judge calls that match the saved summary are accepted")
 def test_summary_matching_raw_judge_calls_is_measured(tmp_path):
     inputs = quality_inputs(tmp_path)
-    inputs.edit(inputs.evidence, judge_calls=judge_calls([FULL_ANSWER], [{"statement": FULL_ANSWER, "verdict": 1}]))
+    inputs.edit(inputs.evidence, judge_calls=judge_calls((FULL_ANSWER, 1)))
 
     report = build_quality_report(*inputs.paths())
 

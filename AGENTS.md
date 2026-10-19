@@ -34,7 +34,7 @@ automation/                  one folder per layer, then one module per area
   data/                      policy, golden dataset, catalogs, gates, qualification plan
   helpers/                   number words, score checks, capture markers, paths
   assertions/                acceptance checks: fields, api, answers, quality, ui
-  evaluation/                RAGAS metrics, judge connection and controls, benchmark runner
+  evaluation/                claim checker (faithfulness), RAGAS metrics, judge controls, benchmark runner
   reporting/                 Allure, gates, drift, stability, CI evidence
   qualification/             IQ/OQ/PQ plan, traceability and packaging
   observation/               capture hook and evaluation samples

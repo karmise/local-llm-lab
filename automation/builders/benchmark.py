@@ -15,6 +15,7 @@ from builders.ollama import model_catalog
 from evaluation import benchmark as evaluation
 from evaluation import benchmark_runner as runner
 from evaluation.correctness import METRIC_CONFIGURATION
+from helpers.claims import split_claims
 from models.benchmark import make_plan, manifest
 from models.golden import GoldenCase
 from observation.evaluation_sample import write_sample
@@ -26,6 +27,7 @@ MINIMA = QUALITY_GATES["minimum_scores"]
 MODEL = "qwen3.5:4b"
 GENERATION_DIGEST = "generation-digest"
 JUDGE_DIGEST = "judge-digest"
+CHECKER_MODEL = "bespoke-minicheck:7b"
 EVIDENCE_FILES = ("faithfulness", "correctness", "relevance")
 
 
@@ -52,18 +54,22 @@ def make_metric_evidence(case: GoldenCase, sample_path: Path) -> dict[str, dict[
     judge = {"judge_model": MODEL, "judge_model_digest": JUDGE_DIGEST, "judge_configuration": {"think": False}}
     common = {"schema_version": 1, "status": "completed", "sample_sha256": checksum, **judge}
     faithfulness = {
-            **common, "metric": "faithfulness",
-            "ragas_version": "0.4.3",
+            **common, "schema_version": 2,
+            "metric": "faithfulness",
+            "method": "sentence split in code; one grounding check per sentence",
+            "judge_model": CHECKER_MODEL,
+            "judge_configuration": {
+            "retries": 0},
             "created_at": "now",
             "result": {
             "value": 1.0,
             "statements": [case.reference],
-            "verdicts": [verdict]},
+            "verdicts": [{
+            "statement": case.reference,
+            "verdict": 1}]},
             "judge_calls": [{
-            "output": {
-            "statements": [case.reference]}}, {
-            "output": {
-            "statements": [verdict]}}]}
+            "claim": case.reference,
+            "verdict": 1}]}
     golden = {
             "golden_dataset_sha256": GOLDEN_DATASET.sha256,
             "golden_case_id": case.id,
@@ -142,7 +148,9 @@ def make_row(case_id: str = "paid_leave", category: str = "multi_fact", *, model
             "workspace_configuration": {
             "openAiPrompt": "Policy only"},
             "generation_status": "passed",
-            "dimensions": [*checks, *metrics]}
+            **({} if refusal else {
+            "judge_digests": dict.fromkeys(("faithfulness", "correctness", "relevance"), JUDGE_DIGEST)}), "dimensions": [
+            *checks, *metrics]}
 
 
 def make_definition(
@@ -156,7 +164,7 @@ def make_calibration(definition: dict) -> dict:
     """A matched judge-control summary bound to the manifest's judge, catalog and control identifiers."""
     return {
             "status": "matched",
-            "judge_model": definition["judge_model"],
+            "judge_model": definition["faithfulness_model"],
             "judge_model_digest": JUDGE_DIGEST,
             "controls_sha256": definition["controls_sha256"],
             "control_ids": definition["control_ids"],
@@ -175,11 +183,10 @@ def make_calibrate_stub(calibration):
         calibrated["results"] = []
         for identifier in calibrated["control_ids"]:
             control = next(c for c in catalog if c["id"] == identifier)
-            statements = control["response"].split(". ")
+            statements = split_claims(control["response"])
             verdicts = [{
                     "statement": s,
-                    "verdict": c["verdict"],
-                    "reason": "Control label"} for s, c in zip(statements, control["claims"], strict=True)]
+                    "verdict": c["verdict"]} for s, c in zip(statements, control["claims"], strict=True)]
             calibrated["results"].append({
                     "status": "matched",
                     "control": control,
@@ -188,10 +195,8 @@ def make_calibrate_stub(calibration):
                     "statements": statements,
                     "verdicts": verdicts},
                     "judge_calls": [{
-                    "output": {
-                    "statements": statements}}, {
-                    "output": {
-                    "statements": verdicts}}]})
+                    "claim": v["statement"],
+                    "verdict": v["verdict"]} for v in verdicts]})
         return calibrated
 
     return calibrate
@@ -218,7 +223,7 @@ def make_generate_stub(dataset, monkeypatch, *, metadata=None):
 
 
 def make_judge_model_catalog():
-    return {"models": [{"name": MODEL, "digest": JUDGE_DIGEST}]}
+    return {"models": [{"name": MODEL, "digest": JUDGE_DIGEST}, {"name": CHECKER_MODEL, "digest": JUDGE_DIGEST}]}
 
 
 def disputed_correctness(evidence: dict[str, Any]) -> dict[str, Any]:
@@ -243,7 +248,9 @@ def save_benchmark_run(tmp_path: Path, monkeypatch, *, catalog=None, dispute_cor
     root = tmp_path / "automation"
     shutil.copytree(TEST_DATA, root / "data")
     monkeypatch.delenv("ANYTHINGLLM_API_KEY", raising=False)
-    monkeypatch.setattr(OllamaClient, "list_models", catalog or (lambda _: model_catalog((MODEL, JUDGE_DIGEST))))
+    monkeypatch.setattr(
+            OllamaClient, "list_models", catalog
+            or (lambda _: model_catalog((MODEL, JUDGE_DIGEST), (CHECKER_MODEL, JUDGE_DIGEST))))
     definition = make_definition()
     monkeypatch.setattr(runner, "calibrate", make_calibrate_stub(make_calibration(definition)))
     generate = make_generate_stub(GOLDEN_DATASET, monkeypatch)

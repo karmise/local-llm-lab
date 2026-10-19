@@ -23,6 +23,21 @@ def chat_response(
     return response
 
 
+def text_reply(
+        content: str, *, model: str = TEST_MODEL, done: bool = True, done_reason: str = "stop",
+        status_code: int = 200) -> Response:
+    """A free-form chat reply, such as a claim checker's Yes or No; completed by default."""
+    response = Response()
+    response.status_code = status_code
+    response._content = json.dumps({
+            "model": model,
+            "done": done,
+            "done_reason": done_reason,
+            "message": {
+            "content": content}}).encode()
+    return response
+
+
 def model_catalog(*models: tuple[str, str], status_code: int = 200) -> Response:
     """An Ollama /api/tags reply listing (name, digest) pairs."""
     response = Response()

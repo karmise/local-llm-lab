@@ -24,8 +24,9 @@ def policy_context(document: str = DOCUMENT) -> str:
 def faithfulness_evidence(sample_path: Path, answer: str) -> dict[str, Any]:
     """Completed faithfulness evidence for ``sample_path`` that supports the single statement ``answer``."""
     return {
-            "schema_version": 1,
+            "schema_version": 2,
             "metric": "faithfulness",
+            "method": "test-method",
             "status": "completed",
             "sample_sha256": hashlib.sha256(sample_path.read_bytes()).hexdigest(),
             "result": {
@@ -34,11 +35,13 @@ def faithfulness_evidence(sample_path: Path, answer: str) -> dict[str, Any]:
             "verdicts": [{
             "statement": answer,
             "verdict": 1}]},
+            "judge_calls": [{
+            "claim": answer,
+            "verdict": 1}],
             "judge_model": "test-judge",
             "judge_model_digest": JUDGE_DIGEST,
             "judge_configuration": {
-            "think": False},
-            "ragas_version": "test-version",
+            "retries": 0},
             "created_at": "test-time"}
 
 

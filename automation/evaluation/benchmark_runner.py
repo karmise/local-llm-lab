@@ -15,6 +15,7 @@ import assertions
 from config import Settings
 from evaluation.benchmark import check_sample, evaluate_case
 from evaluation.calibration import evaluate_controls, load_controls, select_controls
+from evaluation.claim_checker import ClaimChecker
 from evaluation.faithfulness import load_sample
 from evaluation.judge_connection import ollama_client
 from models.benchmark import CONTROL_IDS, make_plan, manifest
@@ -65,8 +66,7 @@ def generate_sample(root: Path, directory: Path, case_id: str, model: str) -> di
 
 
 def calibrate(sample_path: Path, controls: Path, settings: Settings, model: str, digest: str) -> dict:
-    from evaluation.ollama_judge import OllamaJudge
-
+    """Run the hand-labelled faithfulness controls with the claim checker ``model``."""
     report = {
             "status": "error",
             "judge_model": model,
@@ -82,7 +82,7 @@ def calibrate(sample_path: Path, controls: Path, settings: Settings, model: str,
         cases = sorted(cases, key=lambda c: CONTROL_IDS.index(c["id"]))
         with ollama_client(settings) as client:
             report["results"] = asyncio.run(
-                    evaluate_controls(sample, cases, lambda: OllamaJudge(client, model, settings.llm_timeout)))
+                    evaluate_controls(sample, cases, lambda: ClaimChecker(client, model, settings.llm_timeout)))
         statuses = {r["status"] for r in report["results"]}
         report["status"] = ("error" if "error" in statuses else "mismatch" if "mismatch" in statuses else "matched")
     except Exception as error:
@@ -108,7 +108,7 @@ def run(root: Path, output: Path, plan, dataset, gates: dict, *, notify=print) -
         with ollama_client(settings) as client:
             catalog = client.list_models()
             assertions.assert_status_code(catalog, 200, context="Benchmark model catalog")
-            for model in (*plan.models, plan.judge_model):
+            for model in (*plan.models, plan.judge_model, plan.faithfulness_model):
                 digests[model] = assertions.assert_model_available(catalog.json()["models"], model)
     except Exception as error:
         calibration["error"] = f"Model preflight failed: {type(error).__name__}: {error}"
@@ -121,7 +121,7 @@ def run(root: Path, output: Path, plan, dataset, gates: dict, *, notify=print) -
         directory.mkdir()
         notify(f"[{index}/{len(expected_rows)}] {row['case_id']} / {row['model']}", flush=True)
         try:
-            if plan.judge_model not in digests or row["model"] not in digests:
+            if any(model not in digests for model in (plan.judge_model, plan.faithfulness_model, row["model"])):
                 raise ValueError("Model preflight did not complete")
             generation = generate_sample(root, directory, row["case_id"], row["model"])
             row.update(generation)
@@ -130,14 +130,17 @@ def run(root: Path, output: Path, plan, dataset, gates: dict, *, notify=print) -
                 raise ValueError("Generation weights changed after preflight")
             if row["case_id"] == "paid_leave" and "results" not in calibration:
                 calibration = calibrate(
-                        directory / "sample.json", controls, settings, plan.judge_model, digests[plan.judge_model])
+                        directory / "sample.json", controls, settings, plan.faithfulness_model,
+                        digests[plan.faithfulness_model])
                 write_sample(output / "judge-controls.json", calibration)
             row.update(
                     evaluate_case(
                     directory / "sample.json", directory=directory, dataset=dataset,
                     dataset_path=root / "data/golden-policy.json", policy_file=root / "data/company-policy.txt",
                     case=cases[row["case_id"]], model=row["model"], judge_model=plan.judge_model,
-                    judge_digest=digests[plan.judge_model], settings=settings, minima=gates["minimum_scores"]))
+                    judge_digest=digests[plan.judge_model], faithfulness_model=plan.faithfulness_model,
+                    faithfulness_digest=digests[plan.faithfulness_model], settings=settings,
+                    minima=gates["minimum_scores"]))
             row.update(generation)
         except Exception as error:
             row["error"] = f"{type(error).__name__}: {error}"
@@ -168,7 +171,7 @@ def main() -> int:
     parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--model", action="append", dest="models")
     parser.add_argument("--judge-model", default="qwen3.5:4b")
-    parser.add_argument("--max-model-calls", type=int, default=50)
+    parser.add_argument("--max-model-calls", type=int, default=60)
     parser.add_argument("--dry-run", action="store_true", help="Print plan without network/model calls")
     args = parser.parse_args()
     root, output = args.root.resolve(), args.output.resolve()

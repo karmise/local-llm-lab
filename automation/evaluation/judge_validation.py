@@ -10,9 +10,10 @@ from pathlib import Path
 from typing import Any, Callable
 
 from config import Settings
+from evaluation.claim_checker import CHECKER_MODEL, ClaimChecker
 from evaluation.correctness import result_from_calls, score_correctness
 from evaluation.faithfulness import score_sample, validate_result
-from evaluation.judge_connection import judge_client
+from evaluation.judge_connection import installed_digest, judge_client
 from helpers.scores import require_score
 from models.golden import load_golden_dataset
 from models.judge_controls import load_judge_controls, maximum_calls, select_judge_controls
@@ -27,8 +28,10 @@ def result_from_evidence(control: dict[str, Any], calls: list[dict[str, Any]], v
     if metric == "faithfulness":
         result = validate_result({
                 "value": value,
-                "statements": calls[0]["output"]["statements"],
-                "verdicts": calls[1]["output"]["statements"]})
+                "statements": [call["claim"] for call in calls],
+                "verdicts": [{
+                "statement": call["claim"],
+                "verdict": call["verdict"]} for call in calls]})
         return {"value": result["value"], "response": result["verdicts"]}
     if metric == "factual_correctness":
         result = result_from_calls(calls, value)
@@ -93,8 +96,9 @@ async def score_control(control: dict[str, Any], judge: Any) -> float:
 
 
 async def evaluate_judge_controls(
-        cases: list[dict[str, Any]], judge_factory: Callable[[int], Any],
+        cases: list[dict[str, Any]], judge_factory: Callable[[str, int], Any],
         scorer: Callable = score_control) -> list[dict[str, Any]]:
+    """``judge_factory(metric, budget)`` returns the judge for one control: the claim checker for faithfulness."""
     if not cases or sum(maximum_calls(case) for case in cases) > 32:
         raise ValueError("Judge validation requires a bounded nonempty batch")
     results = []
@@ -102,7 +106,7 @@ async def evaluate_judge_controls(
         row = {"id": control["id"], "metric": control["metric"], "control": control, "status": "error"}
         judge = None
         try:
-            judge = judge_factory(maximum_calls(control))
+            judge = judge_factory(control["metric"], maximum_calls(control))
             value = await scorer(control, judge)
             row["result"] = result_from_evidence(control, judge.calls, value)
             row["mismatches"] = label_mismatches(row["result"], control)
@@ -134,7 +138,8 @@ def main() -> int:
     parser.add_argument("--policy", type=Path, default=Path("data/company-policy.txt"))
     parser.add_argument("--control", action="append", dest="identifiers")
     parser.add_argument("--max-judge-calls", type=int, default=18)
-    parser.add_argument("--judge-model", default="qwen3.5:4b")
+    parser.add_argument("--judge-model", default="qwen3.5:4b", help="Judge for the RAGAS metrics")
+    parser.add_argument("--faithfulness-model", default=CHECKER_MODEL, help="Claim checker for faithfulness")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
@@ -164,6 +169,7 @@ def main() -> int:
             "golden_dataset_sha256": catalog.dataset_sha256,
             "ragas_version": version("ragas"),
             "judge_model": args.judge_model,
+            "faithfulness_model": args.faithfulness_model,
             "maximum_judge_calls": planned_calls,
             "execution": {
             "concurrency": 1,
@@ -175,12 +181,18 @@ def main() -> int:
     settings = Settings.from_env()
     try:
         with judge_client(settings, args.judge_model) as (client, report["judge_model_digest"]):
+            report["faithfulness_model_digest"] = installed_digest(client, args.faithfulness_model)
 
-            def factory(budget):
+            def factory(metric, budget):
+                if metric == "faithfulness":
+                    return ClaimChecker(client, args.faithfulness_model, settings.llm_timeout, max_calls=budget)
                 return OllamaJudge(client, args.judge_model, settings.llm_timeout, max_calls=budget)
 
-            configuration = factory(1)
-            report["judge_configuration"] = {"options": configuration.options, "think": False, "retries": 0}
+            report["judge_configuration"] = {
+                    "options": factory("context_recall", 1).options,
+                    "think": False,
+                    "retries": 0}
+            report["faithfulness_configuration"] = {"options": factory("faithfulness", 1).options, "retries": 0}
             report["results"] = asyncio.run(evaluate_judge_controls(cases, factory))
         report.update(summarize_validation(report["results"]))
     except Exception as error:

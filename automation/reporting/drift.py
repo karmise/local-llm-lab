@@ -61,7 +61,7 @@ def validate_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("History judge checksum differs from configurations")
     for judge in judges.values():
         if (not isinstance(judge, dict) or any(not isinstance(judge.get(k), str) or not judge[k].strip()
-                for k in ("judge_model", "judge_model_digest", "ragas_version"))
+                for k in ("judge_model", "judge_model_digest", "method"))
                     or not isinstance(judge.get("judge_configuration"), dict)):
             raise ValueError("Incomplete history judge provenance")
     evidence = snapshot.get("evidence_sha256")
@@ -104,9 +104,9 @@ def make_snapshot(
         if hashlib.sha256(raw).hexdigest() != report["evidence_sha256"].get(name):
             raise ValueError("Judge evidence changed during history assembly: " + name)
         evidence = json.loads(raw)
-        judges[name] = {
-                k: evidence[k]
-                for k in ("judge_model", "judge_model_digest", "judge_configuration", "ragas_version")}
+        judges[name] = {k: evidence[k] for k in ("judge_model", "judge_model_digest", "judge_configuration")}
+        # Faithfulness records its own method; the other metrics are RAGAS at a recorded version.
+        judges[name]["method"] = evidence.get("method") or f"ragas {evidence['ragas_version']}"
         evidence_sha256[name] = hashlib.sha256(raw).hexdigest()
     snapshot = {
             "schema_version": 1,

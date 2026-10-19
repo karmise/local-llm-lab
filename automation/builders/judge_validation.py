@@ -31,12 +31,11 @@ def verdict(statement: str, value: int) -> dict[str, Any]:
 
 
 def control_outputs(case: dict[str, Any]) -> list[dict[str, Any]]:
-    """The structured judge replies that reproduce a control's labels exactly, in RAGAS call order."""
+    """The judge replies that reproduce a control's labels exactly: the claim checker's Yes or No for faithfulness,
+    structured RAGAS replies in call order for the other metrics."""
     labels = case["labels"]
     if case["metric"] == "faithfulness":
-        return [{
-                "statements": [case["response"]]}, {
-                "statements": [verdict(case["response"], labels["response"][0]["verdict"])]}]
+        return ["Yes" if labels["response"][0]["verdict"] else "No"]  # The claim checker's one reply
     if case["metric"] == "factual_correctness":
         return [{
                 "claims": [case["response"]]}, {

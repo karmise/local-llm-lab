@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from api.ollama import OllamaClient
-from builders.benchmark import JUDGE_DIGEST, MODEL, make_calibrate_stub, make_calibration, make_generate_stub
+from builders.benchmark import (
+        CHECKER_MODEL, JUDGE_DIGEST, MODEL, make_calibrate_stub, make_calibration, make_generate_stub)
 from builders.golden import TEST_DATA
 from builders.ollama import model_catalog
 from ci.benchmark import execution_context, inputs, validate_ci_benchmark
@@ -72,11 +73,12 @@ def save_ci_run(
     (tmp_path / "config/ci-models.json").write_text(
             json.dumps(lock or {
             MODEL: JUDGE_DIGEST,
-            COMPARISON_MODEL: JUDGE_DIGEST}))
+            COMPARISON_MODEL: JUDGE_DIGEST,
+            CHECKER_MODEL: JUDGE_DIGEST}))
     monkeypatch.delenv("ANYTHINGLLM_API_KEY", raising=False)
     monkeypatch.setattr(
             OllamaClient, "list_models", lambda _: model_catalog((MODEL, JUDGE_DIGEST),
-            (COMPARISON_MODEL, JUDGE_DIGEST)))
+            (COMPARISON_MODEL, JUDGE_DIGEST), (CHECKER_MODEL, JUDGE_DIGEST)))
     dataset, gates, plan = inputs(root, "smoke", models)
     definition = manifest(plan, dataset, gates, root / "data/faithfulness-controls.json")
     monkeypatch.setattr(runner, "calibrate", make_calibrate_stub(make_calibration(definition)))

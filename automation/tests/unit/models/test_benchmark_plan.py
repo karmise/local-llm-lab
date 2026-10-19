@@ -12,43 +12,46 @@ from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
-# Budget: 6 fixed calls plus, per model, 12 for each answered case and 1 for each missing-information case.
+# Budget: 6 control-sentence checks plus, per model, 16 for each answered case (generation, up to six sentence
+# checks, 4 correctness, up to 5 relevance) and 1 for each missing-information case.
 
 
-@title("The default plan covers four curated cases on one model within 43 serial calls")
+@title("The default plan covers four curated cases on one model within 55 serial calls")
 def test_default_plan():
     plan = make_plan(GOLDEN_DATASET)
 
     assert plan.case_ids == DEFAULT_CASES
-    assert (plan.models, plan.judge_model) == (("qwen3.5:4b", ), "qwen3.5:4b")
-    assert plan.maximum_calls == 6 + 3 * 12 + 1
+    assert (plan.models, plan.judge_model, plan.faithfulness_model) == (("qwen3.5:4b", ), "qwen3.5:4b",
+            "bespoke-minicheck:7b")
+    assert plan.maximum_calls == 6 + 3 * 16 + 1
 
 
-@title("A plan keeps the selected case order, models and judge model")
+@title("A plan keeps the selected case order, models, judge model and claim checker")
 def test_plan_keeps_selection():
     plan = make_plan(
             GOLDEN_DATASET, case_ids=["gym_missing", "paid_leave"], models=["qwen2.5:7b", "qwen3.5:4b"],
-            judge_model="judge:1b")
+            judge_model="judge:1b", faithfulness_model="checker:1b")
 
     assert plan.case_ids == ("gym_missing", "paid_leave")
-    assert (plan.models, plan.judge_model) == (("qwen2.5:7b", "qwen3.5:4b"), "judge:1b")
-    assert plan.maximum_calls == 6 + 2 * (12 + 1)
+    assert (plan.models, plan.judge_model, plan.faithfulness_model) == (("qwen2.5:7b", "qwen3.5:4b"), "judge:1b",
+            "checker:1b")
+    assert plan.maximum_calls == 6 + 2 * (16 + 1)
 
 
 @title("A plan whose call count equals the budget is accepted; one call less is rejected")
 def test_plan_budget_boundary():
     two_models = dict(models=["qwen3.5:4b", "qwen2.5:7b"])
 
-    assert make_plan(GOLDEN_DATASET, **two_models, max_model_calls=80).maximum_calls == 80
-    with pytest.raises(ValueError, match="needs at most 80 model calls; budget is 79"):
-        make_plan(GOLDEN_DATASET, **two_models, max_model_calls=79)
+    assert make_plan(GOLDEN_DATASET, **two_models, max_model_calls=104).maximum_calls == 104
+    with pytest.raises(ValueError, match="needs at most 104 model calls; budget is 103"):
+        make_plan(GOLDEN_DATASET, **two_models, max_model_calls=103)
 
 
-@title("Without an explicit budget a plan may use at most 50 calls")
+@title("Without an explicit budget a plan may use at most 60 calls")
 def test_plan_default_budget():
     five_cases = ["paid_leave", "leave_approver", "carryover_limit", "travel_allowance"]
 
-    with pytest.raises(ValueError, match="needs at most 54 model calls; budget is 50"):
+    with pytest.raises(ValueError, match="needs at most 70 model calls; budget is 60"):
         make_plan(GOLDEN_DATASET, case_ids=five_cases)
 
 
@@ -63,12 +66,12 @@ def test_plan_accepts_ollama_model_names():
 
 @title("The largest valid budget of 400 calls is accepted")
 def test_plan_accepts_largest_budget():
-    assert make_plan(GOLDEN_DATASET, max_model_calls=400).maximum_calls == 43
+    assert make_plan(GOLDEN_DATASET, max_model_calls=400).maximum_calls == 55
 
 
 @title("The smallest valid budget of one call is compared with the plan rather than rejected as invalid")
 def test_plan_compares_smallest_budget_with_calls():
-    with pytest.raises(ValueError, match="needs at most 43 model calls; budget is 1"):
+    with pytest.raises(ValueError, match="needs at most 55 model calls; budget is 1"):
         make_plan(GOLDEN_DATASET, max_model_calls=1)
 
 
@@ -83,6 +86,7 @@ def test_plan_compares_smallest_budget_with_calls():
         pytest.param({"models": ["../bad[model]"]}, "Invalid model name", id="unsafe-model-name"),
         pytest.param({"models": [7]}, "Invalid model name", id="model-not-a-string"),
         pytest.param({"judge_model": "bad judge"}, "Invalid model name", id="unsafe-judge-name"),
+        pytest.param({"faithfulness_model": "bad checker"}, "Invalid model name", id="unsafe-checker-name"),
         pytest.param({"max_model_calls": 0}, "integer between 1 and 400", id="zero-budget"),
         pytest.param({"max_model_calls": 401}, "integer between 1 and 400", id="budget-above-limit"),
         pytest.param({"max_model_calls": True}, "integer between 1 and 400", id="boolean-budget"),
@@ -107,7 +111,8 @@ def test_manifest_records_plan_and_inputs():
     assert definition["quality_gates"] == QUALITY_GATES
     assert definition["controls_sha256"] == hashlib.sha256(CONTROLS_FILE.read_bytes()).hexdigest()
     assert definition["control_ids"] == list(CONTROL_IDS)
-    assert (definition["judge_model"], definition["maximum_model_calls"]) == ("qwen3.5:4b", plan.maximum_calls)
+    assert (definition["judge_model"], definition["faithfulness_model"],
+            definition["maximum_model_calls"]) == ("qwen3.5:4b", "bespoke-minicheck:7b", plan.maximum_calls)
     assert definition["execution"] == {"concurrency": 1, "retries": 0, "repetitions": 1}
     assert definition["expected_rows"] == [{
             "case_id": "paid_leave",

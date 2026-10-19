@@ -43,9 +43,11 @@ def test_curated_catalog_loads():
     assert (catalog.policy_sha256, catalog.dataset_sha256) == (GOLDEN_DATASET.policy_sha256, GOLDEN_DATASET.sha256)
 
 
-@pytest.mark.parametrize(("control_id", "calls"), [("receipt_condition_supported", 2), ("manager_policy_paraphrase", 4),
+@pytest.mark.parametrize(("control_id", "calls"), [("receipt_condition_supported", 1), ("manager_policy_paraphrase", 4),
         ("relevant_context_first", 2), ("notice_fact_not_retrieved", 1)])
-@title("A control's judge budget follows its metric; precision needs one call per context [{param_id}]")
+@title(
+        "A control's judge budget follows its metric: one check per answer sentence for faithfulness, one per "
+        "context for precision [{param_id}]")
 def test_maximum_calls_per_metric(control_id, calls):
     assert maximum_calls(control(control_id)) == calls
 
@@ -231,7 +233,7 @@ def test_select_subset_in_catalog_order():
 
 
 @pytest.mark.parametrize(("identifiers", "budget"), [
-        pytest.param(None, 17, id="one-call-short"),
+        pytest.param(None, 15, id="one-call-short"),
         pytest.param([RECALL], 0, id="zero-budget"),
         pytest.param([RECALL], 33, id="budget-above-maximum"),
         pytest.param([RECALL], True, id="boolean-budget")])

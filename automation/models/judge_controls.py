@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from helpers.claims import split_claims
 from models.golden import GoldenDataset
 from models.validation import load_catalog, require_object, require_text
 
@@ -22,8 +23,9 @@ class JudgeControls:
 
 
 def maximum_calls(control: dict[str, Any]) -> int:
+    if control["metric"] == "faithfulness":
+        return len(split_claims(control["response"]))  # One grounding check per sentence
     return {
-            "faithfulness": 2,
             "factual_correctness": 4,
             "context_precision": len(control["retrieved_contexts"]),
             "context_recall": 1}[control["metric"]]

@@ -104,10 +104,25 @@ def _check_generation_setup(row: dict, configurations: dict[str, str], digests: 
     configurations[model], digests[model] = configuration, digest
 
 
+def _check_judge_weights(row: dict, judge_digests: dict[str, str], calibration: dict) -> None:
+    """Every answer was judged by the same weights, and faithfulness by the claim checker that passed the controls."""
+    if row["category"] == "missing_information":
+        return
+    recorded = row.get("judge_digests")
+    if not isinstance(recorded, dict) or set(recorded) != {"faithfulness", "correctness", "relevance"}:
+        raise ValueError("Benchmark row lacks judge weights")
+    if judge_digests and recorded != judge_digests:
+        raise ValueError("Judge weights changed within the benchmark")
+    calibrated = calibration.get("judge_model_digest")
+    if calibrated and recorded["faithfulness"] != calibrated:
+        raise ValueError("Faithfulness was judged by weights other than the calibrated claim checker")
+    judge_digests.update(recorded)
+
+
 def _judge_controls_matched(calibration: dict, manifest: dict) -> bool:
     """The judge passed every declared control, with the judge and control set the manifest names."""
     return (
-            calibration.get("status") == "matched" and calibration.get("judge_model") == manifest["judge_model"]
+            calibration.get("status") == "matched" and calibration.get("judge_model") == manifest["faithfulness_model"]
             and calibration.get("controls_sha256") == manifest["controls_sha256"]
             and calibration.get("control_ids") == manifest["control_ids"]
             and bool(calibration.get("judge_model_digest"))
@@ -123,6 +138,7 @@ def summarize(manifest: dict, results: list[dict], calibration: dict) -> dict:
     rows = {}
     configurations = {}
     digests = {}
+    judge_digests: dict[str, str] = {}
     minima = manifest["quality_gates"]["minimum_scores"]
     if set(minima) != METRICS:
         raise ValueError("Benchmark requires all four metric thresholds")
@@ -137,6 +153,7 @@ def summarize(manifest: dict, results: list[dict], calibration: dict) -> dict:
             continue
         _check_dimensions(row, minima)
         _check_generation_setup(row, configurations, digests)
+        _check_judge_weights(row, judge_digests, calibration)
     summary = _group(expected, rows)
     calibration_ok = _judge_controls_matched(calibration, manifest)
     status = (

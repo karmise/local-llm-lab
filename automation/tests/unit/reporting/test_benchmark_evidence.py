@@ -107,7 +107,7 @@ def record_timing_missing_from_junit(output) -> None:
 
 
 def flip_first_control_statement(calibration: dict) -> None:
-    calibration["results"][0]["judge_calls"][0]["output"]["statements"] = ["Edited statement"]
+    calibration["results"][0]["judge_calls"][0]["claim"] = "Edited statement"
 
 
 TAMPERING = [
@@ -246,7 +246,8 @@ def test_control_contradicting_labels_is_rejected(saved):
             verdict["verdict"] = 1 - verdict["verdict"]
         control["result"]["value"] = sum(v["verdict"]
                 for v in control["result"]["verdicts"]) / len(control["result"]["verdicts"])
-        control["judge_calls"][1]["output"]["statements"] = control["result"]["verdicts"]
+        for call, verdict in zip(control["judge_calls"], control["result"]["verdicts"], strict=True):
+            call["verdict"] = verdict["verdict"]
 
     edit_calibration(saved, contradict)
 

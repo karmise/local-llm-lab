@@ -12,10 +12,11 @@ import pytest
 from builders.golden import GOLDEN_DATASET
 from builders.identities import MODEL_DIGEST, TEST_MODEL
 from builders.judge_validation import JUDGE_CONTROLS_FILE, RECALL_STATEMENTS, control, control_outputs, curated_controls
-from builders.ollama import chat_response, model_catalog
+from builders.ollama import chat_response, model_catalog, text_reply
 from builders.optional import load_ollama_judge
 from config import Settings
 from evaluation import judge_connection, judge_validation
+from evaluation.claim_checker import ClaimChecker
 from evaluation.judge_validation import (
         evaluate_judge_controls, label_mismatches, main, result_from_evidence, score_control, summarize_validation)
 from helpers.paths import AUTOMATION_ROOT
@@ -29,23 +30,33 @@ PRECISION_FIRST = 1 / (1 + 1e-10)
 
 
 def raw_calls(case: dict) -> list[dict]:
+    if case["metric"] == "faithfulness":
+        return [{"claim": case["response"], "verdict": int(reply == "Yes")} for reply in control_outputs(case)]
     return [{"output": output} for output in control_outputs(case)]
 
 
+def scripted_judge(case: dict):
+    """A real judge for the control's metric whose transport replays the labelled replies, and that transport."""
+    client = Mock()
+    if case["metric"] == "faithfulness":
+        client.chat.side_effect = [text_reply(reply) for reply in control_outputs(case)]
+        return ClaimChecker(client, TEST_MODEL, max_calls=maximum_calls(case)), client.chat
+    client.structured_chat.side_effect = [chat_response(output) for output in control_outputs(case)]
+    return load_ollama_judge()(client, TEST_MODEL, max_calls=maximum_calls(case)), client.structured_chat
+
+
 @pytest.mark.parametrize("control_id", CURATED_IDS)
-@title("Real RAGAS scoring of a control's labelled judge replies reproduces its labels and score [{param_id}]")
+@title("Real scoring of a control's labelled judge replies reproduces its labels and score [{param_id}]")
 def test_real_metric_reproduces_control_labels(control_id):
     case = control(control_id)
-    client = Mock()
-    client.structured_chat.side_effect = [chat_response(output) for output in control_outputs(case)]
-    judge = load_ollama_judge()(client, TEST_MODEL, max_calls=maximum_calls(case))
+    judge, transport = scripted_judge(case)
 
-    (row, ) = asyncio.run(evaluate_judge_controls([case], lambda budget: judge))
+    (row, ) = asyncio.run(evaluate_judge_controls([case], lambda metric, budget: judge))
 
     assert (row["id"], row["metric"], row["status"], row["mismatches"]) == (control_id, case["metric"], "matched", [])
     assert row["result"]["value"] == pytest.approx(case["expected_score"], abs=1e-8)
     assert row["judge_calls"] == judge.calls
-    assert client.structured_chat.call_count == maximum_calls(case)
+    assert transport.call_count == maximum_calls(case)
 
 
 @pytest.mark.parametrize(("control_id", "value", "expected"), [
@@ -236,7 +247,7 @@ def test_batch_keeps_independent_outcomes():
             "manager_wrong_role")]
     judges = [Mock(calls=raw_calls(case)) for case in cases]
     # The judge supports the contradicted claim: consistent evidence that disagrees with the labels.
-    judges[1].calls[1]["output"]["statements"][0]["verdict"] = 1
+    judges[1].calls[0]["verdict"] = 1
     judges[2].calls = [{"error": "truncated"}]
     factory = Mock(side_effect=judges)
     scores = [1.0, 1.0, ValueError("Truncated judge evidence"), 0.0]
@@ -249,7 +260,11 @@ def test_batch_keeps_independent_outcomes():
     assert results[1]["mismatches"][0] == "Expected score 0, observed 1.0"
     assert results[2]["error"] == {"type": "ValueError", "message": "Truncated judge evidence"}
     assert [row["judge_calls"] for row in results] == [judge.calls for judge in judges]
-    assert factory.call_args_list == [call(2), call(2), call(4), call(4)]
+    assert factory.call_args_list == [
+            call("faithfulness", 1),
+            call("faithfulness", 1),
+            call("factual_correctness", 4),
+            call("factual_correctness", 4)]
     assert [awaited.args for awaited in scorer.await_args_list] == list(zip(cases, judges, strict=True))
 
 
@@ -335,10 +350,14 @@ def cli(tmp_path, monkeypatch):
     monkeypatch.setattr(judge_connection, "HttpClient", state.http_class)
     monkeypatch.setattr(judge_connection, "OllamaClient", Mock(return_value=state.ollama))
     monkeypatch.setattr("evaluation.ollama_judge.OllamaJudge", state.judge_class)
+    state.checker_class = Mock(return_value=Mock(options={"temperature": 0, "num_predict": 8}))
+    monkeypatch.setattr(judge_validation, "ClaimChecker", state.checker_class)
     monkeypatch.setattr(judge_validation, "evaluate_judge_controls", state.evaluate)
 
     def invoke(*arguments: str) -> int:
-        monkeypatch.setattr("sys.argv", ["judge_validation", "--judge-model", TEST_MODEL, *arguments])
+        monkeypatch.setattr(
+                "sys.argv",
+                ["judge_validation", "--judge-model", TEST_MODEL, "--faithfulness-model", TEST_MODEL, *arguments])
         return main()
 
     state.invoke = invoke
@@ -346,12 +365,12 @@ def cli(tmp_path, monkeypatch):
     return state
 
 
-@title("A dry run prints the plan of eight controls and 18 judge calls without any network access")
+@title("A dry run prints the plan of eight controls and 16 judge calls without any network access")
 def test_cli_dry_run(cli, capsys):
     assert cli.invoke("--dry-run") == 0
 
     assert capsys.readouterr().out.strip() == (
-            "Controls: 8; maximum judge calls: 18; generations: 0; concurrency: 1; retries: 0")
+            "Controls: 8; maximum judge calls: 16; generations: 0; concurrency: 1; retries: 0")
     cli.http_class.assert_not_called()
 
 
@@ -368,15 +387,17 @@ def test_cli_records_matched_run(cli, capsys):
     assert (report["policy_sha256"],
             report["golden_dataset_sha256"]) == (GOLDEN_DATASET.policy_sha256, GOLDEN_DATASET.sha256)
     assert (report["judge_model"], report["judge_model_digest"]) == (TEST_MODEL, MODEL_DIGEST)
+    assert (report["faithfulness_model"], report["faithfulness_model_digest"]) == (TEST_MODEL, MODEL_DIGEST)
     assert report["ragas_version"] == version("ragas")
     assert datetime.fromisoformat(report["created_at"]).utcoffset() == timedelta(0)
     assert (report["maximum_judge_calls"],
-            report["execution"]) == (2, {
+            report["execution"]) == (1, {
             "concurrency": 1,
             "retries": 0,
             "generations": 0})
     assert "not statistical calibration or application acceptance" in report["scope"]
     assert report["judge_configuration"] == {"options": {"temperature": 0}, "think": False, "retries": 0}
+    assert report["faithfulness_configuration"] == {"options": {"temperature": 0, "num_predict": 8}, "retries": 0}
     assert (report["counts"], report["observed_judge_calls"]) == ({"matched": 1, "mismatch": 0, "error": 0}, 2)
     output = capsys.readouterr().out
     assert "receipt_condition_supported: matched" in output
@@ -389,7 +410,7 @@ def test_cli_judge_factory_uses_budgets(cli):
     cli.invoke("--control", "manager_policy_paraphrase", "--output", str(cli.output))
 
     cases, factory = cli.evaluate.await_args.args
-    factory(4)
+    factory("factual_correctness", 4)
 
     assert [case["id"] for case in cases] == ["manager_policy_paraphrase"]
     settings = Settings()
@@ -426,7 +447,7 @@ def test_cli_saves_inventory_error(cli, inventory):
 @pytest.mark.parametrize(("arguments", "message"), [
         pytest.param([], "Live judge validation requires --output", id="live-without-output"),
         pytest.param(["--control", "unknown", "--dry-run"], "nonempty, known judge control ids", id="unknown-control"),
-        pytest.param(["--max-judge-calls", "17", "--dry-run"], "exceed the explicit call budget", id="over-budget"),
+        pytest.param(["--max-judge-calls", "15", "--dry-run"], "exceed the explicit call budget", id="over-budget"),
         pytest.param(["--controls", "missing.json", "--dry-run"], "No such file", id="missing-catalog")])
 @title("The CLI refuses a run without output, an invalid selection or an unreadable catalog [{param_id}]")
 def test_cli_refuses_invalid_invocation(cli, capsys, arguments, message):

@@ -45,7 +45,7 @@ def snapshot(sample: str = "a", **changes) -> dict:
             "judge_model_digest": "f" * 64,
             "judge_configuration": {
             "think": False},
-            "ragas_version": "test"}
+            "method": "test"}
             for name in JUDGED},
             "evidence_sha256": dict.fromkeys(JUDGED, "0" * 64),
             "thinking_mode": "default",
@@ -148,7 +148,7 @@ def nested(field, key, value):
         pytest.param(
         update(judges=judges(**{field: " "}), judge_sha256=digest(judges(**{field: " "}))),
         "Incomplete history judge provenance", id=f"blank-{field}")
-        for field in ("judge_model", "judge_model_digest", "ragas_version")),
+        for field in ("judge_model", "judge_model_digest", "method")),
         pytest.param(
         update(judges=judges(judge_configuration=None), judge_sha256=digest(judges(judge_configuration=None))),
         "Incomplete history judge provenance", id="no-judge-configuration"),
@@ -384,6 +384,11 @@ def test_comparison_validates_both_snapshots(side):
 
 
 JUDGE = {"judge_model": "judge", "judge_model_digest": "e" * 64, "judge_configuration": {}, "ragas_version": "test"}
+RECORDED_JUDGE = {
+        "judge_model": "judge",
+        "judge_model_digest": "e" * 64,
+        "judge_configuration": {},
+        "method": "ragas test"}
 
 
 @pytest.fixture
@@ -454,7 +459,7 @@ def test_make_snapshot(assembly):
     assert row["configuration"]["openAiPrompt"] == PROMPT
     assert row["prompt_sha256"] == hashlib.sha256(PROMPT.encode()).hexdigest()
     assert (row["thinking_mode"], row["context_parser"]) == ("default", assembly.sample["context_parser"])
-    assert row["judges"] == {name: JUDGE | {"judge_model": f"{name}-judge"} for name in JUDGED}
+    assert row["judges"] == {name: RECORDED_JUDGE | {"judge_model": f"{name}-judge"} for name in JUDGED}
     assert row["evidence_sha256"] == assembly.report["evidence_sha256"]
     assert row["metrics"] == dict.fromkeys(METRICS, 0.5)
     assert row["acceptance"] == {"facts": "passed", "sources": "failed"}

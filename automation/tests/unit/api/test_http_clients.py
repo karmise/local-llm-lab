@@ -337,3 +337,20 @@ def test_ollama_structured_chat(session, timeout, expected):
             "type": "object"},
             "options": {
             "temperature": 0}})
+
+
+@title("A plain chat asks once, without streaming, structure or a thinking flag, for a free-form reply")
+def test_ollama_chat(session):
+    OllamaClient(HttpClient("http://localhost:11434",
+            5)).chat(model="checker", prompt="Document: D\nClaim: C", options={"temperature": 0}, timeout=30)
+
+    session.request.assert_called_once_with(
+            method="POST", url="http://localhost:11434/api/chat", timeout=30, allow_redirects=False, json={
+            "model": "checker",
+            "stream": False,
+            "keep_alive": "1m",
+            "messages": [{
+            "role": "user",
+            "content": "Document: D\nClaim: C"}],
+            "options": {
+            "temperature": 0}})

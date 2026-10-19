@@ -300,18 +300,21 @@ the call, so the model's input does not change between runs. Sample construction
 extracts its document contexts and validates the capture id, model and question.
 The UI's streaming flow is separate and is not covered by that capture mechanism.
 
-Four RAGAS metrics use a local judge model:
+Four metrics use local judge models: faithfulness a dedicated claim checker
+(Bespoke-MiniCheck 7B), the other three RAGAS with Qwen3.5 4B:
 
 | Metric | Part checked | Question | Judge calls |
 | --- | --- | --- | ---: |
 | Context precision | Retrieval | Are the retrieved passages relevant, with the useful ones first? | ≤ 4 |
 | Context recall | Retrieval | Do they contain every fact of the reference? | 1 |
-| Faithfulness | Generation | Is every claim in the answer supported by the captured context? | ≤ 2 |
+| Faithfulness | Generation | Is every sentence of the answer supported by the captured context? | ≤ 6 |
 | Factual correctness | Generation | Do the answer's claims match the reference (F1)? | ≤ 4 |
 
-The judge returns structured JSON. Truncated or malformed output is rejected
-without a retry. It runs at temperature zero with thinking disabled and a fixed
-seed; these settings do not guarantee perfect judgment.
+For faithfulness, code splits the answer into sentences and the checker answers
+Yes or No for each, so no model rewrites the answer before it is checked. The
+RAGAS judge returns structured JSON. Truncated or malformed output is rejected
+without a retry. Both run at temperature zero with a fixed seed, the RAGAS judge
+with thinking disabled; these settings do not guarantee perfect judgment.
 
 Hand-labeled judge controls contain supported, contradicted and invented claims,
 including paraphrases and working/calendar-day substitutions. They check whether
@@ -339,7 +342,7 @@ statuses and evidence before interpreting a green report as model quality.
 
 Generation can vary, loads local hardware and takes much longer than mocked
 checks. Live quality is opt-in and limited to one selected scenario/model/run:
-one answer generation and at most two judge calls. Browser checks also require
+one answer generation and one claim check per answer sentence. Browser checks also require
 explicit enabling. Ordinary API/RAG checks, however, are part of the default
 suite, so a bare `python -m pytest` is not an offline command.
 

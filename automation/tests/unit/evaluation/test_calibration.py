@@ -7,7 +7,6 @@ import subprocess
 import sys
 from copy import deepcopy
 from datetime import datetime, timedelta
-from importlib.metadata import version
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, call
 
@@ -226,8 +225,8 @@ def test_select_keeps_catalog_order_without_duplicates():
 
 
 @pytest.mark.parametrize(("identifiers", "message"), [
-        pytest.param(None, "maximum six judge calls", id="whole-large-catalog"),
-        pytest.param([f"control-{i}" for i in range(4)], "maximum six judge calls", id="four-explicit"),
+        pytest.param(None, "between one and three controls", id="whole-large-catalog"),
+        pytest.param([f"control-{i}" for i in range(4)], "between one and three controls", id="four-explicit"),
         pytest.param([], "Select at least one control", id="empty-selection"),
         pytest.param(["typo", "control-0", "other"], "Unknown controls: other, typo", id="unknown")])
 @title("Selections that are empty, unknown or exceed three controls are rejected before model calls [{param_id}]")
@@ -300,8 +299,7 @@ def test_mismatch_is_detected_under_optimized_python():
 
 @pytest.fixture
 def offline_cli(tmp_path, monkeypatch):
-    """The calibration CLI with a real sample and catalog, and the Ollama transport and judges replaced."""
-    pytest.importorskip("ragas")
+    """The calibration CLI with a real sample and catalog, and the Ollama transport and claim checkers replaced."""
     monkeypatch.delenv("ANYTHINGLLM_API_KEY_FILE", raising=False)
     cli = SimpleNamespace(sample=tmp_path / "sample.json", output=tmp_path / "report.json", transport=Mock())
     cli.sample.write_text(json.dumps(make_paid_leave_sample()))
@@ -313,7 +311,7 @@ def offline_cli(tmp_path, monkeypatch):
     monkeypatch.setattr("evaluation.judge_connection.HttpClient", cli.http_class)
     cli.ollama_class = Mock(return_value=cli.ollama)
     monkeypatch.setattr("evaluation.judge_connection.OllamaClient", cli.ollama_class)
-    monkeypatch.setattr("evaluation.ollama_judge.OllamaJudge", cli.judge_class)
+    monkeypatch.setattr("evaluation.calibration.ClaimChecker", cli.judge_class)
 
     def run(*arguments: str) -> int:
         command = ["calibration", str(cli.sample), "--controls", str(CONTROLS_FILE), "--output", str(cli.output)]
@@ -349,7 +347,7 @@ def test_cli_records_matched_run(offline_cli, monkeypatch, capsys):
     assert (report["schema_version"], report["metric"], report["status"]) == (1, "faithfulness", "matched")
     assert report["response_origin"] == "synthetic_hand_labelled_controls"
     assert "not statistical judge calibration" in report["interpretation"]
-    assert report["ragas_version"] == version("ragas")
+    assert report["method"] == "sentence split in code; one grounding check per sentence"
     assert datetime.fromisoformat(report["created_at"]).utcoffset() == timedelta(0)
     assert report["sample_path"] == str(offline_cli.sample.resolve())
     assert report["sample_sha256"] == hashlib.sha256(offline_cli.sample.read_bytes()).hexdigest()
@@ -357,7 +355,7 @@ def test_cli_records_matched_run(offline_cli, monkeypatch, capsys):
     assert report["controls_sha256"] == hashlib.sha256(CONTROLS_FILE.read_bytes()).hexdigest()
     assert report["selected_controls"] == ["supported_answer"]
     assert (report["judge_model"], report["judge_model_digest"]) == (TEST_MODEL, MODEL_DIGEST)
-    assert report["judge_configuration"] == {"options": {"temperature": 0}, "think": False, "retries": 0}
+    assert report["judge_configuration"] == {"options": {"temperature": 0}, "retries": 0}
     assert [row["status"] for row in report["results"]] == ["matched"]
     output = capsys.readouterr().out
     assert "supported_answer: matched; score=1.0" in output
@@ -416,7 +414,7 @@ def test_cli_requires_reachable_model_catalog(offline_cli, monkeypatch):
 
 @pytest.mark.parametrize(("arguments", "message"), [
         pytest.param(["--control", "typo"], "Unknown controls: typo", id="unknown-control"),
-        pytest.param([], "maximum six judge calls", id="whole-catalog")])
+        pytest.param([], "between one and three controls", id="whole-catalog")])
 @title("An invalid control selection is saved as an error before connecting to Ollama [{param_id}]")
 def test_cli_rejects_selection_before_connecting(offline_cli, arguments, message):
     assert offline_cli.run(*arguments) == 1
@@ -434,7 +432,7 @@ def test_cli_defaults_judge_model(offline_cli, monkeypatch):
 
     main()
 
-    assert offline_cli.report()["judge_model"] == "qwen3.5:4b"
+    assert offline_cli.report()["judge_model"] == "bespoke-minicheck:7b"
 
 
 @title("A sample whose context lacks the catalog's policy is saved as an error before connecting to Ollama")
@@ -457,18 +455,6 @@ def test_cli_refuses_existing_output(offline_cli, capsys):
     assert stopped.value.code == 2
     assert "Output already exists" in capsys.readouterr().err
     assert offline_cli.output.read_text() == "existing"
-
-
-@title("The CLI refuses to run without the evaluation dependencies")
-def test_cli_requires_evaluation_dependencies(offline_cli, monkeypatch, capsys):
-    monkeypatch.setitem(sys.modules, "evaluation.ollama_judge", None)
-
-    with pytest.raises(SystemExit) as stopped:
-        offline_cli.run("--control", "supported_answer")
-
-    assert stopped.value.code == 2
-    assert "Install evaluation dependencies" in capsys.readouterr().err
-    assert not offline_cli.output.exists()
 
 
 @pytest.mark.parametrize("missing", ["--controls", "--output"])

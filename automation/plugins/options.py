@@ -65,10 +65,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             help="Enable browser checks (application UI scenarios generate one answer each).")
     parser.addoption(
             "--run-live-quality", action="store_true",
-            help="Enable one live RAG-to-Allure scenario (three model calls maximum).")
+            help="Enable one live RAG-to-Allure scenario (one generation, one claim check per answer sentence).")
     parser.addoption(
-            "--judge-model", type=_model_name, default="qwen3.5:4b",
-            help="Local judge model for the live quality scenario.")
+            "--judge-model", type=_model_name, default="bespoke-minicheck:7b",
+            help="Local claim checker for faithfulness in the live quality scenario.")
     parser.addoption("--quality-sample", type=Path, help="Captured sample for an offline quality report.")
     parser.addoption("--correctness-report", type=Path, help="Optional existing golden-reference correctness evidence.")
     parser.addoption("--faithfulness-report", type=Path, help="Existing judge report bound to the sample checksum.")

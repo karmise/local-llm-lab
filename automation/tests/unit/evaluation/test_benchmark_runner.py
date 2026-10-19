@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 import pytest
 
 from builders.benchmark import (
-        JUDGE_DIGEST, MODEL, QUALITY_GATES, make_benchmark_sample, make_calibrate_stub, make_calibration,
+        CHECKER_MODEL, JUDGE_DIGEST, MODEL, QUALITY_GATES, make_benchmark_sample, make_calibrate_stub, make_calibration,
         make_definition, make_generate_stub)
 from builders.calibration import CONTROLS_FILE
 from builders.golden import GOLDEN_DATASET, PAID_LEAVE, TEST_DATA, make_case_sample
@@ -214,7 +214,6 @@ def test_generation_refuses_existing_log(generation):
 @pytest.fixture
 def judge_controls(tmp_path, monkeypatch):
     """calibrate with the Ollama transport and the control runner replaced by doubles."""
-    pytest.importorskip("ragas")
     sample_path = tmp_path / "sample.json"
     write_sample(sample_path, make_case_sample(PAID_LEAVE))
     http = MagicMock()
@@ -225,9 +224,9 @@ def judge_controls(tmp_path, monkeypatch):
             "status": "matched"}] * 3))
     monkeypatch.setattr(judge_connection, "HttpClient", state.http_class)
     monkeypatch.setattr(judge_connection, "OllamaClient", Mock(return_value=state.ollama))
-    monkeypatch.setattr("evaluation.ollama_judge.OllamaJudge", state.judge_class)
+    monkeypatch.setattr(runner, "ClaimChecker", state.judge_class)
     monkeypatch.setattr(runner, "evaluate_controls", state.evaluate)
-    state.calibrate = lambda: runner.calibrate(sample_path, CONTROLS_FILE, Settings(), MODEL, JUDGE_DIGEST)
+    state.calibrate = lambda: runner.calibrate(sample_path, CONTROLS_FILE, Settings(), CHECKER_MODEL, JUDGE_DIGEST)
     return state
 
 
@@ -236,7 +235,7 @@ def test_calibrate_runs_declared_controls(judge_controls):
     report = judge_controls.calibrate()
 
     assert report["status"] == "matched"
-    assert (report["judge_model"], report["judge_model_digest"]) == (MODEL, JUDGE_DIGEST)
+    assert (report["judge_model"], report["judge_model_digest"]) == (CHECKER_MODEL, JUDGE_DIGEST)
     assert report["controls_sha256"] == hashlib.sha256(CONTROLS_FILE.read_bytes()).hexdigest()
     assert report["control_ids"] == list(CONTROL_IDS)
     assert report["sample_sha256"] == hashlib.sha256(judge_controls.sample_path.read_bytes()).hexdigest()
@@ -245,7 +244,7 @@ def test_calibrate_runs_declared_controls(judge_controls):
     assert sample == json.loads(judge_controls.sample_path.read_text())
     assert [case["id"] for case in cases] == list(CONTROL_IDS)
     factory()
-    judge_controls.judge_class.assert_called_once_with(judge_controls.ollama, MODEL, Settings().llm_timeout)
+    judge_controls.judge_class.assert_called_once_with(judge_controls.ollama, CHECKER_MODEL, Settings().llm_timeout)
     judge_connection.OllamaClient.assert_called_once_with(judge_controls.http)
     judge_controls.http_class.assert_called_once_with(Settings().ollama_base_url, Settings().http_timeout)
     judge_controls.http.close.assert_called_once()
@@ -278,7 +277,7 @@ def benchmark_run(automation_root, monkeypatch):
     """run() with the model catalog, judge controls and generation replaced by deterministic doubles."""
     definition = make_definition()
     state = SimpleNamespace(root=automation_root, output=automation_root.parent / "run", notify=Mock())
-    state.catalog = model_catalog((MODEL, JUDGE_DIGEST))
+    state.catalog = model_catalog((MODEL, JUDGE_DIGEST), (CHECKER_MODEL, JUDGE_DIGEST))
     monkeypatch.setattr(judge_connection.OllamaClient, "list_models", lambda _: state.catalog)
     state.calibrate = Mock(side_effect=make_calibrate_stub(make_calibration(definition)))
     monkeypatch.setattr(runner, "calibrate", state.calibrate)
@@ -353,7 +352,7 @@ def test_run_preflight_failure(benchmark_run, monkeypatch, catalog):
 
 @title("A generation whose weights differ from the preflight digest is an error for that case")
 def test_run_rejects_changed_weights(benchmark_run):
-    benchmark_run.catalog = model_catalog((MODEL, "other-digest"))
+    benchmark_run.catalog = model_catalog((MODEL, "other-digest"), (CHECKER_MODEL, JUDGE_DIGEST))
 
     report = benchmark_run.run()
 
@@ -418,7 +417,7 @@ def test_cli_dry_run(cli, capsys):
     assert cli.invoke("--dry-run") == 0
 
     printed = json.loads(capsys.readouterr().out)
-    assert (printed["maximum_model_calls"], printed["control_ids"]) == (43, list(CONTROL_IDS))
+    assert (printed["maximum_model_calls"], printed["control_ids"]) == (55, list(CONTROL_IDS))
     cli.run.assert_not_called()
     assert not cli.output.exists()
 
@@ -433,10 +432,10 @@ def test_cli_runs_selected_plan(cli, capsys):
     assert exit_code == 0
     assert (root, output) == (cli.root.resolve(), cli.output.resolve())
     assert (plan.case_ids, plan.models, plan.maximum_calls) == (("paid_leave", "gym_missing"), (MODEL, "qwen2.5:7b"),
-            6 + 2 * 13)
+            6 + 2 * 17)
     assert (dataset.sha256, gates) == (GOLDEN_DATASET.sha256, QUALITY_GATES)
     printed = capsys.readouterr().out
-    assert "Serial benchmark: 4 generations; at most 32 generation/judge calls; no retries." in printed
+    assert "Serial benchmark: 4 generations; at most 40 generation/judge calls; no retries." in printed
     assert f"Benchmark: checks_passed; evidence: {cli.output.resolve()}" in printed
 
 
@@ -453,7 +452,7 @@ def test_cli_reports_failed_benchmark(cli):
         lambda state: (state.root / "tests/rag/test_golden_rag.py").unlink(), [],
         "Run from automation or provide --root", id="not-an-automation-root"),
         pytest.param(lambda state: None, ["--case", "unknown"], "unique, known golden cases", id="invalid-plan"),
-        pytest.param(lambda state: None, ["--max-model-calls", "10"], "needs at most 43 model calls", id="over-budget")
+        pytest.param(lambda state: None, ["--max-model-calls", "10"], "needs at most 55 model calls", id="over-budget")
 ])
 @title("The CLI refuses an unusable output, root or plan before any model call [{param_id}]")
 def test_cli_refuses_unusable_invocation(cli, capsys, prepare, arguments, message):

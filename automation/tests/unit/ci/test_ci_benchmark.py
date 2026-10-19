@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from builders.benchmark import JUDGE_DIGEST, MODEL
+from builders.benchmark import CHECKER_MODEL, JUDGE_DIGEST, MODEL
 from builders.ci import COMPARISON_MODEL, OTHER_REVISION, REVISION, ci_metadata, save_ci_run
 from ci import benchmark as ci
 from ci.benchmark import BASELINES, execution_context, inputs
@@ -19,10 +19,10 @@ pytestmark = pytest.mark.unit
 
 
 @pytest.mark.parametrize(("profile", "models", "cases", "planned_models", "maximum_calls"), [
-        pytest.param("smoke", "primary", 2, [MODEL], 19, id="smoke-primary"),
-        pytest.param("curated", "primary", 4, [MODEL], 43, id="curated-primary"),
-        pytest.param("smoke", "comparison", 2, [MODEL, COMPARISON_MODEL], 32, id="smoke-comparison"),
-        pytest.param("curated", "comparison", 4, [MODEL, COMPARISON_MODEL], 80, id="curated-comparison")])
+        pytest.param("smoke", "primary", 2, [MODEL], 23, id="smoke-primary"),
+        pytest.param("curated", "primary", 4, [MODEL], 55, id="curated-primary"),
+        pytest.param("smoke", "comparison", 2, [MODEL, COMPARISON_MODEL], 40, id="smoke-comparison"),
+        pytest.param("curated", "comparison", 4, [MODEL, COMPARISON_MODEL], 104, id="curated-comparison")])
 @title("CI presets declare a bounded, complete matrix before any model call [{param_id}]")
 def test_ci_presets(profile, models, cases, planned_models, maximum_calls):
     dataset, gates, plan = inputs(AUTOMATION_ROOT, profile, models)
@@ -124,9 +124,25 @@ def test_ci_run_rejects_incomplete_manifest(ci_run):
         ci_run.validate()
 
 
+@title("Claim checker weights that differ from the reviewed model lock are rejected")
+def test_ci_run_rejects_other_checker_weights(ci_run):
+    ci_run.lock.write_text(
+            json.dumps({
+            MODEL: JUDGE_DIGEST,
+            COMPARISON_MODEL: JUDGE_DIGEST,
+            CHECKER_MODEL: "changed-weights"}))
+
+    with pytest.raises(ValueError, match="CI claim checker weights differ from the reviewed model lock"):
+        ci_run.validate()
+
+
 @title("Judge weights that differ from the reviewed model lock are rejected")
 def test_ci_run_rejects_other_judge_weights(ci_run):
-    ci_run.lock.write_text(json.dumps({MODEL: "changed-weights", COMPARISON_MODEL: JUDGE_DIGEST}))
+    ci_run.lock.write_text(
+            json.dumps({
+            MODEL: "changed-weights",
+            COMPARISON_MODEL: JUDGE_DIGEST,
+            CHECKER_MODEL: JUDGE_DIGEST}))
 
     with pytest.raises(ValueError, match="CI judge weights differ from the reviewed model lock"):
         ci_run.validate()
@@ -135,7 +151,11 @@ def test_ci_run_rejects_other_judge_weights(ci_run):
 @title("Generation weights that differ from the reviewed model lock are rejected")
 def test_ci_run_rejects_other_generation_weights(tmp_path, monkeypatch):
     run = save_ci_run(tmp_path, monkeypatch, models="comparison")
-    run.lock.write_text(json.dumps({MODEL: JUDGE_DIGEST, COMPARISON_MODEL: "changed-weights"}))
+    run.lock.write_text(
+            json.dumps({
+            MODEL: JUDGE_DIGEST,
+            COMPARISON_MODEL: "changed-weights",
+            CHECKER_MODEL: JUDGE_DIGEST}))
 
     with pytest.raises(ValueError, match="CI generation weights differ from the reviewed model lock"):
         run.validate()
@@ -278,7 +298,7 @@ def test_cli_produce(tmp_path, monkeypatch, capsys, status, code):
             list(plan.models)) == (AUTOMATION_ROOT.resolve(), output.resolve(), [MODEL, COMPARISON_MODEL])
     assert (dataset.sha256, gates) == (expected_dataset.sha256, expected_gates)
     assert json.loads((output / "ci-context.json").read_text())["models"] == "comparison"
-    assert capsys.readouterr().out == f"CI benchmark: {status}; maximum generation/judge calls: 32\n"
+    assert capsys.readouterr().out == f"CI benchmark: {status}; maximum generation/judge calls: 40\n"
 
 
 @title("A partial revision is refused before anything is planned or run")
