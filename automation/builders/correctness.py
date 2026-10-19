@@ -80,8 +80,9 @@ def make_correctness_evidence(
 def make_faithfulness_evidence(sample_sha256: str) -> dict[str, Any]:
     """Minimal completed faithfulness evidence for the same sample."""
     return {
-            "schema_version": 1,
+            "schema_version": 2,
             "metric": "faithfulness",
+            "method": "test",
             "status": "completed",
             "sample_sha256": sample_sha256,
             "result": {
@@ -90,8 +91,10 @@ def make_faithfulness_evidence(sample_sha256: str) -> dict[str, Any]:
             "verdicts": [{
             "statement": "Claim",
             "verdict": 1}]},
+            "judge_calls": [{
+            "claim": "Claim",
+            "verdict": 1}],
             "judge_model": "judge",
             "judge_model_digest": MODEL_DIGEST,
             "judge_configuration": {},
-            "ragas_version": "test",
             "created_at": "now"}

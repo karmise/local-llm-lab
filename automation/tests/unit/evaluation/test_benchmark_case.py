@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from builders.benchmark import (
-        GENERATION_DIGEST, JUDGE_DIGEST, MINIMA, MODEL, make_benchmark_sample, make_metric_evidence,
+        CHECKER_MODEL, GENERATION_DIGEST, JUDGE_DIGEST, MINIMA, MODEL, make_benchmark_sample, make_metric_evidence,
         patch_metric_reports)
 from builders.golden import CASES, GOLDEN_DATASET, GOLDEN_DATASET_FILE, PAID_LEAVE, POLICY_FILE
 from config import Settings
@@ -33,7 +33,8 @@ def sample_path(tmp_path):
 def checked_dimensions(name: str, evidence: dict, sample_path, *, minima=MINIMA, judge_digest=JUDGE_DIGEST) -> list:
     checksum = hashlib.sha256(sample_path.read_bytes()).hexdigest()
     sample = json.loads(sample_path.read_text())
-    return evaluation.metric_dimensions(name, evidence, checksum, sample, GOLDEN_DATASET, MODEL, judge_digest, minima)
+    judge = CHECKER_MODEL if name == "faithfulness" else MODEL
+    return evaluation.metric_dimensions(name, evidence, checksum, sample, GOLDEN_DATASET, judge, judge_digest, minima)
 
 
 @pytest.mark.parametrize(("name", "expected"), [
@@ -204,7 +205,7 @@ def evaluate_case(run: SimpleNamespace, *, case=PAID_LEAVE, model=MODEL) -> dict
     return evaluation.evaluate_case(
             run.sample_path, directory=run.directory, dataset=GOLDEN_DATASET, dataset_path=GOLDEN_DATASET_FILE,
             policy_file=POLICY_FILE, case=case, model=model, judge_model=MODEL, judge_digest=JUDGE_DIGEST,
-            settings=Settings(), minima=MINIMA)
+            faithfulness_model=CHECKER_MODEL, faithfulness_digest=JUDGE_DIGEST, settings=Settings(), minima=MINIMA)
 
 
 @title("A case row records the sample, both checks, four passed metrics, the judge calls and evidence checksums")
@@ -219,7 +220,7 @@ def test_evaluate_case_records_all_dimensions(case_run):
     assert [d["name"] for d in row["dimensions"]] == ["Reviewed answer rules", "Document sources", *METRICS_IN_ORDER]
     assert [d["status"] for d in row["dimensions"]] == [
             "passed", "passed", *("measured" if MINIMA[metric] is None else "passed" for metric in METRICS_IN_ORDER)]
-    assert row["judge_calls"] == 2 + 4 + 2
+    assert row["judge_calls"] == 1 + 4 + 2
     assert "answer_request_seconds" not in row
     for name, evidence in case_run.evidence.items():
         saved = case_run.directory / f"{name}.json"
@@ -227,13 +228,15 @@ def test_evaluate_case_records_all_dimensions(case_run):
         assert row["evidence_sha256"][name] == hashlib.sha256(saved.read_bytes()).hexdigest()
 
 
-@title("Each judge report service receives the sample, the golden inputs, the settings and the judge model")
+@title(
+        "Each judge report service receives the sample, the golden inputs, the settings and its judge: the claim "
+        "checker for faithfulness")
 def test_evaluate_case_calls_report_services(case_run):
     evaluate_case(case_run)
 
     golden = dict(dataset_path=GOLDEN_DATASET_FILE, policy_file=POLICY_FILE, case_id="paid_leave", judge_model=MODEL)
     case_run.reports["faithfulness"].assert_called_once_with(
-            case_run.sample_path, settings=Settings(), judge_model=MODEL)
+            case_run.sample_path, settings=Settings(), judge_model=CHECKER_MODEL)
     case_run.reports["correctness"].assert_called_once_with(case_run.sample_path, settings=Settings(), **golden)
     case_run.reports["relevance"].assert_called_once_with(case_run.sample_path, settings=Settings(), **golden)
 

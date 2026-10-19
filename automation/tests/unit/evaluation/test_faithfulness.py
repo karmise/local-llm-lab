@@ -1,106 +1,120 @@
-"""Faithfulness: RAGAS scoring through the local judge, saved-sample integrity, the report service and the CLI."""
+"""Faithfulness: sentence-level claim checks, saved-sample integrity, the report service and the CLI."""
 
 import asyncio
 import hashlib
 import json
 from datetime import datetime, timedelta
-from importlib.metadata import version
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import ANY, AsyncMock, Mock
 
 import pytest
+import requests
 
-from builders.faithfulness import make_result, make_sample
+from builders.faithfulness import CONTEXT, make_result, make_sample
 from builders.identities import MODEL_DIGEST, TEST_MODEL
-from builders.ollama import chat_response, model_catalog
-from builders.optional import load_ollama_judge
+from builders.ollama import model_catalog, text_reply
 from config import Settings
+from evaluation.claim_checker import CHECKER_MODEL, MAX_CLAIMS, ClaimChecker
 from evaluation.faithfulness import evaluate_sample_report, load_sample, main, score_sample, validate_result
 from reporting.steps import title
 
 pytestmark = pytest.mark.unit
 
 SCORE = "evaluation.faithfulness.score_sample"
-EXTRACTED = {"statements": ["Supported claim.", "Unsupported claim."]}
-VERIFIED = {
-        "statements": [{
-        "statement": "Supported claim.",
-        "reason": "Found in context.",
-        "verdict": 1}, {
-        "statement": "Unsupported claim.",
-        "reason": "Absent from context.",
-        "verdict": 0}]}
+ANSWER = "Supported claim. Unsupported claim."
 
 
-def scripted_judge(*outputs: dict):
-    """A real OllamaJudge with the default two-call budget whose transport replays the given outputs."""
+def scripted_checker(*replies, max_calls: int = MAX_CLAIMS):
+    """A real ClaimChecker whose transport replays the given chat replies."""
     client = Mock()
-    client.structured_chat.side_effect = [chat_response(output) for output in outputs]
-    return load_ollama_judge()(client, TEST_MODEL), client
+    client.chat.side_effect = list(replies)
+    return ClaimChecker(client, TEST_MODEL, 30, max_calls=max_calls), client
 
 
-@title("RAGAS faithfulness is the share of extracted claims the judge finds supported")
-def test_ragas_faithfulness_is_share_of_supported_claims():
-    judge, client = scripted_judge(EXTRACTED, VERIFIED)
-
-    result = asyncio.run(score_sample(make_sample(), judge))
-
-    assert result["value"] == 0.5
-    assert result["statements"] == EXTRACTED["statements"]
-    assert [verdict["verdict"] for verdict in result["verdicts"]] == [1, 0]
-    assert client.structured_chat.call_count == 2
-    assert client.structured_chat.call_args.kwargs["options"] == judge.options
-    with pytest.raises(ValueError, match="budget"):
-        judge.generate("An additional request must be rejected", object)
-    assert client.structured_chat.call_count == 2, "Budget rejection must happen before another transport call"
+def sample_answering(answer: str) -> dict:
+    return {**make_sample(), "response": answer}
 
 
-@pytest.mark.parametrize(("verdicts", "error", "message"), [
-        pytest.param({"statements": []}, ValueError, "cover every extracted statement", id="no-verdicts"),
-        pytest.param({"statements": [{
-        "statement": "Other claim.",
-        "reason": "Wrong.",
-        "verdict": 1}]}, ValueError, "cover every extracted statement", id="verdict-for-another-claim"),
-        pytest.param({"statements": [{
-        "statement": "Claim.",
-        "reason": "Wrong.",
-        "verdict": 2}]}, ValueError, "must be 0 or 1", id="verdict-out-of-range")])
-@title("Scoring rejects judge verdicts that are missing, misattributed or out of range [{param_id}]")
-def test_scoring_rejects_invalid_judge_verdicts(verdicts, error, message):
-    judge, _ = scripted_judge({"statements": ["Claim."]}, verdicts)
+@title("Faithfulness is the share of answer sentences the checker finds supported, each checked once as written")
+def test_faithfulness_is_share_of_supported_sentences():
+    checker, client = scripted_checker(text_reply("Yes"), text_reply("No"))
 
-    with pytest.raises(error, match=message):
-        asyncio.run(score_sample(make_sample(), judge))
+    result = asyncio.run(score_sample(sample_answering(ANSWER), checker))
 
-
-@title("A score that RAGAS reports inconsistently with the saved verdicts is rejected")
-def test_scoring_rejects_score_inconsistent_with_verdicts(monkeypatch):
-    collections = pytest.importorskip("ragas.metrics.collections")
-    metric = Mock(ascore=AsyncMock(return_value=Mock(value=1.0)))
-    monkeypatch.setattr(collections, "Faithfulness", Mock(return_value=metric))
-    judge = Mock(
-            calls=[{
-            "output": {
-            "statements": ["Claim."]}}, {
-            "output": {
-            "statements": [{
-            "statement": "Claim.",
-            "verdict": 0}]}}])
-
-    with pytest.raises(ValueError, match="does not match its verdicts"):
-        asyncio.run(score_sample(make_sample(), judge))
+    assert result == {
+            "value": 0.5,
+            "statements": ["Supported claim.", "Unsupported claim."],
+            "verdicts": [{
+            "statement": "Supported claim.",
+            "verdict": 1}, {
+            "statement": "Unsupported claim.",
+            "verdict": 0}]}
+    prompts = [call.kwargs["prompt"] for call in client.chat.call_args_list]
+    assert prompts == [
+            f"Document: {CONTEXT}\nClaim: Supported claim.", f"Document: {CONTEXT}\nClaim: Unsupported claim."]
+    assert {call.kwargs["options"]["temperature"] for call in client.chat.call_args_list} == {0}
+    assert [(call["claim"], call["verdict"]) for call in checker.calls] == [("Supported claim.", 1),
+            ("Unsupported claim.", 0)]
 
 
-@title("Scoring requires exactly one extraction and one verification call")
-def test_scoring_requires_two_judge_calls(monkeypatch):
-    collections = pytest.importorskip("ragas.metrics.collections")
-    metric = Mock(ascore=AsyncMock(return_value=Mock(value=1.0)))
-    monkeypatch.setattr(collections, "Faithfulness", Mock(return_value=metric))
-    judge = Mock(calls=[{"output": {"statements": ["Claim."]}}])
+@title("An answer with more sentences than the claim budget is rejected before any checker call")
+def test_scoring_rejects_answer_over_budget():
+    checker, client = scripted_checker(max_calls=2)
 
-    with pytest.raises(ValueError, match="statement extraction and claim verification"):
-        asyncio.run(score_sample(make_sample(), judge))
+    with pytest.raises(ValueError, match="3 sentences; the claim budget is 2"):
+        asyncio.run(score_sample(sample_answering("One. Two. Three."), checker))
+    client.chat.assert_not_called()
+
+
+@title("An answer without a sentence to check is rejected before any checker call")
+def test_scoring_rejects_answer_without_sentences():
+    checker, client = scripted_checker()
+
+    with pytest.raises(ValueError, match="no sentence to check"):
+        asyncio.run(score_sample(sample_answering("..."), checker))
+    client.chat.assert_not_called()
+
+
+@pytest.mark.parametrize(("reply", "message"), [
+        pytest.param(text_reply("Maybe"), "must answer Yes or No, got 'Maybe'", id="not-yes-or-no"),
+        pytest.param(text_reply("yes"), "must answer Yes or No", id="lowercase"),
+        pytest.param(text_reply("Yes", done_reason="length"), "incomplete or truncated", id="truncated"),
+        pytest.param(text_reply("Yes", done=False), "incomplete or truncated", id="unfinished"),
+        pytest.param(text_reply("Yes", model="other-model"), "unexpected model", id="other-model")])
+@title("A checker reply that is not a complete Yes or No from the selected model is an error [{param_id}]")
+def test_checker_rejects_invalid_reply(reply, message):
+    checker, _ = scripted_checker(reply)
+
+    with pytest.raises(ValueError, match=message):
+        checker.check("Document", "Claim.")
+    assert checker.calls[0]["ollama_response"]["message"]["content"] in ("Maybe", "yes", "Yes")
+
+
+@title("A failed checker request raises its HTTP error and keeps the attempted call")
+def test_checker_raises_http_error():
+    checker, _ = scripted_checker(text_reply("Yes", status_code=503))
+
+    with pytest.raises(requests.HTTPError):
+        checker.check("Document", "Claim.")
+    assert checker.calls == [{"claim": "Claim.", "prompt": "Document: Document\nClaim: Claim."}]
+
+
+@title("The checker refuses a call beyond its budget before contacting Ollama")
+def test_checker_budget_is_enforced_before_transport():
+    checker, client = scripted_checker(text_reply("Yes"), max_calls=1)
+    checker.check("Document", "First.")
+
+    with pytest.raises(ValueError, match="budget exceeded"):
+        checker.check("Document", "Second.")
+    assert client.chat.call_count == 1
+
+
+@pytest.mark.parametrize("budget", [0, MAX_CLAIMS + 1, True, 1.0])
+@title("A claim budget outside one to six calls is rejected [{budget}]")
+def test_checker_rejects_invalid_budget(budget):
+    with pytest.raises(ValueError, match="between one and"):
+        ClaimChecker(Mock(), TEST_MODEL, max_calls=budget)
 
 
 def rename_first_claim(name: str):
@@ -190,8 +204,7 @@ def test_load_sample_rejects_edited_sample(tmp_path, corrupt, message):
 
 @pytest.fixture
 def offline_service(tmp_path, monkeypatch):
-    """evaluate_sample_report with the Ollama transport, model catalog and judge replaced by doubles."""
-    pytest.importorskip("ragas")
+    """evaluate_sample_report with the Ollama transport, model catalog and claim checker replaced by doubles."""
     sample_path = tmp_path / "sample.json"
     sample_path.write_text(json.dumps(make_sample()))
     service = SimpleNamespace(sample_path=sample_path, transport=Mock(), ollama=Mock(), judge=Mock())
@@ -202,7 +215,7 @@ def offline_service(tmp_path, monkeypatch):
     service.judge_class = Mock(return_value=service.judge)
     monkeypatch.setattr("evaluation.judge_connection.HttpClient", service.http_class)
     monkeypatch.setattr("evaluation.judge_connection.OllamaClient", service.ollama_class)
-    monkeypatch.setattr("evaluation.ollama_judge.OllamaJudge", service.judge_class)
+    monkeypatch.setattr("evaluation.faithfulness.ClaimChecker", service.judge_class)
     return service
 
 
@@ -219,17 +232,17 @@ def test_report_records_completed_measurement(offline_service, monkeypatch):
 
     report = evaluate(offline_service)
 
-    assert (report["schema_version"], report["metric"], report["status"]) == (1, "faithfulness", "completed")
+    assert (report["schema_version"], report["metric"], report["status"]) == (2, "faithfulness", "completed")
     assert report["result"] == result
     assert report["threshold"] is None
     assert "not a calibrated quality gate" in report["interpretation"]
-    assert report["ragas_version"] == version("ragas")
+    assert report["method"] == "sentence split in code; one grounding check per sentence"
     assert datetime.fromisoformat(report["created_at"]).utcoffset() == timedelta(0)
     assert report["sample_path"] == str(offline_service.sample_path.resolve())
     assert report["sample_sha256"] == hashlib.sha256(offline_service.sample_path.read_bytes()).hexdigest()
     assert (report["generation_model"], report["same_generation_and_judge_model"]) == (TEST_MODEL, True)
     assert (report["judge_model"], report["judge_model_digest"]) == (TEST_MODEL, MODEL_DIGEST)
-    assert report["judge_configuration"] == dict(options=offline_service.judge.options, think=False, retries=0)
+    assert report["judge_configuration"] == dict(options=offline_service.judge.options, retries=0)
     assert report["judge_calls"] == offline_service.judge.calls
     offline_service.http_class.assert_called_once_with(settings.ollama_base_url, settings.http_timeout)
     offline_service.ollama_class.assert_called_once_with(offline_service.transport)
@@ -282,7 +295,7 @@ def test_report_rejects_unreadable_sample_before_connecting(offline_service):
     report = evaluate_sample_report(offline_service.sample_path, settings=Settings())
 
     assert (report["status"], report["error"]["type"]) == ("error", "KeyError")
-    assert report["judge_model"] == "qwen3.5:4b"
+    assert report["judge_model"] == CHECKER_MODEL
     offline_service.http_class.assert_not_called()
 
 
@@ -313,7 +326,7 @@ def test_cli_writes_completed_report(run_cli, cli_evaluation, tmp_path, capsys):
     assert exit_code == 0
     assert json.loads(output.read_text()) == cli_evaluation.return_value
     assert "Faithfulness: 0.500" in capsys.readouterr().out
-    cli_evaluation.assert_called_once_with(Path("sample.json"), settings=ANY, judge_model="qwen3.5:4b")
+    cli_evaluation.assert_called_once_with(Path("sample.json"), settings=ANY, judge_model=CHECKER_MODEL)
     assert isinstance(cli_evaluation.call_args.kwargs["settings"], Settings)
 
 
@@ -347,18 +360,6 @@ def test_cli_refuses_existing_output(run_cli, cli_evaluation, tmp_path, capsys):
     assert stopped.value.code == 2
     assert "Output already exists" in capsys.readouterr().err
     assert output.read_text() == "existing"
-    cli_evaluation.assert_not_called()
-
-
-@title("The CLI refuses to run without the evaluation dependencies")
-def test_cli_requires_evaluation_dependencies(run_cli, cli_evaluation, tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr("evaluation.faithfulness.import_module", Mock(side_effect=ImportError))
-
-    with pytest.raises(SystemExit) as stopped:
-        run_cli("--output", str(tmp_path / "report.json"))
-
-    assert stopped.value.code == 2
-    assert "Install evaluation dependencies" in capsys.readouterr().err
     cli_evaluation.assert_not_called()
 
 

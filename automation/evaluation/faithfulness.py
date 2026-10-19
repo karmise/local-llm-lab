@@ -1,4 +1,5 @@
-"""Evaluate one captured sample; retain claim verdicts and failure evidence."""
+"""Faithfulness of one captured sample: each answer sentence checked against the context the model received;
+claim verdicts and failure evidence are retained."""
 
 import argparse
 import asyncio
@@ -7,13 +8,13 @@ import json
 import math
 from collections import Counter
 from datetime import datetime, timezone
-from importlib import import_module
-from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
 from config import Settings
+from evaluation.claim_checker import CHECKER_MODEL, ClaimChecker
 from evaluation.judge_connection import judge_client
+from helpers.claims import split_claims
 from helpers.scores import require_score
 from observation.evaluation_sample import build_sample, write_sample
 
@@ -50,65 +51,61 @@ def validate_result(result: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-async def score_sample(sample: dict[str, Any], judge: Any) -> dict[str, Any]:
-    from ragas.metrics.collections import Faithfulness
-
-    result = await Faithfulness(llm=judge).ascore(
-            user_input=sample["user_input"], response=sample["response"],
-            retrieved_contexts=sample["retrieved_contexts"])
-    if len(judge.calls) != 2:
-        raise ValueError("Expected statement extraction and claim verification")
+async def score_sample(sample: dict[str, Any], checker: ClaimChecker) -> dict[str, Any]:
+    """The share of answer sentences that the checker finds supported by the captured contexts."""
+    statements = split_claims(sample["response"])
+    if not statements:
+        raise ValueError("The answer contains no sentence to check")
+    if len(statements) > checker.max_calls:
+        raise ValueError(f"The answer has {len(statements)} sentences; the claim budget is {checker.max_calls}")
+    document = "\n\n".join(sample["retrieved_contexts"])
+    verdicts = [{"statement": claim, "verdict": checker.check(document, claim)} for claim in statements]
     return validate_result({
-            "value": result.value,
-            "statements": judge.calls[0]["output"]["statements"],
-            "verdicts": judge.calls[1]["output"]["statements"]})
+            "value": sum(item["verdict"] for item in verdicts) / len(verdicts),
+            "statements": statements,
+            "verdicts": verdicts})
 
 
-def evaluate_sample_report(sample_path: Path, *, settings: Settings, judge_model: str = "qwen3.5:4b") -> dict[str, Any]:
-    """Run at most two judge calls and preserve completed or failed evidence."""
-    from evaluation.ollama_judge import OllamaJudge
-
+def evaluate_sample_report(sample_path: Path, *, settings: Settings, judge_model: str = CHECKER_MODEL) -> dict[str,
+        Any]:
+    """Check every answer sentence once and preserve completed or failed evidence."""
     report: dict[str, Any] = {
-            "schema_version": 1,
+            "schema_version": 2,
             "metric": "faithfulness",
+            "method": "sentence split in code; one grounding check per sentence",
             "status": "error",
             "created_at": datetime.now(timezone.utc).isoformat(),
             "sample_path": str(sample_path.resolve()),
-            "ragas_version": version("ragas"),
             "judge_model": judge_model,
             "threshold": None,
             "interpretation": "Exploratory judge result; not a calibrated quality gate"}
-    judge = None
+    checker = None
     try:
         sample, checksum = load_sample(sample_path)
         report["sample_sha256"] = checksum
         report["generation_model"] = sample["observation"]["request"]["model"]
         report["same_generation_and_judge_model"] = report["generation_model"] == judge_model
         with judge_client(settings, judge_model) as (client, report["judge_model_digest"]):
-            judge = OllamaJudge(client, judge_model, settings.llm_timeout)
-            report["judge_configuration"] = {"options": judge.options, "think": False, "retries": 0}
-            report["result"] = asyncio.run(score_sample(sample, judge))
+            checker = ClaimChecker(client, judge_model, settings.llm_timeout)
+            report["judge_configuration"] = {"options": checker.options, "retries": 0}
+            report["result"] = asyncio.run(score_sample(sample, checker))
         report["status"] = "completed"
     except Exception as error:
         report["error"] = {"type": type(error).__name__, "message": str(error)}
     finally:
-        if judge:
-            report["judge_calls"] = judge.calls
+        if checker:
+            report["judge_calls"] = checker.calls
     return report
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sample", type=Path)
-    parser.add_argument("--judge-model", default="qwen3.5:4b")
+    parser.add_argument("--judge-model", default=CHECKER_MODEL)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Output already exists; choose a new file")
-    try:
-        import_module("evaluation.ollama_judge")
-    except ImportError:
-        parser.error('Install evaluation dependencies: python -m pip install -e ".[evaluation]"')
     report = evaluate_sample_report(args.sample, settings=Settings.from_env(), judge_model=args.judge_model)
     write_sample(args.output, report)
     if report["status"] != "completed":

@@ -55,7 +55,7 @@ local-llm-lab/
     ├── fixtures/             # pytest fixtures by area
     ├── models/ data/         # typed test cases and the JSON catalogs and policy they load
     ├── helpers/ assertions/  # shared helpers and acceptance checks
-    ├── evaluation/           # RAGAS metrics, LLM judge, benchmark
+    ├── evaluation/           # claim checker, RAGAS metrics, LLM judge, benchmark
     ├── reporting/ …          # reports, gates, qualification, CI, plugin
     ├── tests/                # only tests, by level: unit, browser, environment,
     │                         # api, rag, regression, ui, quality, performance
@@ -123,6 +123,7 @@ Its broader RAG suite is explicitly enabled to control local model workload.
 | Qwen3.5 4B | Default generation model |
 | Qwen2.5 7B | Baseline generation model for comparisons |
 | BGE-M3 567M | Document and question embeddings |
+| Bespoke-MiniCheck 7B | Faithfulness: checks each answer sentence against the retrieved context (non-commercial licence) |
 | LanceDB | Vector storage in the persistent Docker volume |
 
 Request flow: question → question embedding → document retrieval → prompt with
@@ -196,7 +197,7 @@ the workspace, indexed document and history should remain available.
 | --- | --- |
 | Application unavailable | Docker Desktop; `./lab.sh status`; `./lab.sh logs` |
 | Model connection failure | `curl http://127.0.0.1:11434/api/tags`; container Ollama URL `http://host.docker.internal:11434` |
-| Missing model | `ollama pull qwen3.5:4b`, `ollama pull qwen2.5:7b` or `ollama pull bge-m3:567m` |
+| Missing model | `ollama pull qwen3.5:4b`, `ollama pull qwen2.5:7b`, `ollama pull bge-m3:567m` or `ollama pull bespoke-minicheck:7b` |
 | Document not retrieved | Workspace indexing, embedding provider and returned sources |
 | Slow response | Initial model loading; `ollama ps`; available memory |
 | Port 3001 unavailable | Check its owner with `lsof -iTCP:3001 -sTCP:LISTEN` before changing services |

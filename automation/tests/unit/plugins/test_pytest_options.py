@@ -396,7 +396,7 @@ def test_report_options_are_registered(runner):
             values = {name: pytestconfig.getoption(name) for name in (
                 "ci_profile", "ci_models", "judge_model", "performance_mode", "performance_requests",
                 "performance_users", "performance_p95", "rag_repeat", "capture_rag")}
-            assert values == {"ci_profile": "smoke", "ci_models": "comparison", "judge_model": "qwen3.5:4b",
+            assert values == {"ci_profile": "smoke", "ci_models": "comparison", "judge_model": "bespoke-minicheck:7b",
                 "performance_mode": "health", "performance_requests": 1, "performance_users": 1,
                 "performance_p95": 5.0, "rag_repeat": 1, "capture_rag": False}
     """, "--ci-profile", "smoke", "--ci-models", "comparison")

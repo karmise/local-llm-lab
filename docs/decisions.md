@@ -126,6 +126,23 @@ Statements are compared after spelled-out integers become digits
 (`helpers/number_words.py`), because the judge may write "five thousand" for 5000.
 A control mismatch fails the whole run.
 
+### Faithfulness is checked sentence by sentence by a dedicated model
+
+RAGAS faithfulness asks the judge to rewrite the answer into statements and then
+to verify them. Our 4B judge rewrote "the manager approves the request" as "the
+manager is responsible for approving it" and rejected its own paraphrase, the
+same way on every rerun of that answer. Re-judging every saved answer showed
+three such false rejections among 17 faithful answers, and verdicts on the same
+answer differed between a CI runner and a Mac. Faithfulness now splits the answer
+into sentences in code (`helpers/claims.py`) and asks Bespoke-MiniCheck 7B, a
+local model trained only to say whether a document supports a claim, about each
+sentence (`evaluation/claim_checker.py`). On the same answers it accepted 17 of
+17 faithful answers, caught all 8 deliberately wrong ones and named the wrong
+sentence each time; Granite Guardian 2B accepted 11 of 17. The set is small and
+labelled by one engineer, so the controls still run before every benchmark. The
+other metrics keep the RAGAS judge. MiniCheck's licence is non-commercial, which
+fits this educational lab but not a commercial product.
+
 ### Factual correctness is measured but not gated
 
 On answers with one or two claims, a single error by the 4B judge moves

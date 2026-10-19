@@ -17,7 +17,7 @@ on:
         options: [curated, smoke]
         default: curated
       models:
-        description: One primary model or both comparison models; fixed Qwen3.5 judge
+        description: One primary model or both comparison models; fixed MiniCheck and Qwen3.5 judges
         type: choice
         options: [primary, comparison]
         default: primary
@@ -115,7 +115,7 @@ jobs:
       - name: Install immutable reviewed weights and start isolated model server
         timeout-minutes: 30
         run: |
-          selected=(--model qwen3.5:4b --model bge-m3:567m)
+          selected=(--model qwen3.5:4b --model bespoke-minicheck:7b --model bge-m3:567m)
           if [[ "$CI_MODELS" == "comparison" ]]; then
             selected+=(--model qwen2.5:7b)
           fi

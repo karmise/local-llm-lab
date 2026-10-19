@@ -50,20 +50,23 @@ streaming flow is not captured.
 
 ## Semantic metrics on a captured sample
 
-All metrics use a local Qwen3.5 4B judge with structured JSON output, temperature
-0, thinking disabled and a fixed seed. Each has a call budget and rejects
-truncated or malformed judge output without retrying. Install
-`requirements-evaluation.lock` first.
+Faithfulness splits the answer into sentences in code and asks Bespoke-MiniCheck
+7B, a local model trained for exactly this, whether the captured context
+supports each sentence: one Yes/No call per sentence, at most six. The other
+metrics use RAGAS with a local Qwen3.5 4B judge: structured JSON output,
+temperature 0, thinking disabled and a fixed seed. Every metric has a call
+budget and rejects truncated or malformed judge output without retrying. Install
+`requirements-evaluation.lock` for the RAGAS metrics.
 
 | Metric | What it measures | Judge calls | Command module |
 | --- | --- | ---: | --- |
-| Faithfulness | Share of answer claims supported by the captured contexts | ≤ 2 | `evaluation.faithfulness` |
+| Faithfulness | Share of answer sentences the claim checker finds supported by the captured contexts | ≤ 6 | `evaluation.faithfulness` |
 | Factual correctness | Claim-level F1 against the golden reference | ≤ 4 | `evaluation.correctness` |
 | Context precision/recall | Usefulness of retrieved contexts and coverage of the reference | ≤ 5 | `evaluation.relevance` |
 
 ```bash
 python -m evaluation.faithfulness reports/rag-samples/<capture-id>.json \
-  --judge-model qwen3.5:4b --output reports/evidence/faithfulness.json
+  --output reports/evidence/faithfulness.json
 python -m evaluation.correctness reports/rag-samples/<capture-id>.json \
   --case paid_leave --judge-model qwen3.5:4b --output reports/evidence/correctness.json
 python -m evaluation.relevance reports/rag-samples/<capture-id>.json \
@@ -76,14 +79,15 @@ A judge score is trusted only after the judge agrees with known labels. The
 controls in `data/faithfulness-controls.json` and
 `data/correctness-controls.json` include supported paraphrases, wrong
 numbers, invented amounts, incomplete answers and working/calendar-day
-substitutions. Each claim must map to exactly one extracted statement with the
-expected verdict; a matching average score is not enough.
+substitutions. Each labelled claim is one sentence of the control answer and must
+get the expected verdict; a matching average score is not enough. Faithfulness
+controls run on the claim checker.
 
 ```bash
 python -m evaluation.calibration reports/rag-samples/<capture-id>.json \
   --controls data/faithfulness-controls.json \
   --control supported_answer --control wrong_numbers --control unsupported_gym_amount \
-  --judge-model qwen3.5:4b --output reports/judge-controls.json
+  --output reports/judge-controls.json
 python -m evaluation.correctness reports/rag-samples/<capture-id>.json \
   --case paid_leave --control incomplete --output reports/correctness-controls.json
 ```
@@ -116,12 +120,12 @@ npm --prefix tools/allure exec -- allure generate reports/quality/allure-results
 ```
 
 `tests/quality/test_live_quality.py` does the whole chain for one answer — setup,
-capture, generation, faithfulness, report and verified cleanup — with at most
-three model calls. It needs the capture overlay:
+capture, generation, faithfulness, report and verified cleanup — with one
+generation and one claim check per answer sentence. It needs the capture overlay:
 
 ```bash
 python -m pytest tests/quality/test_live_quality.py --run-live-quality --capture-rag \
-  --rag-model qwen3.5:4b --judge-model qwen3.5:4b \
+  --rag-model qwen3.5:4b \
   --alluredir=reports/live/allure-results --clean-alluredir --allure-no-capture \
   --junitxml=reports/live/results.xml
 ```
@@ -176,15 +180,15 @@ the model context; a citation alone is not proof.
 
 `evaluation.benchmark_runner` evaluates selected golden cases with all
 four metrics plus the faithfulness controls, serially and with a hard call budget.
-The default four curated cases on one model allow at most 43 calls; two models
-allow at most 80. Refusal cases are judged by their answer rules; their semantic
+The default four curated cases on one model allow at most 55 calls; two models
+allow at most 104. Refusal cases are judged by their answer rules; their semantic
 metrics are N/A, not zero or one. It needs the capture overlay.
 
 ```bash
 python -m evaluation.benchmark_runner --output reports/benchmark --dry-run
 python -m evaluation.benchmark_runner --output reports/benchmark
 python -m evaluation.benchmark_runner --model qwen3.5:4b --model qwen2.5:7b \
-  --max-model-calls 80 --output reports/benchmark-two-models
+  --max-model-calls 104 --output reports/benchmark-two-models
 python -m pytest tests/quality/test_benchmark_report.py --benchmark-report reports/benchmark/benchmark.json \
   --alluredir reports/benchmark/allure-results --allure-no-capture --junitxml reports/benchmark/results.xml
 ```
@@ -200,10 +204,10 @@ publishes a different status, so it cannot satisfy the merge gate.
 
 | Profile | Models | Fresh answers | Maximum model calls |
 | --- | --- | ---: | ---: |
-| `smoke` | `primary` | 2 | 19 |
-| `smoke` | `comparison` | 4 | 32 |
-| `curated` | `primary` | 4 | 43 |
-| `curated` | `comparison` | 8 | 80 |
+| `smoke` | `primary` | 2 | 23 |
+| `smoke` | `comparison` | 4 | 40 |
+| `curated` | `primary` | 4 | 55 |
+| `curated` | `comparison` | 8 | 104 |
 
 ```bash
 gh workflow run rag-live-quality.yml --ref main -f pull-request=<number> -f profile=curated -f models=primary

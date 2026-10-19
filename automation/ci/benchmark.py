@@ -24,7 +24,7 @@ def inputs(root: Path, profile: str, models: str):
         raise ValueError("Select a reviewed CI profile and model preset")
     dataset = load_golden_dataset(root / "data/golden-policy.json", root / "data/company-policy.txt")
     gates = load_quality_gates(root / "data/quality-gates.json")
-    plan = make_plan(dataset, case_ids=list(PROFILES[profile]), models=list(MODELS[models]), max_model_calls=80)
+    plan = make_plan(dataset, case_ids=list(PROFILES[profile]), models=list(MODELS[models]), max_model_calls=110)
     return dataset, gates, plan
 
 
@@ -55,8 +55,8 @@ def validate_ci_benchmark(root: Path, path: Path, *, revision: str, profile: str
     report = load_saved_benchmark(path)
     weights = json.loads((root.parent / "config/ci-models.json").read_text())
     calibration = report["calibration"]
-    if calibration.get("judge_model_digest") not in (None, weights[plan.judge_model]):
-        raise ValueError("CI judge weights differ from the reviewed model lock")
+    if calibration.get("judge_model_digest") not in (None, weights[plan.faithfulness_model]):
+        raise ValueError("CI claim checker weights differ from the reviewed model lock")
     for row in report["results"]:
         if row.get("error"):
             continue  # The aggregate remains an error; missing evidence never becomes success.
@@ -67,6 +67,10 @@ def validate_ci_benchmark(root: Path, path: Path, *, revision: str, profile: str
         if (metadata.get("framework_source_sha256") != context["framework_source_sha256"]
                     or metadata.get("test_source_sha256") != source or metadata.get("test_node_id") != node):
             raise ValueError("CI sample was not produced by the tested framework and golden test")
+        if row["category"] != "missing_information" and row.get("judge_digests") != {
+                "faithfulness": weights[plan.faithfulness_model], "correctness": weights[plan.judge_model],
+                "relevance": weights[plan.judge_model]}:
+            raise ValueError("CI judge weights differ from the reviewed model lock")
         if row.get("model_digest") != weights[row["model"]]:
             raise ValueError("CI generation weights differ from the reviewed model lock")
     return report

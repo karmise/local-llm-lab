@@ -19,10 +19,15 @@ def ollama_client(settings: Settings) -> Iterator[OllamaClient]:
         http.close()
 
 
+def installed_digest(client: OllamaClient, model: str) -> str:
+    """The digest of `model`, which must be installed before any judge call."""
+    catalog = client.list_models()
+    assertions.assert_status_code(catalog, 200, context="Judge model catalog")
+    return assertions.assert_model_available(catalog.json()["models"], model)
+
+
 @contextmanager
 def judge_client(settings: Settings, judge_model: str) -> Iterator[tuple[OllamaClient, str]]:
     """An Ollama client and the digest of `judge_model`, which must be installed before any judge call."""
     with ollama_client(settings) as client:
-        catalog = client.list_models()
-        assertions.assert_status_code(catalog, 200, context="Judge model catalog")
-        yield client, assertions.assert_model_available(catalog.json()["models"], judge_model)
+        yield client, installed_digest(client, judge_model)

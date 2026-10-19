@@ -17,7 +17,7 @@ from reporting.gates import apply_quality_gates
 
 
 def check_faithfulness_evidence(evidence: dict[str, Any], checksum: str) -> dict[str, Any]:
-    if (type(evidence.get("schema_version")) is not int or evidence["schema_version"] != 1
+    if (type(evidence.get("schema_version")) is not int or evidence["schema_version"] != 2
                 or evidence.get("metric") != "faithfulness"):
         raise ValueError("Unsupported faithfulness report")
     if evidence.get("sample_sha256") != checksum:
@@ -26,12 +26,11 @@ def check_faithfulness_evidence(evidence: dict[str, Any], checksum: str) -> dict
         raise ValueError("Faithfulness evaluation did not complete")
     result = validate_result(evidence["result"])
     statements, verdicts = result["statements"], result["verdicts"]
-    # Older saved reports may omit raw calls; when present, summaries must match them.
-    if "judge_calls" in evidence:
-        calls = evidence["judge_calls"]
-        if (not isinstance(calls, list) or len(calls) != 2 or calls[0]["output"]["statements"] != statements
-                    or calls[1]["output"]["statements"] != verdicts):
-            raise ValueError("Faithfulness summary differs from raw judge calls")
+    # One recorded check per sentence; the summary must repeat exactly what the checker answered.
+    calls = evidence.get("judge_calls")
+    if (not isinstance(calls, list) or [call.get("claim") for call in calls] != statements
+                or [call.get("verdict") for call in calls] != [item["verdict"] for item in verdicts]):
+        raise ValueError("Faithfulness summary differs from raw judge calls")
     return {
             "value": result["value"],
             "statements": statements,
@@ -39,7 +38,7 @@ def check_faithfulness_evidence(evidence: dict[str, Any], checksum: str) -> dict
             "judge_model": evidence["judge_model"],
             "judge_model_digest": evidence["judge_model_digest"],
             "judge_configuration": evidence["judge_configuration"],
-            "ragas_version": evidence["ragas_version"],
+            "method": evidence["method"],
             "evaluated_at": evidence["created_at"],
             "threshold": None}
 

@@ -102,8 +102,8 @@ def acceptance_dimensions(sample: dict, case: GoldenCase) -> list[dict]:
 
 def evaluate_case(
         sample_path: Path, *, directory: Path, dataset: GoldenDataset, dataset_path: Path, policy_file: Path,
-        case: GoldenCase, model: str, judge_model: str, judge_digest: str, settings: Settings, minima: dict[str,
-        float]) -> dict[str, Any]:
+        case: GoldenCase, model: str, judge_model: str, judge_digest: str, faithfulness_model: str,
+        faithfulness_digest: str, settings: Settings, minima: dict[str, float]) -> dict[str, Any]:
     sample = check_sample(sample_path, dataset, case, model)
     _, checksum = load_sample(sample_path)
     row: dict[str, Any] = {
@@ -118,6 +118,10 @@ def evaluate_case(
             "answer": sample["response"],
             "dimensions": acceptance_dimensions(sample, case),
             "judge_calls": 0,
+            "judge_digests": {
+            "faithfulness": faithfulness_digest,
+            "correctness": judge_digest,
+            "relevance": judge_digest},
             "evidence_sha256": {}}
     if "answer_request_seconds" in sample["metadata"]:
         row["answer_request_seconds"] = sample["metadata"]["answer_request_seconds"]
@@ -137,7 +141,8 @@ def evaluate_case(
             "settings": settings,
             "judge_model": judge_model}
     evaluators = ((
-            "faithfulness", lambda: evaluate_sample_report(sample_path, settings=settings, judge_model=judge_model)),
+            "faithfulness",
+            lambda: evaluate_sample_report(sample_path, settings=settings, judge_model=faithfulness_model)),
             ("correctness", lambda: evaluate_correctness_report(sample_path, **common)),
             ("relevance", lambda: evaluate_relevance_report(sample_path, **common)))
     for name, evaluate in evaluators:
@@ -149,8 +154,10 @@ def evaluate_case(
             row["evidence_sha256"][name] = hashlib.sha256(path.read_bytes()).hexdigest()
             row["judge_calls"] += sum(
                     len(evidence.get(k, [])) for k in ("judge_calls", "precision_calls", "recall_calls"))
+            metric_judge = faithfulness_model if name == "faithfulness" else judge_model
             row["dimensions"].extend(
-                    metric_dimensions(name, evidence, checksum, sample, dataset, judge_model, judge_digest, minima))
+                    metric_dimensions(
+                    name, evidence, checksum, sample, dataset, metric_judge, row["judge_digests"][name], minima))
         except Exception as error:
             row["dimensions"].extend({
                     "name": metric,

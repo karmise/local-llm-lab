@@ -54,8 +54,8 @@ def load_saved_benchmark(path: Path) -> dict:
                 raise ValueError("Judge control labels differ from their catalog")
             evaluated = validate_result(result["result"])
             calls = result["judge_calls"]
-            if (len(calls) != 2 or calls[0]["output"]["statements"] != evaluated["statements"]
-                        or calls[1]["output"]["statements"] != evaluated["verdicts"]):
+            if ([call.get("claim") for call in calls] != evaluated["statements"]
+                        or [call.get("verdict") for call in calls] != [v["verdict"] for v in evaluated["verdicts"]]):
                 raise ValueError("Judge control verdicts differ from their raw calls")
             mismatch = calibration_mismatch(
                     evaluated, expected_score=control["expected_score"], claims=control["claims"])
@@ -94,9 +94,10 @@ def load_saved_benchmark(path: Path) -> dict:
             evidence_path = directory / f"{name}.json"
             if (hashlib.sha256(evidence_path.read_bytes()).hexdigest() != row["evidence_sha256"][name]):
                 raise ValueError("Benchmark metric evidence checksum mismatch")
+            judge = definition["faithfulness_model"] if name == "faithfulness" else definition["judge_model"]
             actual = metric_dimensions(
-                    name, json.loads(evidence_path.read_text()), checksum, sample, dataset, definition["judge_model"],
-                    calibration.get("judge_model_digest"), gates["minimum_scores"])
+                    name, json.loads(evidence_path.read_text()), checksum, sample, dataset, judge,
+                    row["judge_digests"][name], gates["minimum_scores"])
             recorded = [d for d in row["dimensions"] if d.get("metric") in metrics]
             if recorded != actual:
                 raise ValueError("Benchmark metric summary differs from original judge evidence")
