@@ -54,9 +54,10 @@ browser failures remain easier to diagnose.
 
 Non-deterministic answers are compared with reviewed facts/references and source
 criteria, never with exact answer wording. Golden patterns are conservative smoke
-checks. RAGAS adds faithfulness, factual correctness, context precision and recall
-using captured model inputs. These dimensions answer different questions; a high
-score in one dimension cannot replace a missing or failing check in another.
+checks. A claim checker adds sentence-level faithfulness, and RAGAS adds factual
+correctness, context precision and recall, both on captured model inputs. These
+dimensions answer different questions; a high score in one dimension cannot
+replace a missing or failing check in another.
 
 Compare prompt variants and employee-descriptor pairs under controlled settings.
 Record model digests, dataset/prompt hashes and judge settings. History comparisons
